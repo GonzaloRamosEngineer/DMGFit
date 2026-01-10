@@ -1,0 +1,154 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Icon from '../../../components/AppIcon';
+import Button from '../../../components/ui/Button';
+
+const MyAthletesSection = ({ athleteIds }) => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const mockAthletes = [
+  {
+    id: 'ATH001',
+    name: 'Carlos Mendoza',
+    email: 'carlos.mendoza@email.com',
+    profileImage: 'https://img.rocket.new/generatedImages/rocket_gen_img_16be51f71-1763295001188.png',
+    profileImageAlt: 'Retrato profesional de hombre hispano con cabello negro corto en traje azul marino',
+    attendanceRate: 92,
+    performanceScore: 88,
+    lastSession: '2026-01-10'
+  },
+  {
+    id: 'ATH005',
+    name: 'Luis García',
+    email: 'luis.garcia@email.com',
+    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1cf0ad530-1763298896487.png",
+    profileImageAlt: 'Retrato profesional de hombre hispano con cabello corto en camisa deportiva',
+    attendanceRate: 95,
+    performanceScore: 92,
+    lastSession: '2026-01-10'
+  },
+  {
+    id: 'ATH006',
+    name: 'Laura Fernández',
+    email: 'laura.fernandez@email.com',
+    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1138873f9-1763301509107.png",
+    profileImageAlt: 'Retrato profesional de mujer hispana con cabello largo en ropa deportiva',
+    attendanceRate: 88,
+    performanceScore: 85,
+    lastSession: '2026-01-08'
+  }];
+
+
+  const athletes = mockAthletes?.filter((a) => athleteIds?.includes(a?.id));
+  const filteredAthletes = athletes?.filter((a) =>
+  a?.name?.toLowerCase()?.includes(searchQuery?.toLowerCase()) ||
+  a?.email?.toLowerCase()?.includes(searchQuery?.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex-1 relative">
+          <Icon
+            name="Search"
+            size={20}
+            color="var(--color-muted-foreground)"
+            className="absolute left-3 top-1/2 -translate-y-1/2" />
+
+          <input
+            type="text"
+            placeholder="Buscar atleta por nombre o email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e?.target?.value)}
+            className="w-full h-10 pl-10 pr-4 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth" />
+
+        </div>
+      </div>
+      {filteredAthletes?.length > 0 ?
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filteredAthletes?.map((athlete) =>
+        <div
+          key={athlete?.id}
+          className="bg-card border border-border rounded-xl p-6 transition-smooth hover:shadow-lg">
+
+              <div className="flex items-start gap-4">
+                <img
+              src={athlete?.profileImage}
+              alt={athlete?.profileImageAlt}
+              className="w-16 h-16 rounded-full object-cover border-2 border-primary/20" />
+
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-heading font-semibold text-foreground mb-1">{athlete?.name}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{athlete?.email}</p>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Asistencia</p>
+                      <div className="flex items-center gap-1">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                        className="h-full bg-success rounded-full"
+                        style={{ width: `${athlete?.attendanceRate}%` }}>
+                      </div>
+                        </div>
+                        <span className="text-xs font-medium text-foreground">{athlete?.attendanceRate}%</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Rendimiento</p>
+                      <div className="flex items-center gap-1">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                        className="h-full bg-primary rounded-full"
+                        style={{ width: `${athlete?.performanceScore}%` }}>
+                      </div>
+                        </div>
+                        <span className="text-xs font-medium text-foreground">{athlete?.performanceScore}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
+                    <Icon name="Calendar" size={14} />
+                    <span>Última sesión: {athlete?.lastSession}</span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                  variant="outline"
+                  size="sm"
+                  iconName="FileText"
+                  onClick={() => navigate('/individual-athlete-profile')}>
+
+                      Ver Perfil
+                    </Button>
+                    <Button
+                  variant="outline"
+                  size="sm"
+                  iconName="Plus">
+
+                      Agregar Nota
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+        )}
+        </div> :
+
+      <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <Icon name="Users" size={64} color="var(--color-muted-foreground)" className="mx-auto mb-4" />
+          <h3 className="text-lg font-heading font-semibold text-foreground mb-2">
+            {searchQuery ? 'No se encontraron atletas' : 'No hay atletas asignados'}
+          </h3>
+          <p className="text-muted-foreground">
+            {searchQuery ? 'Intenta con otro término de búsqueda' : 'Los atletas aparecerán aquí cuando sean asignados'}
+          </p>
+        </div>
+      }
+    </div>);
+
+};
+
+export default MyAthletesSection;
