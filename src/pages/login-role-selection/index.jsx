@@ -1,49 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Icon from '../../components/AppIcon';
+import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../contexts/AuthContext';
 
 const LoginRoleSelection = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { isAuthenticated, currentUser } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
-    password: '',
-    role: 'admin'
+    password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const demoUsers = [
-  {
-    role: 'admin',
-    username: 'admin@digitalmatch.com',
-    password: 'admin123',
-    name: 'Administrador Sistema',
-    avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_10fa66223-1763296776467.png",
-    avatarAlt: 'Retrato profesional de administrador con traje formal'
-  },
-  {
-    role: 'profesor',
-    username: 'profesor@digitalmatch.com',
-    password: 'profesor123',
-    name: 'Ana García',
-    avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_118427f75-1763294329565.png",
-    avatarAlt: 'Retrato profesional de profesora con ropa deportiva'
-  },
-  {
-    role: 'atleta',
-    username: 'atleta@digitalmatch.com',
-    password: 'atleta123',
-    name: 'Carlos Rodríguez',
-    avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_14ecadb88-1763292065925.png",
-    avatarAlt: 'Retrato profesional de atleta con camiseta deportiva roja'
-  }];
-
 
   const handleInputChange = (e) => {
     const { name, value } = e?.target;
@@ -51,61 +24,38 @@ const LoginRoleSelection = () => {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e?.preventDefault();
     setIsLoading(true);
     setError('');
 
-    setTimeout(() => {
-      const user = demoUsers?.find(
-        (u) => u?.username === formData?.username && u?.password === formData?.password
-      );
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: formData?.username,
+      password: formData?.password
+    });
 
-      if (user) {
-        login({
-          id: `USER-${Date.now()}`,
-          name: user?.name,
-          email: user?.username,
-          role: user?.role,
-          avatar: user?.avatar,
-          avatarAlt: user?.avatarAlt
-        });
+    if (signInError) {
+      setError(signInError?.message || 'Credenciales incorrectas.');
+    }
 
-        const redirectPaths = {
-          admin: '/main-dashboard',
-          profesor: '/professor-dashboard',
-          atleta: '/athlete-portal'
-        };
+    setIsLoading(false);
+  };
 
-        navigate(redirectPaths?.[user?.role] || '/main-dashboard');
+  useEffect(() => {
+    const redirectPaths = {
+      admin: '/main-dashboard',
+      profesor: '/professor-dashboard',
+      atleta: '/athlete-portal'
+    };
+
+    if (isAuthenticated) {
+      if (currentUser?.role) {
+        navigate(redirectPaths?.[currentUser?.role] || '/main-dashboard', { replace: true });
       } else {
-        setError('Credenciales incorrectas. Usa las cuentas demo.');
+        setError('No se encontró un rol asociado a tu cuenta.');
       }
-      setIsLoading(false);
-    }, 800);
-  };
-
-  const handleDemoLogin = (demoUser) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      login({
-        id: `USER-${Date.now()}`,
-        name: demoUser?.name,
-        email: demoUser?.username,
-        role: demoUser?.role,
-        avatar: demoUser?.avatar,
-        avatarAlt: demoUser?.avatarAlt
-      });
-
-      const redirectPaths = {
-        admin: '/main-dashboard',
-        profesor: '/professor-dashboard',
-        atleta: '/athlete-portal'
-      };
-
-      navigate(redirectPaths?.[demoUser?.role] || '/main-dashboard');
-    }, 500);
-  };
+    }
+  }, [isAuthenticated, currentUser, navigate]);
 
   return (
     <>
@@ -167,23 +117,6 @@ const LoginRoleSelection = () => {
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="role" className="block text-sm font-medium text-foreground mb-2">
-                  Rol
-                </label>
-                <select
-                  id="role"
-                  name="role"
-                  value={formData?.role}
-                  onChange={handleInputChange}
-                  className="w-full h-10 px-4 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth">
-
-                  <option value="admin">Administrador</option>
-                  <option value="profesor">Profesor/Instructor</option>
-                  <option value="atleta">Atleta/Alumno</option>
-                </select>
-              </div>
-
               {error &&
               <div className="bg-error/10 border border-error/20 rounded-lg p-3 flex items-start gap-2">
                   <Icon name="AlertCircle" size={20} color="var(--color-error)" className="flex-shrink-0 mt-0.5" />
@@ -202,40 +135,11 @@ const LoginRoleSelection = () => {
                 Iniciar Sesión
               </Button>
             </form>
-
-            <div className="mt-8 pt-6 border-t border-border">
-              <p className="text-sm text-muted-foreground text-center mb-4">Cuentas Demo para Pruebas</p>
-              <div className="space-y-3">
-                {demoUsers?.map((user) =>
-                <button
-                  key={user?.role}
-                  onClick={() => handleDemoLogin(user)}
-                  disabled={isLoading}
-                  className="w-full flex items-center gap-3 p-3 bg-muted/50 hover:bg-muted rounded-lg transition-smooth border border-border/50 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed">
-
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <Icon
-                      name={user?.role === 'admin' ? 'Shield' : user?.role === 'profesor' ? 'GraduationCap' : 'User'}
-                      size={20}
-                      color="var(--color-primary)" />
-
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-foreground">{user?.name}</p>
-                      <p className="text-xs text-muted-foreground">{user?.username}</p>
-                    </div>
-                    <div className="px-2 py-1 bg-primary/10 rounded text-xs font-medium text-primary capitalize">
-                      {user?.role}
-                    </div>
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
 
           <div className="mt-6 text-center">
             <p className="text-xs text-muted-foreground">
-              Sistema de demostración con datos simulados
+              Accede con tus credenciales registradas
             </p>
           </div>
         </div>
