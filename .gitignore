@@ -6,3 +6,10 @@ package-lock.json
 .vscode/
 .idea/
 vite.config.*s.*
+
+# Local backups
+_local/
+
+
+.env
+

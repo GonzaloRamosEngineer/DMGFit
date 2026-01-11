@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
@@ -13,12 +13,16 @@ import CoachNotes from './components/CoachNotes';
 import UpcomingSessions from './components/UpcomingSessions';
 import HealthMetrics from './components/HealthMetrics';
 import { generateAthletePDF } from '../../utils/pdfExport';
+import { supabase } from '../../lib/supabaseClient';
 
 const IndividualAthleteProfile = () => {
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('performance');
   const [viewPeriod, setViewPeriod] = useState('monthly');
+  const [workoutSessions, setWorkoutSessions] = useState([]);
+  const [workoutResults, setWorkoutResults] = useState([]);
+  const [workoutLoading, setWorkoutLoading] = useState(false);
 
   const athleteData = {
     id: "ATH-2024-001",
@@ -87,17 +91,6 @@ const IndividualAthleteProfile = () => {
     icon: "Clock",
     iconColor: "var(--color-warning)"
   }];
-
-
-  const performanceData = [
-  { date: "Ene", fuerza: 65, resistencia: 70, tecnica: 68 },
-  { date: "Feb", fuerza: 68, resistencia: 72, tecnica: 70 },
-  { date: "Mar", fuerza: 72, resistencia: 75, tecnica: 73 },
-  { date: "Abr", fuerza: 75, resistencia: 78, tecnica: 76 },
-  { date: "May", fuerza: 78, resistencia: 80, tecnica: 79 },
-  { date: "Jun", fuerza: 82, resistencia: 83, tecnica: 82 },
-  { date: "Jul", fuerza: 85, resistencia: 85, tecnica: 84 },
-  { date: "Ago", fuerza: 87, resistencia: 87, tecnica: 86 }];
 
 
   const attendanceData = [
@@ -282,7 +275,7 @@ const IndividualAthleteProfile = () => {
     try {
       await generateAthletePDF(
         athleteData,
-        performanceData,
+        performanceEvolutionData,
         attendanceData,
         paymentHistory,
         coachNotes
@@ -293,8 +286,200 @@ const IndividualAthleteProfile = () => {
     }
   };
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWorkoutData = async () => {
+      if (!athleteData?.id) {
+        return;
+      }
+
+      setWorkoutLoading(true);
+
+      try {
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from('workout_sessions')
+          .select('*')
+          .eq('athlete_id', athleteData?.id)
+          .order('session_date', { ascending: false });
+
+        if (sessionsError) {
+          throw sessionsError;
+        }
+
+        const sessionIds = sessionsData?.map((session) => session?.id).filter(Boolean) || [];
+        let resultsData = [];
+
+        if (sessionIds?.length) {
+          const { data, error } = await supabase
+            .from('workout_results')
+            .select('*')
+            .in('session_id', sessionIds);
+
+          if (error) {
+            throw error;
+          }
+
+          resultsData = data ?? [];
+        } else {
+          const { data, error } = await supabase
+            .from('workout_results')
+            .select('*')
+            .eq('athlete_id', athleteData?.id);
+
+          if (error) {
+            throw error;
+          }
+
+          resultsData = data ?? [];
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        setWorkoutSessions(sessionsData ?? []);
+        setWorkoutResults(resultsData ?? []);
+      } catch (error) {
+        console.error('Error loading workout data', error);
+      } finally {
+        if (isMounted) {
+          setWorkoutLoading(false);
+        }
+      }
+    };
+
+    loadWorkoutData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [athleteData?.id]);
+
+  const workoutResultsBySession = useMemo(() => {
+    return (workoutResults ?? []).reduce((acc, result) => {
+      const sessionId = result?.session_id || result?.workout_session_id || result?.sessionId;
+      if (!sessionId) {
+        return acc;
+      }
+      acc[sessionId] = acc[sessionId] || [];
+      acc[sessionId].push(result);
+      return acc;
+    }, {});
+  }, [workoutResults]);
+
+  const performanceEvolutionData = useMemo(() => {
+    const monthlyMap = (workoutResults ?? []).reduce((acc, result) => {
+      const rawDate = result?.recorded_at || result?.created_at || result?.date;
+      if (!rawDate) {
+        return acc;
+      }
+      const date = new Date(rawDate);
+      if (Number.isNaN(date?.getTime())) {
+        return acc;
+      }
+      const monthKey = date?.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+      const metricLabel = `${result?.metric || result?.metric_name || result?.type || ''}`.toLowerCase();
+      const value = Number(
+        result?.value ?? result?.score ?? result?.metric_value ?? result?.result ?? result?.performance
+      );
+
+      if (!Number.isFinite(value)) {
+        return acc;
+      }
+
+      if (!acc[monthKey]) {
+        acc[monthKey] = {
+          date: monthKey,
+          sortKey: new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
+          fuerza: [],
+          resistencia: [],
+          tecnica: []
+        };
+      }
+
+      if (metricLabel.includes('fuerza') || metricLabel.includes('strength')) {
+        acc[monthKey].fuerza.push(value);
+      } else if (
+        metricLabel.includes('resistencia') ||
+        metricLabel.includes('endurance') ||
+        metricLabel.includes('cardio')
+      ) {
+        acc[monthKey].resistencia.push(value);
+      } else if (metricLabel.includes('tecnica') || metricLabel.includes('técnica') || metricLabel.includes('tech')) {
+        acc[monthKey].tecnica.push(value);
+      }
+
+      return acc;
+    }, {});
+
+    return Object.values(monthlyMap)
+      .map((entry) => ({
+        date: entry.date,
+        sortKey: entry.sortKey,
+        fuerza: entry.fuerza?.length ? Math.round(entry.fuerza.reduce((sum, v) => sum + v, 0) / entry.fuerza.length) : 0,
+        resistencia: entry.resistencia?.length
+          ? Math.round(entry.resistencia.reduce((sum, v) => sum + v, 0) / entry.resistencia.length)
+          : 0,
+        tecnica: entry.tecnica?.length
+          ? Math.round(entry.tecnica.reduce((sum, v) => sum + v, 0) / entry.tecnica.length)
+          : 0
+      }))
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ sortKey, ...entry }) => entry);
+  }, [workoutResults]);
+
+  const sessionSummaries = useMemo(() => {
+    return (workoutSessions ?? []).map((session) => {
+      const sessionId = session?.id;
+      const sessionResults = workoutResultsBySession?.[sessionId] ?? [];
+      const formattedDate = session?.session_date || session?.date || session?.created_at;
+      const routineLabel = session?.routine_name || session?.routine || session?.routine_title || 'Rutina asignada';
+      const coachLabel = session?.coach_name || session?.coach || 'Coach asignado';
+      return {
+        ...session,
+        id: sessionId,
+        date: formattedDate,
+        routineLabel,
+        coachLabel,
+        results: sessionResults
+      };
+    });
+  }, [workoutSessions, workoutResultsBySession]);
+
+  const resultHighlights = useMemo(() => {
+    const values = (workoutResults ?? [])
+      .map((result) => Number(result?.value ?? result?.score ?? result?.metric_value ?? result?.result ?? result?.performance))
+      .filter((value) => Number.isFinite(value));
+
+    if (!values?.length) {
+      return null;
+    }
+
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const average = Math.round(total / values.length);
+    const best = Math.max(...values);
+    const sortedResults = [...(workoutResults ?? [])].sort((a, b) => {
+      const aDate = new Date(a?.recorded_at || a?.created_at || a?.date || 0);
+      const bDate = new Date(b?.recorded_at || b?.created_at || b?.date || 0);
+      return bDate - aDate;
+    });
+    const lastResult = sortedResults?.[0];
+    const lastValue = Number(
+      lastResult?.value ?? lastResult?.score ?? lastResult?.metric_value ?? lastResult?.result ?? lastResult?.performance
+    );
+
+    return {
+      average,
+      best,
+      lastValue: Number.isFinite(lastValue) ? Math.round(lastValue) : null,
+      totalSessions: sessionSummaries?.length || 0
+    };
+  }, [workoutResults, sessionSummaries?.length]);
+
   const tabs = [
   { id: 'performance', label: 'Rendimiento', icon: 'TrendingUp' },
+  { id: 'sessions', label: 'Sesiones', icon: 'Activity' },
   { id: 'attendance', label: 'Asistencia', icon: 'Calendar' },
   { id: 'payments', label: 'Pagos', icon: 'CreditCard' }];
 
@@ -390,23 +575,137 @@ const IndividualAthleteProfile = () => {
 
                 {activeTab === 'performance' &&
                 <div>
-                    <h3 className="text-base md:text-lg font-heading font-semibold text-foreground mb-3 md:mb-4">
-                      Evolución de Rendimiento
-                    </h3>
-                    <PerformanceChart data={performanceData} period={viewPeriod} />
-                    <div className="mt-4 md:mt-6 p-3 md:p-4 bg-muted/30 rounded-lg">
-                      <div className="flex items-start gap-2 md:gap-3">
-                        <Icon name="Target" size={20} color="var(--color-secondary)" className="flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm md:text-base font-medium text-foreground mb-1">
-                            Objetivo Actual: Alcanzar 90 puntos en todas las métricas
-                          </p>
-                          <p className="text-xs md:text-sm text-muted-foreground">
-                            Progreso: 85/90 (94% completado) - Fecha objetivo: 31/12/2026
-                          </p>
+                    <div className="flex items-center justify-between mb-3 md:mb-4">
+                      <div>
+                        <h3 className="text-base md:text-lg font-heading font-semibold text-foreground">
+                          Evolución de Rendimiento
+                        </h3>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          Datos de sesiones reales cargados desde seguimiento de entrenamientos
+                        </p>
+                      </div>
+                      <Icon name="TrendingUp" size={20} color="var(--color-primary)" />
+                    </div>
+
+                    {performanceEvolutionData?.length > 0 ? (
+                      <PerformanceChart data={performanceEvolutionData} period={viewPeriod} />
+                    ) : (
+                      <div className="text-center py-10 border border-dashed border-border rounded-lg bg-muted/20">
+                        <Icon name="BarChart3" size={36} color="var(--color-muted-foreground)" className="mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Aún no hay resultados suficientes para mostrar la evolución.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-4 md:mt-6 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+                      <div className="p-3 md:p-4 bg-success/10 rounded-lg border border-success/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon name="TrendingUp" size={16} color="var(--color-success)" />
+                          <span className="text-xs md:text-sm font-medium text-success">Mejor Resultado</span>
                         </div>
+                        <p className="text-lg font-semibold text-foreground">
+                          {resultHighlights?.best ?? '--'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Puntuación máxima registrada</p>
+                      </div>
+
+                      <div className="p-3 md:p-4 bg-accent/10 rounded-lg border border-accent/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon name="Activity" size={16} color="var(--color-accent)" />
+                          <span className="text-xs md:text-sm font-medium text-accent">Promedio General</span>
+                        </div>
+                        <p className="text-lg font-semibold text-foreground">
+                          {resultHighlights?.average ?? '--'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Media de métricas registradas</p>
+                      </div>
+
+                      <div className="p-3 md:p-4 bg-warning/10 rounded-lg border border-warning/20">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon name="Target" size={16} color="var(--color-warning)" />
+                          <span className="text-xs md:text-sm font-medium text-warning">Último Resultado</span>
+                        </div>
+                        <p className="text-lg font-semibold text-foreground">
+                          {resultHighlights?.lastValue ?? '--'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Puntuación de la última sesión</p>
                       </div>
                     </div>
+                  </div>
+                }
+
+                {activeTab === 'sessions' &&
+                <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-base md:text-lg font-heading font-semibold text-foreground">
+                          Rutinas y Resultados por Sesión
+                        </h3>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          Seguimiento basado en workout_sessions y workout_results
+                        </p>
+                      </div>
+                      <Icon name="ClipboardList" size={20} color="var(--color-secondary)" />
+                    </div>
+
+                    {workoutLoading ? (
+                      <div className="text-center py-10 text-sm text-muted-foreground">
+                        Cargando sesiones y resultados...
+                      </div>
+                    ) : sessionSummaries?.length > 0 ? (
+                      <div className="space-y-4">
+                        {sessionSummaries?.map((session) => (
+                          <div key={session?.id} className="border border-border rounded-lg p-4 bg-muted/20">
+                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                              <div>
+                                <h4 className="text-sm md:text-base font-semibold text-foreground">
+                                  {session?.routineLabel}
+                                </h4>
+                                <p className="text-xs md:text-sm text-muted-foreground">
+                                  {session?.date || 'Fecha pendiente'} · {session?.coachLabel}
+                                </p>
+                              </div>
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary">
+                                {session?.status || 'pendiente'}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                              {(session?.results ?? [])?.length > 0 ? (
+                                session?.results?.slice(0, 3)?.map((result) => (
+                                  <div
+                                    key={result?.id || `${session?.id}-${result?.metric_name}`}
+                                    className="p-3 rounded-lg bg-background border border-border/60"
+                                  >
+                                    <p className="text-xs text-muted-foreground">
+                                      {result?.metric || result?.metric_name || result?.type || 'Métrica'}
+                                    </p>
+                                    <p className="text-base font-semibold text-foreground">
+                                      {result?.value ?? result?.score ?? result?.metric_value ?? '--'}
+                                    </p>
+                                    {result?.target && (
+                                      <p className="text-xs text-muted-foreground">Meta: {result?.target}</p>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-sm text-muted-foreground">
+                                  No hay resultados registrados para esta sesión.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-10 border border-dashed border-border rounded-lg bg-muted/20">
+                        <Icon name="CalendarOff" size={36} color="var(--color-muted-foreground)" className="mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          No hay sesiones registradas para este atleta.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 }
 
