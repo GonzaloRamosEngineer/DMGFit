@@ -38,13 +38,41 @@ export const AuthProvider = ({ children }) => {
       };
     }
 
-    return {
+    const baseProfile = {
       id: data?.id,
       name: data?.full_name || authUser?.email,
       email: data?.email || authUser?.email,
       role: data?.role || 'atleta',
-      avatar: data?.avatar_url || null
+      avatar: data?.avatar_url || null,
+      coachId: null,
+      athleteId: null
     };
+
+    if (baseProfile?.role === 'profesor') {
+      const { data: coachData } = await supabase
+        .from('coaches')
+        .select('id')
+        .eq('profile_id', baseProfile?.id)
+        .single();
+
+      return { ...baseProfile, coachId: coachData?.id || null };
+    }
+
+    if (baseProfile?.role === 'atleta') {
+      const { data: athleteData } = await supabase
+        .from('athletes')
+        .select('id, coach_id')
+        .eq('profile_id', baseProfile?.id)
+        .single();
+
+      return {
+        ...baseProfile,
+        athleteId: athleteData?.id || null,
+        coachId: athleteData?.coach_id || null
+      };
+    }
+
+    return baseProfile;
   };
 
   useEffect(() => {
