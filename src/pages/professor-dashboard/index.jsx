@@ -289,7 +289,7 @@ const ProfessorDashboard = () => {
 
                     {/* 4. Gráfico Evolución (Solo visualización general por ahora) */}
                     <div className="mt-8">
-                       <h3 className="text-lg font-heading font-semibold text-foreground mb-4">Tendencias de Rendimiento</h3>
+                       <h3 className="text-lg font-heading font-semibold text-foreground mb-4">Tendencias DDEE Rendimiento</h3>
                        <PerformanceEvolutionChart /> 
                     </div>
                   </div>
