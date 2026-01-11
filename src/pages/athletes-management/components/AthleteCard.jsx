@@ -107,7 +107,12 @@ const AthleteCard = ({ athlete, onSelect, isSelected, loading = false }) => {
 
         {/* Botones */}
         <div className="flex items-center gap-2 flex-shrink-0 justify-end w-full lg:w-auto mt-2 lg:mt-0">
-          <Button variant="outline" size="sm" onClick={() => navigate(`/individual-athlete-profile`)} iconName="Eye">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate(`/individual-athlete-profile/${athlete.id}`)} // CORRECCIÓN AQUÍ
+            iconName="Eye"
+          >
             Perfil
           </Button>
           <QuickActionMenu entityId={athlete.id} entityType="athlete" availableActions={[

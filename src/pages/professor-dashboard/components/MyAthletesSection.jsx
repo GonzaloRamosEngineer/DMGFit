@@ -55,7 +55,12 @@ const MyAthletesSection = ({ athletes }) => {
 
                 {/* Actions */}
                 <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" iconName="FileText" onClick={() => navigate(`/individual-athlete-profile`)}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    iconName="FileText" 
+                    onClick={() => navigate(`/individual-athlete-profile/${athlete.id}`)} // CORRECCIÓN AQUÍ
+                  >
                     Perfil
                   </Button>
                   <Button variant="ghost" size="sm" iconName="MessageSquare">
