@@ -107,7 +107,7 @@ const RecentTransactionsFeed = ({ transactions, loading = false }) => {
                     <span className="text-xs font-medium capitalize">{transaction?.method || 'Pago'}</span>
                   </div>
                   <span className="text-sm font-data font-semibold text-success">
-                    +€{Number(transaction?.amount).toLocaleString()}
+                    +${Number(transaction?.amount).toLocaleString()}
                   </span>
                 </div>
               </div>

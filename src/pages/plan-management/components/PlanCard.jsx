@@ -38,7 +38,7 @@ const PlanCard = ({ plan, onEdit, onDelete, onToggleStatus, loading = false }) =
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="p-3 bg-muted/50 rounded-lg">
           <p className="text-xs text-muted-foreground mb-1">Precio</p>
-          <p className="text-lg font-bold text-foreground">€{plan.price}/mes</p>
+          <p className="text-lg font-bold text-foreground">${plan.price}/mes</p>
         </div>
         <div className="p-3 bg-muted/50 rounded-lg">
           <p className="text-xs text-muted-foreground mb-1">Capacidad</p>

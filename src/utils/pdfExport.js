@@ -85,7 +85,7 @@ export const generateAthletePDF = async (athleteData, performanceData, attendanc
   paymentData?.slice(0, 5)?.forEach((payment) => {
     pdf?.text(payment?.date || '', 15, yPosition);
     pdf?.text(payment?.concept?.substring(0, 30) || '', 50, yPosition);
-    pdf?.text(`€${payment?.amount || 0}`, 130, yPosition);
+    pdf?.text(`$${payment?.amount || 0}`, 130, yPosition);
     pdf?.setTextColor(payment?.status === 'paid' ? 48 : 255, payment?.status === 'paid' ? 209 : 69, payment?.status === 'paid' ? 88 : 68);
     pdf?.text(payment?.status === 'paid' ? 'Pagado' : 'Pendiente', 160, yPosition);
     pdf?.setTextColor(0, 0, 0);
@@ -157,9 +157,9 @@ export const generatePaymentReportPDF = async (overduePayments, metrics, revenue
   pdf?.setFont('helvetica', 'normal');
   
   const metricsData = [
-    { label: 'Ingresos Mensuales', value: `€${metrics?.monthlyRevenue || 0}` },
+    { label: 'Ingresos Mensuales', value: `$${metrics?.monthlyRevenue || 0}` },
     { label: 'Tasa de Cobro', value: `${metrics?.collectionRate || 0}%` },
-    { label: 'Monto Vencido', value: `€${metrics?.overdueAmount || 0}` },
+    { label: 'Monto Vencido', value: `$${metrics?.overdueAmount || 0}` },
     { label: 'Tiempo Promedio de Pago', value: `${metrics?.avgPaymentTime || 0} días` }
   ];
 
@@ -195,7 +195,7 @@ export const generatePaymentReportPDF = async (overduePayments, metrics, revenue
       yPosition = 20;
     }
     pdf?.text(payment?.athleteName?.substring(0, 25) || '', 15, yPosition);
-    pdf?.text(`€${payment?.amountOwed || 0}`, 80, yPosition);
+    pdf?.text(`$${payment?.amountOwed || 0}`, 80, yPosition);
     pdf?.setTextColor(255, 69, 68);
     pdf?.text(`${payment?.daysOverdue || 0} días`, 110, yPosition);
     pdf?.setTextColor(0, 0, 0);

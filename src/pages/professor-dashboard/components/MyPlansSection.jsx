@@ -28,7 +28,7 @@ const MyPlansSection = ({ plans }) => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Icon name="DollarSign" size={16} color="var(--color-muted-foreground)" />
-                    <span className="text-sm text-foreground">€{plan?.price}/mes</span>
+                    <span className="text-sm text-foreground">${plan?.price}/mes</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Icon name="Calendar" size={16} color="var(--color-muted-foreground)" />

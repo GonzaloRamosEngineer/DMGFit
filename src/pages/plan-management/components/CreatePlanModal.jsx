@@ -99,7 +99,7 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
               <Input id="name" name="name" value={formData.name} onChange={handleInputChange} placeholder="Ej: Plan Elite" required />
             </div>
             <div>
-              <label htmlFor="price" className="block text-sm font-medium text-foreground mb-2">Precio Mensual (€) *</label>
+              <label htmlFor="price" className="block text-sm font-medium text-foreground mb-2">Precio Mensual ($) *</label>
               <Input id="price" name="price" type="number" value={formData.price} onChange={handleInputChange} placeholder="150" required />
             </div>
           </div>

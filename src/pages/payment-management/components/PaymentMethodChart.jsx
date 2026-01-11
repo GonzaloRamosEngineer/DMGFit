@@ -30,7 +30,7 @@ const PaymentMethodChart = ({ data, loading = false }) => {
         <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
           <p className="text-sm font-medium text-foreground mb-1">{item.name}</p>
           <p className="text-xs text-muted-foreground">
-            €{Number(item.value).toLocaleString()} ({item.payload.percentage}%)
+            ${Number(item.value).toLocaleString()} ({item.payload.percentage}%)
           </p>
         </div>
       );
@@ -81,7 +81,7 @@ const PaymentMethodChart = ({ data, loading = false }) => {
                   <span className="text-sm font-medium text-foreground">{item.name}</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-data font-semibold text-foreground">€{item.value.toLocaleString()}</p>
+                  <p className="text-sm font-data font-semibold text-foreground">${item.value.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground">{item.percentage}%</p>
                 </div>
               </div>

@@ -6,7 +6,7 @@ const PlanMetrics = ({ metrics, loading = false }) => {
     { title: 'Total Planes', value: metrics?.totalPlans, icon: 'Package', color: 'primary' },
     { title: 'Planes Activos', value: metrics?.activePlans, icon: 'CheckCircle', color: 'success' },
     { title: 'Atletas Inscritos', value: metrics?.totalEnrolled, icon: 'Users', color: 'accent' },
-    { title: 'Ingresos Mensuales', value: `€${metrics?.monthlyRevenue?.toLocaleString()}`, icon: 'TrendingUp', color: 'warning' },
+    { title: 'Ingresos Mensuales', value: `$${metrics?.monthlyRevenue?.toLocaleString()}`, icon: 'TrendingUp', color: 'warning' },
     { title: 'Ocupación Promedio', value: `${metrics?.avgOccupancy}%`, icon: 'BarChart3', color: 'secondary' }
   ];
 

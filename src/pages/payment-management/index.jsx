@@ -79,7 +79,7 @@ const PaymentManagement = () => {
           {
             title: 'Ingresos Mensuales',
             value: monthlyRevenue.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
-            currency: '€',
+            currency: '$',
             trend: 'up', trendValue: '+5.0%', // Simulado por ahora (requeriría comparar con mes anterior)
             icon: 'TrendingUp', iconColor: 'bg-success/20 text-success'
           },
@@ -92,7 +92,7 @@ const PaymentManagement = () => {
           {
             title: 'Monto Vencido',
             value: overdueAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
-            currency: '€',
+            currency: '$',
             trend: overdueAmount > 0 ? 'down' : 'up', trendValue: overdueAmount > 0 ? 'Atención' : 'Limpio',
             icon: 'AlertCircle', iconColor: 'bg-error/20 text-error'
           },

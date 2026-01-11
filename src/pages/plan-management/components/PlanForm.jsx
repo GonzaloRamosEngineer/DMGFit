@@ -132,7 +132,7 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Precio Mensual (€)</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Precio Mensual ($)</label>
               <Input
                 name="price"
                 type="number"

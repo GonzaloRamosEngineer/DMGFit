@@ -41,7 +41,7 @@ const RevenueChart = ({ data, paymentMethodData, loading = false }) => {
             <div key={entry.name} className="flex items-center justify-between gap-3">
               <span className="text-xs text-muted-foreground capitalize">{entry.name}</span>
               <span className="text-xs font-medium text-foreground">
-                €{Number(entry.value).toLocaleString()}
+                ${Number(entry.value).toLocaleString()}
               </span>
             </div>
           ))}
@@ -78,19 +78,19 @@ const RevenueChart = ({ data, paymentMethodData, loading = false }) => {
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <div className="px-3 py-2 bg-muted/30 rounded-lg">
             <p className="text-[10px] text-muted-foreground uppercase">Total</p>
-            <p className="text-sm font-semibold text-foreground">€{totals.total.toLocaleString()}</p>
+            <p className="text-sm font-semibold text-foreground">${totals.total.toLocaleString()}</p>
           </div>
           <div className="px-3 py-2 bg-muted/30 rounded-lg border-l-2 border-[#3B82F6]">
             <p className="text-[10px] text-muted-foreground uppercase">Tarjeta</p>
-            <p className="text-sm font-semibold text-foreground">€{totals.tarjeta?.toLocaleString() || 0}</p>
+            <p className="text-sm font-semibold text-foreground">${totals.tarjeta?.toLocaleString() || 0}</p>
           </div>
           <div className="px-3 py-2 bg-muted/30 rounded-lg border-l-2 border-[#8B5CF6]">
             <p className="text-[10px] text-muted-foreground uppercase">Transf.</p>
-            <p className="text-sm font-semibold text-foreground">€{totals.transferencia?.toLocaleString() || 0}</p>
+            <p className="text-sm font-semibold text-foreground">${totals.transferencia?.toLocaleString() || 0}</p>
           </div>
           <div className="px-3 py-2 bg-muted/30 rounded-lg border-l-2 border-[#10B981]">
             <p className="text-[10px] text-muted-foreground uppercase">Efectivo</p>
-            <p className="text-sm font-semibold text-foreground">€{totals.efectivo?.toLocaleString() || 0}</p>
+            <p className="text-sm font-semibold text-foreground">${totals.efectivo?.toLocaleString() || 0}</p>
           </div>
         </div>
       </div>
@@ -109,7 +109,7 @@ const RevenueChart = ({ data, paymentMethodData, loading = false }) => {
               tick={{ fill: 'var(--color-muted-foreground)', fontSize: 12 }} 
               axisLine={false} 
               tickLine={false}
-              tickFormatter={(value) => `€${value/1000}k`}
+              tickFormatter={(value) => `$${value/1000}k`}
             />
             <Tooltip content={<CustomTooltip />} cursor={{fill: 'var(--color-muted)', opacity: 0.1}} />
             <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />

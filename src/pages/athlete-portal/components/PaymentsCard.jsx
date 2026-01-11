@@ -15,7 +15,7 @@ const PaymentsCard = ({ payments }) => {
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="p-3 bg-success/10 rounded-lg">
           <p className="text-xs text-muted-foreground mb-1">Total Pagado</p>
-          <p className="text-xl font-bold text-success">€{totalPaid}</p>
+          <p className="text-xl font-bold text-success">${totalPaid}</p>
         </div>
         <div className="p-3 bg-warning/10 rounded-lg">
           <p className="text-xs text-muted-foreground mb-1">Pendientes</p>
@@ -39,7 +39,7 @@ const PaymentsCard = ({ payments }) => {
                   {payment?.status === 'paid' ? 'Pagado' : 'Pendiente'}
                 </span>
               </div>
-              <p className="text-lg font-bold text-foreground">€{payment?.amount}</p>
+              <p className="text-lg font-bold text-foreground">${payment?.amount}</p>
             </div>
           ))}
         </div>

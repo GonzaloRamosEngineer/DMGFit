@@ -19,7 +19,7 @@ const MyPlanCard = ({ plan }) => {
           <div className="grid grid-cols-2 gap-4">
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="text-xs text-muted-foreground mb-1">Precio Mensual</p>
-              <p className="text-lg font-bold text-foreground">€{plan?.price}</p>
+              <p className="text-lg font-bold text-foreground">${plan?.price}</p>
             </div>
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="text-xs text-muted-foreground mb-1">Sesiones/Semana</p>

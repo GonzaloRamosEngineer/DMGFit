@@ -135,7 +135,7 @@ const OverduePaymentsTable = ({ payments, onSendReminder, onScheduleCall, onCrea
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <p className="text-base font-data font-semibold text-foreground">€{payment?.amountOwed?.toLocaleString()}</p>
+                    <p className="text-base font-data font-semibold text-foreground">${payment?.amountOwed?.toLocaleString()}</p>
                     <p className="text-xs text-muted-foreground">{payment?.invoiceCount || 1} facturas</p>
                   </td>
                   <td className="px-4 py-4">
