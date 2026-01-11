@@ -68,7 +68,7 @@ const RevenueChart = ({ data, paymentMethodData }) => {
             Comparativa mensual de ingresos
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:flex-wrap">
           <div className="px-3 py-2 bg-muted/30 rounded-lg">
             <p className="text-xs text-muted-foreground">Total</p>
             <p className="text-sm font-semibold text-foreground">€{totals?.total?.toLocaleString()}</p>
@@ -87,7 +87,7 @@ const RevenueChart = ({ data, paymentMethodData }) => {
           </div>
         </div>
       </div>
-      <div className="w-full h-72" aria-label="Revenue Chart">
+      <div className="w-full h-56 sm:h-64 md:h-72" aria-label="Revenue Chart">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.4} />
