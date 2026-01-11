@@ -18,6 +18,7 @@ const LoginRoleSelection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+
   const handleInputChange = (e) => {
     const { name, value } = e?.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -29,15 +30,29 @@ const LoginRoleSelection = () => {
     setIsLoading(true);
     setError('');
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { error: loginError, user } = await login({
       email: formData?.username,
-      password: formData?.password
+      password: formData?.password,
+      expectedRole: formData?.role
     });
 
-    if (signInError) {
-      setError(signInError?.message || 'Credenciales incorrectas.');
+    if (loginError) {
+      if (loginError?.message === 'role_mismatch') {
+        setError('El rol seleccionado no coincide con tu usuario.');
+      } else {
+        setError('Credenciales incorrectas. Verifica email y contraseña.');
+      }
+      setIsLoading(false);
+      return;
     }
 
+    const redirectPaths = {
+      admin: '/main-dashboard',
+      profesor: '/professor-dashboard',
+      atleta: '/athlete-portal'
+    };
+
+    navigate(redirectPaths?.[user?.role] || '/main-dashboard');
     setIsLoading(false);
   };
 
@@ -135,12 +150,7 @@ const LoginRoleSelection = () => {
                 Iniciar Sesión
               </Button>
             </form>
-          </div>
 
-          <div className="mt-6 text-center">
-            <p className="text-xs text-muted-foreground">
-              Accede con tus credenciales registradas
-            </p>
           </div>
         </div>
       </div>
