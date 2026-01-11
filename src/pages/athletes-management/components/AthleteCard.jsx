@@ -5,189 +5,114 @@ import Image from '../../../components/AppImage';
 import Button from '../../../components/ui/Button';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
 
-const AthleteCard = ({ athlete, onSelect, isSelected }) => {
+const AthleteCard = ({ athlete, onSelect, isSelected, loading = false }) => {
   const navigate = useNavigate();
 
+  if (loading) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-4 md:p-6 animate-pulse">
+        <div className="flex gap-4 items-center">
+          <div className="w-12 h-12 bg-muted/50 rounded-full"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-muted/50 rounded w-1/3"></div>
+            <div className="h-3 bg-muted/50 rounded w-1/4"></div>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-4">
+          <div className="h-8 bg-muted/50 rounded"></div>
+          <div className="h-8 bg-muted/50 rounded"></div>
+          <div className="h-8 bg-muted/50 rounded"></div>
+          <div className="h-8 bg-muted/50 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Helpers de Estilo ---
   const getPaymentStatusColor = (status) => {
     switch (status) {
-      case 'paid':
-        return 'bg-success/10 text-success border-success/20';
-      case 'pending':
-        return 'bg-warning/10 text-warning border-warning/20';
-      case 'overdue':
-        return 'bg-error/10 text-error border-error/20';
-      default:
-        return 'bg-muted text-muted-foreground border-border';
+      case 'paid': return 'bg-success/10 text-success border-success/20';
+      case 'pending': return 'bg-warning/10 text-warning border-warning/20';
+      case 'overdue': return 'bg-error/10 text-error border-error/20';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
   const getPaymentStatusLabel = (status) => {
-    switch (status) {
-      case 'paid':
-        return 'Pagado';
-      case 'pending':
-        return 'Pendiente';
-      case 'overdue':
-        return 'Vencido';
-      default:
-        return 'Desconocido';
-    }
+    const labels = { paid: 'Pagado', pending: 'Pendiente', overdue: 'Vencido' };
+    return labels[status] || 'Desconocido';
   };
 
-  const getPerformanceTrendIcon = (trend) => {
-    if (trend > 0) return 'TrendingUp';
-    if (trend < 0) return 'TrendingDown';
-    return 'Minus';
-  };
-
-  const getPerformanceTrendColor = (trend) => {
-    if (trend > 0) return 'var(--color-success)';
-    if (trend < 0) return 'var(--color-error)';
-    return 'var(--color-muted-foreground)';
-  };
-
-  const renderAttendanceHeatmap = (attendanceData) => {
-    return (
-      <div className="flex items-center gap-1">
-        {attendanceData?.map((value, index) => (
-          <div
-            key={index}
-            className={`w-2 h-6 md:w-3 md:h-8 rounded-sm ${
-              value >= 90
-                ? 'bg-success'
-                : value >= 70
-                ? 'bg-warning'
-                : value >= 50
-                ? 'bg-accent' :'bg-error'
-            }`}
-            title={`Semana ${index + 1}: ${value}%`}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  const handleViewProfile = () => {
-    navigate(`/individual-athlete-profile/${athlete?.id}`);
-  };
+  const renderAttendanceHeatmap = (data) => (
+    <div className="flex items-center gap-1 justify-center">
+      {data?.map((val, idx) => (
+        <div 
+          key={idx} 
+          className={`w-2 h-6 rounded-sm ${val >= 80 ? 'bg-success' : val >= 50 ? 'bg-warning' : 'bg-error'}`}
+          title={`Semana ${idx + 1}: ${val}%`} 
+        />
+      ))}
+    </div>
+  );
 
   return (
-    <div
-      className={`bg-card border rounded-lg p-4 md:p-6 transition-smooth hover:shadow-glow-primary ${
-        isSelected ? 'border-primary shadow-glow-primary' : 'border-border'
-      }`}
-    >
+    <div className={`bg-card border rounded-lg p-4 md:p-6 transition-smooth hover:shadow-glow-primary ${isSelected ? 'border-primary shadow-glow-primary' : 'border-border'}`}>
       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        {/* Info Principal */}
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <input
             type="checkbox"
             checked={isSelected}
-            onChange={() => onSelect(athlete?.id)}
+            onChange={() => onSelect(athlete.id)}
             className="w-5 h-5 rounded border-border bg-input text-primary focus:ring-2 focus:ring-primary flex-shrink-0"
-            aria-label={`Seleccionar ${athlete?.name}`}
           />
-          
           <div className="relative flex-shrink-0">
-            <Image
-              src={athlete?.profileImage}
-              alt={athlete?.profileImageAlt}
-              className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover"
-            />
-            <div
-              className={`absolute -bottom-1 -right-1 w-4 h-4 md:w-5 md:h-5 rounded-full border-2 border-card ${
-                athlete?.isActive ? 'bg-success' : 'bg-muted'
-              }`}
-              title={athlete?.isActive ? 'Activo' : 'Inactivo'}
-            />
+            {athlete.profileImage ? (
+              <Image src={athlete.profileImage} alt={athlete.name} className="w-12 h-12 rounded-full object-cover" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Icon name="User" size={24} className="text-primary" />
+              </div>
+            )}
+            <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-card ${athlete.isActive ? 'bg-success' : 'bg-muted'}`} />
           </div>
-
           <div className="flex-1 min-w-0">
-            <h3 className="text-base md:text-lg font-heading font-semibold text-foreground truncate">
-              {athlete?.name}
-            </h3>
-            <p className="text-xs md:text-sm text-muted-foreground truncate">{athlete?.email}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Entrenador: <span className="text-foreground">{athlete?.coach}</span>
-            </p>
+            <h3 className="text-base font-heading font-semibold text-foreground truncate">{athlete.name}</h3>
+            <p className="text-xs text-muted-foreground truncate">{athlete.email}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Coach: <span className="text-foreground">{athlete.coach}</span></p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 flex-shrink-0">
+        {/* Métricas Rápidas */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 flex-shrink-0 w-full lg:w-auto">
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Asistencia</p>
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-base md:text-lg font-heading font-bold text-foreground">
-                {athlete?.attendanceRate}%
-              </span>
-              <Icon
-                name={athlete?.attendanceRate >= 80 ? 'CheckCircle' : 'AlertCircle'}
-                size={16}
-                color={athlete?.attendanceRate >= 80 ? 'var(--color-success)' : 'var(--color-warning)'}
-              />
-            </div>
+            <span className="font-bold text-foreground">{athlete.attendanceRate}%</span>
           </div>
-
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Rendimiento</p>
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-base md:text-lg font-heading font-bold text-foreground">
-                {athlete?.performanceScore}%
-              </span>
-              <Icon
-                name={getPerformanceTrendIcon(athlete?.performanceTrend)}
-                size={16}
-                color={getPerformanceTrendColor(athlete?.performanceTrend)}
-              />
-            </div>
+            <span className="font-bold text-foreground">{athlete.performanceScore}</span>
           </div>
-
           <div className="text-center">
-            <p className="text-xs text-muted-foreground mb-1">Estado de Pago</p>
-            <span
-              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getPaymentStatusColor(
-                athlete?.paymentStatus
-              )}`}
-            >
-              {getPaymentStatusLabel(athlete?.paymentStatus)}
+            <p className="text-xs text-muted-foreground mb-1">Estado Pago</p>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${getPaymentStatusColor(athlete.paymentStatus)}`}>
+              {getPaymentStatusLabel(athlete.paymentStatus)}
             </span>
           </div>
-
-          <div className="text-center col-span-2 lg:col-span-1">
-            <p className="text-xs text-muted-foreground mb-2">Últimas 4 Semanas</p>
-            {renderAttendanceHeatmap(athlete?.attendanceLast30Days)}
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground mb-1">Últ. Mes</p>
+            {renderAttendanceHeatmap(athlete.attendanceLast30Days)}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0 justify-end lg:justify-start">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleViewProfile}
-            iconName="Eye"
-            iconPosition="left"
-          >
-            Ver Perfil
+        {/* Botones */}
+        <div className="flex items-center gap-2 flex-shrink-0 justify-end w-full lg:w-auto mt-2 lg:mt-0">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/individual-athlete-profile`)} iconName="Eye">
+            Perfil
           </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            iconName="MessageSquare"
-            iconPosition="left"
-          >
-            Mensaje
-          </Button>
-
-          <QuickActionMenu
-            entityId={athlete?.id}
-            entityType="athlete"
-            availableActions={[
-              { id: 'schedule', label: 'Programar Sesión', icon: 'Calendar', action: 'schedule' },
-              { id: 'message', label: 'Enviar Mensaje', icon: 'MessageSquare', action: 'message' },
-              { id: 'payment', label: 'Recordatorio de Pago', icon: 'Bell', action: 'payment' },
-              { id: 'profile', label: 'Ver Perfil Completo', icon: 'User', action: 'profile' }
-            ]}
-          />
+          <QuickActionMenu entityId={athlete.id} entityType="athlete" availableActions={[
+            { id: 'msg', label: 'Mensaje', icon: 'MessageSquare' }
+          ]} />
         </div>
       </div>
     </div>

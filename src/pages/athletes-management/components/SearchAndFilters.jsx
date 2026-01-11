@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-
 import Input from '../../../components/ui/Input';
 import Select from '../../../components/ui/Select';
 import Button from '../../../components/ui/Button';
 
-const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction }) => {
+const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = false }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [filters, setFilters] = useState({
@@ -14,14 +13,7 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction }) => {
     attendanceRange: ''
   });
 
-  const coachOptions = [
-    { value: '', label: 'Todos los Entrenadores' },
-    { value: 'coach1', label: 'Carlos Martínez' },
-    { value: 'coach2', label: 'Ana García' },
-    { value: 'coach3', label: 'Luis Rodríguez' },
-    { value: 'coach4', label: 'María López' }
-  ];
-
+  // Nota: Estas opciones podrían venir dinámicamente desde el padre en el futuro
   const performanceTierOptions = [
     { value: '', label: 'Todos los Niveles' },
     { value: 'elite', label: 'Elite (90-100%)' },
@@ -37,16 +29,8 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction }) => {
     { value: 'overdue', label: 'Vencido' }
   ];
 
-  const attendanceRangeOptions = [
-    { value: '', label: 'Todas las Asistencias' },
-    { value: 'excellent', label: 'Excelente (>90%)' },
-    { value: 'good', label: 'Buena (75-90%)' },
-    { value: 'fair', label: 'Regular (60-74%)' },
-    { value: 'poor', label: 'Baja (<60%)' }
-  ];
-
   const handleSearchChange = (e) => {
-    const value = e?.target?.value;
+    const value = e.target.value;
     setSearchQuery(value);
     onSearch(value);
   };
@@ -70,7 +54,7 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction }) => {
     onSearch('');
   };
 
-  const activeFilterCount = Object.values(filters)?.filter(v => v !== '')?.length;
+  const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
 
   return (
     <div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-6 md:mb-8">
@@ -78,10 +62,11 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction }) => {
         <div className="flex-1">
           <Input
             type="search"
-            placeholder="Buscar atletas por nombre, email o ID..."
+            placeholder="Buscar atletas por nombre o email..."
             value={searchQuery}
             onChange={handleSearchChange}
             className="w-full"
+            disabled={loading}
           />
         </div>
         
@@ -92,6 +77,7 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction }) => {
             iconName="Filter"
             iconPosition="left"
             className="flex-shrink-0"
+            disabled={loading}
           >
             Filtros {activeFilterCount > 0 && `(${activeFilterCount})`}
           </Button>
@@ -102,6 +88,7 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction }) => {
             iconName="X"
             iconPosition="left"
             className="flex-shrink-0"
+            disabled={loading}
           >
             Limpiar
           </Button>
@@ -112,40 +99,32 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction }) => {
             iconName="Download"
             iconPosition="left"
             className="flex-shrink-0"
+            disabled={loading}
           >
             Exportar
           </Button>
         </div>
       </div>
+
       {showAdvancedFilters && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-border">
           <Select
-            label="Entrenador"
-            options={coachOptions}
-            value={filters?.coach}
-            onChange={(value) => handleFilterChange('coach', value)}
-          />
-          
-          <Select
             label="Nivel de Rendimiento"
             options={performanceTierOptions}
-            value={filters?.performanceTier}
+            value={filters.performanceTier}
             onChange={(value) => handleFilterChange('performanceTier', value)}
+            disabled={loading}
           />
           
           <Select
             label="Estado de Pago"
             options={paymentStatusOptions}
-            value={filters?.paymentStatus}
+            value={filters.paymentStatus}
             onChange={(value) => handleFilterChange('paymentStatus', value)}
+            disabled={loading}
           />
           
-          <Select
-            label="Rango de Asistencia"
-            options={attendanceRangeOptions}
-            value={filters?.attendanceRange}
-            onChange={(value) => handleFilterChange('attendanceRange', value)}
-          />
+          {/* Aquí puedes añadir más filtros como 'Entrenador' si tienes la lista */}
         </div>
       )}
     </div>

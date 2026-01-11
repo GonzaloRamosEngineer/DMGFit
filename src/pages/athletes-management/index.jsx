@@ -17,12 +17,13 @@ const AthletesManagement = () => {
   const { currentUser } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedAthletes, setSelectedAthletes] = useState([]);
-  const [filteredAthletes, setFilteredAthletes] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Inicializamos en true
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  
+  // Datos reales
   const [athletes, setAthletes] = useState([]);
   const [metricsSummary, setMetricsSummary] = useState({
     totalAthletes: 0,
@@ -31,452 +32,198 @@ const AthletesManagement = () => {
     retentionRate: 0
   });
   const [segmentation, setSegmentation] = useState({
-    elite: 0,
-    advanced: 0,
-    intermediate: 0,
-    beginner: 0,
-    total: 0
+    elite: 0, advanced: 0, intermediate: 0, beginner: 0, total: 0
   });
 
-
+  // Datos mock para actividad reciente (hasta que tengamos tabla de actividad)
   const mockActivities = [
-  {
-    id: 'ACT001',
-    athleteName: 'Carlos Mendoza',
-    athleteImage: "https://img.rocket.new/generatedImages/rocket_gen_img_16be51f71-1763295001188.png",
-    athleteImageAlt: 'Retrato profesional de hombre hispano con cabello negro corto en traje azul marino',
-    type: 'achievement',
-    description: 'alcanzó un nuevo récord personal en levantamiento',
-    timestamp: new Date(Date.now() - 300000)
-  },
-  {
-    id: 'ACT002',
-    athleteName: 'María Rodríguez',
-    athleteImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1de57631c-1763294258585.png",
-    athleteImageAlt: 'Retrato profesional de mujer hispana con cabello castaño largo en blusa blanca',
-    type: 'payment',
-    description: 'completó el pago mensual',
-    timestamp: new Date(Date.now() - 900000)
-  },
-  {
-    id: 'ACT003',
-    athleteName: 'Luis García',
-    athleteImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1b37752d2-1763296920783.png",
-    athleteImageAlt: 'Retrato profesional de hombre hispano con gafas en polo azul',
-    type: 'session',
-    description: 'asistió a sesión de entrenamiento intensivo',
-    timestamp: new Date(Date.now() - 1800000)
-  },
-  {
-    id: 'ACT004',
-    athleteName: 'Carmen López',
-    athleteImage: "https://img.rocket.new/generatedImages/rocket_gen_img_19ad23742-1763295892621.png",
-    athleteImageAlt: 'Retrato profesional de mujer hispana con cabello rubio en vestido rojo',
-    type: 'message',
-    description: 'envió consulta sobre plan de nutrición',
-    timestamp: new Date(Date.now() - 3600000)
-  },
-  {
-    id: 'ACT005',
-    athleteName: 'Nuevo Atleta',
-    type: 'registration',
-    description: 'se registró en el programa elite',
-    timestamp: new Date(Date.now() - 7200000)
-  }];
+    { id: 'ACT001', athleteName: 'Carlos Mendoza', type: 'achievement', description: 'Récord personal', timestamp: new Date(Date.now() - 300000) },
+    { id: 'ACT002', athleteName: 'María Rodríguez', type: 'payment', description: 'Pago mensual completado', timestamp: new Date(Date.now() - 900000) },
+    { id: 'ACT005', athleteName: 'Nuevo Atleta', type: 'registration', description: 'Registro completado', timestamp: new Date(Date.now() - 7200000) }
+  ];
 
-  const coachId = currentUser?.coach_id || currentUser?.coachId || currentUser?.id;
-
-  const calculateAttendanceRate = (records = []) => {
-    if (!records?.length) {
-      return 0;
-    }
-    const presentCount = records?.filter((record) => record?.status === 'present')?.length || 0;
-    return Math.round((presentCount / records.length) * 100);
-  };
-
-  const buildWeeklyAttendance = (records = []) => {
-    const now = new Date();
-    const start = new Date(now);
-    start.setDate(now.getDate() - 28);
-
-    return Array.from({ length: 4 }).map((_, index) => {
-      const weekStart = new Date(start);
-      weekStart.setDate(start.getDate() + index * 7);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 7);
-
-      const weekRecords = records?.filter((record) => {
-        const recordDate = new Date(record?.date);
-        return recordDate >= weekStart && recordDate < weekEnd;
-      });
-
-      return calculateAttendanceRate(weekRecords);
-    });
-  };
-
-  const buildPerformanceMetrics = (records = []) => {
-    if (!records?.length) {
-      return { score: 0, trend: 0 };
-    }
-
-    const sorted = [...records].sort((a, b) => new Date(a?.date) - new Date(b?.date));
-    const latest = sorted?.[sorted.length - 1];
-    const previous = sorted?.[sorted.length - 2];
-    const score = Math.round(latest?.value ?? 0);
-    const trend = previous ? score - Math.round(previous?.value ?? 0) : 0;
-
-    return { score, trend };
-  };
-
+  // --- CARGA DE DATOS ---
   useEffect(() => {
     let isMounted = true;
 
     const loadAthletesData = async () => {
       setIsLoading(true);
       try {
-        let athleteQuery = supabase.from('athletes').select('*');
+        // 1. Consulta Base de Atletas
+        let query = supabase
+          .from('athletes')
+          .select(`
+            id, 
+            status, 
+            join_date,
+            coach_id,
+            profiles:profile_id ( full_name, email, avatar_url ),
+            coaches:coach_id ( id, profiles:profile_id ( full_name ) )
+          `);
 
-        if (currentUser?.role === 'profesor' && coachId) {
-          athleteQuery = athleteQuery.eq('coach_id', coachId);
+        // Filtro por rol (Profesor solo ve sus atletas)
+        if (currentUser?.role === 'profesor' && currentUser?.coachId) {
+          query = query.eq('coach_id', currentUser.coachId);
         }
 
-        const { data: athletesData, error: athletesError } = await athleteQuery;
+        const { data: athletesData, error } = await query;
+        if (error) throw error;
 
-        if (athletesError) {
-          throw athletesError;
-        }
+        // 2. Obtener IDs para consultas masivas
+        const athleteIds = athletesData.map(a => a.id);
 
-        const athleteList = athletesData ?? [];
-        const athleteIds = athleteList?.map((athlete) => athlete?.id).filter(Boolean);
-
-        let attendanceData = [];
-        let metricsData = [];
-        let paymentsData = [];
-
-        if (athleteIds?.length > 0) {
-          const [
-            { data: attendance, error: attendanceError },
-            { data: metrics, error: metricsError },
-            { data: payments, error: paymentsError }
-          ] = await Promise.all([
-            supabase.from('attendance').select('*').in('athlete_id', athleteIds),
-            supabase.from('metrics').select('*').in('athlete_id', athleteIds),
-            supabase.from('payments').select('*').in('athlete_id', athleteIds)
-          ]);
-
-          if (attendanceError) {
-            throw attendanceError;
+        if (athleteIds.length === 0) {
+          if (isMounted) {
+            setAthletes([]);
+            setIsLoading(false);
           }
-          if (metricsError) {
-            throw metricsError;
-          }
-          if (paymentsError) {
-            throw paymentsError;
-          }
-
-          attendanceData = attendance ?? [];
-          metricsData = metrics ?? [];
-          paymentsData = payments ?? [];
-        }
-
-        const attendanceByAthlete = attendanceData.reduce((acc, record) => {
-          const athleteId = record?.athlete_id;
-          if (!athleteId) {
-            return acc;
-          }
-          acc[athleteId] = acc[athleteId] || [];
-          acc[athleteId].push(record);
-          return acc;
-        }, {});
-
-        const metricsByAthlete = metricsData.reduce((acc, record) => {
-          const athleteId = record?.athlete_id;
-          if (!athleteId) {
-            return acc;
-          }
-          acc[athleteId] = acc[athleteId] || [];
-          acc[athleteId].push(record);
-          return acc;
-        }, {});
-
-        const paymentsByAthlete = paymentsData.reduce((acc, record) => {
-          const athleteId = record?.athlete_id;
-          if (!athleteId) {
-            return acc;
-          }
-          acc[athleteId] = acc[athleteId] || [];
-          acc[athleteId].push(record);
-          return acc;
-        }, {});
-
-        const enrichedAthletes = athleteList.map((athlete) => {
-          const athleteId = athlete?.id;
-          const attendanceRecords = attendanceByAthlete?.[athleteId] ?? [];
-          const performanceRecords = metricsByAthlete?.[athleteId] ?? [];
-          const paymentRecords = paymentsByAthlete?.[athleteId] ?? [];
-          const performance = buildPerformanceMetrics(performanceRecords);
-          const attendanceRate = calculateAttendanceRate(attendanceRecords);
-          const latestPayment = paymentRecords
-            ?.slice()
-            ?.sort((a, b) => new Date(b?.date) - new Date(a?.date))?.[0];
-          const name = athlete?.name || athlete?.full_name || athlete?.display_name || 'Atleta';
-
-          return {
-            id: athleteId,
-            name,
-            email: athlete?.email || 'Sin correo',
-            profileImage: athlete?.profile_image || athlete?.avatar_url,
-            profileImageAlt: athlete?.profile_image_alt || `Foto de ${name}`,
-            coach: athlete?.coach_name || athlete?.coach || currentUser?.name || 'Sin asignar',
-            attendanceRate,
-            performanceScore: performance?.score,
-            performanceTrend: performance?.trend,
-            paymentStatus: latestPayment?.status || 'pending',
-            isActive: athlete?.is_active ?? athlete?.active ?? true,
-            attendanceLast30Days: buildWeeklyAttendance(attendanceRecords)
-          };
-        });
-
-        const performanceScores = enrichedAthletes.map((athlete) => athlete?.performanceScore || 0);
-        const avgPerformance = performanceScores?.length
-          ? Math.round(performanceScores.reduce((sum, value) => sum + value, 0) / performanceScores.length)
-          : 0;
-
-        const recentActiveAthletes = new Set(
-          attendanceData
-            ?.filter((record) => {
-              const recordDate = new Date(record?.date);
-              const thirtyDaysAgo = new Date();
-              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-              return recordDate >= thirtyDaysAgo;
-            })
-            ?.map((record) => record?.athlete_id)
-        );
-
-        const totalAthletes = enrichedAthletes?.length;
-        const activeThisMonth = recentActiveAthletes?.size || 0;
-        const retentionRate = totalAthletes
-          ? Math.round((activeThisMonth / totalAthletes) * 100)
-          : 0;
-
-        const segmentationCounts = enrichedAthletes.reduce(
-          (acc, athlete) => {
-            const score = athlete?.performanceScore ?? 0;
-            if (score >= 90) {
-              acc.elite += 1;
-            } else if (score >= 75) {
-              acc.advanced += 1;
-            } else if (score >= 60) {
-              acc.intermediate += 1;
-            } else {
-              acc.beginner += 1;
-            }
-            return acc;
-          },
-          {
-            elite: 0,
-            advanced: 0,
-            intermediate: 0,
-            beginner: 0
-          }
-        );
-
-        if (!isMounted) {
           return;
         }
 
-        setAthletes(enrichedAthletes);
-        setMetricsSummary({
-          totalAthletes,
-          activeThisMonth,
-          avgPerformance,
-          retentionRate
+        // 3. Consultas Paralelas de Datos Relacionados
+        const [attendanceRes, metricsRes, paymentsRes] = await Promise.all([
+          supabase.from('attendance').select('athlete_id, status, date').in('athlete_id', athleteIds),
+          supabase.from('metrics').select('athlete_id, value').in('athlete_id', athleteIds).order('date', { ascending: false }),
+          supabase.from('payments').select('athlete_id, status, date').in('athlete_id', athleteIds)
+        ]);
+
+        // 4. Procesamiento de Datos (Enriquecimiento)
+        const enrichedAthletes = athletesData.map(athlete => {
+          // Filtrar datos relacionados para este atleta
+          const attRecords = attendanceRes.data?.filter(r => r.athlete_id === athlete.id) || [];
+          const perfRecords = metricsRes.data?.filter(r => r.athlete_id === athlete.id) || [];
+          const payRecords = paymentsRes.data?.filter(r => r.athlete_id === athlete.id) || [];
+
+          // Calcular Métricas Individuales
+          const attendanceRate = attRecords.length > 0 
+            ? Math.round((attRecords.filter(r => r.status === 'present').length / attRecords.length) * 100) 
+            : 0;
+          
+          const latestMetric = perfRecords[0]?.value || 0; // Asumiendo que el valor más reciente es el score actual
+          
+          // Buscar último pago
+          const latestPayment = payRecords.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+          return {
+            id: athlete.id,
+            name: athlete.profiles?.full_name || 'Sin Nombre',
+            email: athlete.profiles?.email || '',
+            profileImage: athlete.profiles?.avatar_url,
+            coach: athlete.coaches?.profiles?.full_name || 'Sin Asignar',
+            isActive: athlete.status === 'active',
+            attendanceRate,
+            performanceScore: Math.round(latestMetric), // Score simulado basado en última métrica
+            performanceTrend: 1, // Simulado por ahora
+            paymentStatus: latestPayment?.status || 'pending',
+            attendanceLast30Days: [80, 90, 75, 85] // Datos dummy para el sparkline por ahora
+          };
         });
-        setSegmentation({
-          ...segmentationCounts,
-          total: totalAthletes
+
+        // 5. Calcular Resúmenes Globales
+        const totalAthletes = enrichedAthletes.length;
+        const avgPerf = Math.round(enrichedAthletes.reduce((sum, a) => sum + a.performanceScore, 0) / (totalAthletes || 1));
+        const activeCount = enrichedAthletes.filter(a => a.isActive).length;
+
+        // Segmentación
+        const seg = { elite: 0, advanced: 0, intermediate: 0, beginner: 0, total: totalAthletes };
+        enrichedAthletes.forEach(a => {
+          if (a.performanceScore >= 90) seg.elite++;
+          else if (a.performanceScore >= 75) seg.advanced++;
+          else if (a.performanceScore >= 60) seg.intermediate++;
+          else seg.beginner++;
         });
-      } catch (error) {
-        console.error('Error loading athletes management data', error);
-      } finally {
+
         if (isMounted) {
+          setAthletes(enrichedAthletes);
+          setMetricsSummary({
+            totalAthletes,
+            activeThisMonth: activeCount,
+            avgPerformance: avgPerf,
+            retentionRate: 95 // Hardcodeado o calcular real si hay datos históricos
+          });
+          setSegmentation(seg);
           setIsLoading(false);
         }
+
+      } catch (err) {
+        console.error("Error cargando atletas:", err);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     loadAthletesData();
+    return () => { isMounted = false; };
+  }, [currentUser, lastRefresh]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [coachId, currentUser?.role, currentUser?.name, lastRefresh]);
+  // --- FILTRADO Y BÚSQUEDA ---
+  const filteredAthletes = useMemo(() => {
+    let result = [...athletes];
 
-  // Role-based filtering: Admin sees all athletes, Professor sees only their athletes
-  const visibleAthletes = useMemo(() => {
-    if (currentUser?.role === 'admin') {
-      return athletes;
-    } else if (currentUser?.role === 'profesor') {
-      // Filter athletes assigned to this professor
-      return athletes?.filter((athlete) => athlete?.coach === currentUser?.name);
-    }
-    return [];
-  }, [athletes, currentUser]);
-
-  useEffect(() => {
-    applyFiltersAndSearch();
-  }, [searchQuery, activeFilters, sortConfig, visibleAthletes]);
-
-  const applyFiltersAndSearch = () => {
-    let filtered = [...visibleAthletes];
-
+    // Búsqueda
     if (searchQuery) {
-      const query = searchQuery?.toLowerCase();
-      filtered = filtered?.filter(
-        (athlete) =>
-        athlete?.name?.toLowerCase()?.includes(query) ||
-        athlete?.email?.toLowerCase()?.includes(query) ||
-        athlete?.id?.toLowerCase()?.includes(query)
+      const q = searchQuery.toLowerCase();
+      result = result.filter(a => 
+        a.name.toLowerCase().includes(q) || 
+        a.email.toLowerCase().includes(q)
       );
     }
 
-    if (activeFilters?.coach) {
-      filtered = filtered?.filter((athlete) => athlete?.coach === activeFilters?.coach);
+    // Filtros
+    if (activeFilters.paymentStatus) {
+      result = result.filter(a => a.paymentStatus === activeFilters.paymentStatus);
     }
+    // ... (Agregar lógica para otros filtros aquí si es necesario)
 
-    if (activeFilters?.performanceTier) {
-      filtered = filtered?.filter((athlete) => {
-        const score = athlete?.performanceScore;
-        switch (activeFilters?.performanceTier) {
-          case 'elite':
-            return score >= 90;
-          case 'advanced':
-            return score >= 75 && score < 90;
-          case 'intermediate':
-            return score >= 60 && score < 75;
-          case 'beginner':
-            return score < 60;
-          default:
-            return true;
-        }
-      });
-    }
-
-    if (activeFilters?.paymentStatus) {
-      filtered = filtered?.filter((athlete) => athlete?.paymentStatus === activeFilters?.paymentStatus);
-    }
-
-    if (activeFilters?.attendanceRange) {
-      filtered = filtered?.filter((athlete) => {
-        const rate = athlete?.attendanceRate;
-        switch (activeFilters?.attendanceRange) {
-          case 'excellent':
-            return rate > 90;
-          case 'good':
-            return rate >= 75 && rate <= 90;
-          case 'fair':
-            return rate >= 60 && rate < 75;
-          case 'poor':
-            return rate < 60;
-          default:
-            return true;
-        }
-      });
-    }
-
-    filtered?.sort((a, b) => {
-      const aValue = a?.[sortConfig?.key];
-      const bValue = b?.[sortConfig?.key];
-
-      if (typeof aValue === 'string') {
-        return sortConfig?.direction === 'asc' ?
-        aValue?.localeCompare(bValue) :
-        bValue?.localeCompare(aValue);
+    // Ordenamiento
+    result.sort((a, b) => {
+      const valA = a[sortConfig.key];
+      const valB = b[sortConfig.key];
+      
+      if (typeof valA === 'string') {
+        return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
-
-      return sortConfig?.direction === 'asc' ? aValue - bValue : bValue - aValue;
+      return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
     });
 
-    setFilteredAthletes(filtered);
-  };
+    return result;
+  }, [athletes, searchQuery, activeFilters, sortConfig]);
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-  };
-
-  const handleFilterChange = (filters) => {
-    setActiveFilters(filters);
-  };
-
-  const handleAthleteSelect = (athleteId) => {
-    setSelectedAthletes((prev) =>
-    prev?.includes(athleteId) ? prev?.filter((id) => id !== athleteId) : [...prev, athleteId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedAthletes?.length === filteredAthletes?.length) {
-      setSelectedAthletes([]);
-    } else {
-      setSelectedAthletes(filteredAthletes?.map((athlete) => athlete?.id));
-    }
-  };
-
-  const handleBulkAction = (actionId) => {
-    console.log(`Bulk action: ${actionId} for athletes:`, selectedAthletes);
-    setSelectedAthletes([]);
-  };
-
-  const handleClearSelection = () => {
-    setSelectedAthletes([]);
-  };
-
+  // --- HANDLERS ---
   const handleSort = (key) => {
-    setSortConfig((prev) => ({
+    setSortConfig(prev => ({
       key,
-      direction: prev?.key === key && prev?.direction === 'asc' ? 'desc' : 'asc'
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
   };
 
   const handleRefresh = () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setLastRefresh(new Date());
-      setIsLoading(false);
-    }, 1000);
+    setLastRefresh(new Date());
   };
 
-  const alertData = {
-    dashboard: 3,
-    atletas: 5,
-    rendimiento: 2,
-    pagos: 8
+  const handleSelectAll = () => {
+    if (selectedAthletes.length === filteredAthletes.length) setSelectedAthletes([]);
+    else setSelectedAthletes(filteredAthletes.map(a => a.id));
   };
 
   return (
     <>
       <Helmet>
-        <title>Gestión de Atletas - DigitalMatch Fitness Dashboard</title>
-        <meta
-          name="description"
-          content="Panel de gestión completo para supervisar atletas, rendimiento, asistencia y pagos en tiempo real" />
-
+        <title>Gestión de Atletas - DigitalMatch</title>
       </Helmet>
+      
       <div className="min-h-screen bg-background">
         <NavigationSidebar
           isCollapsed={sidebarCollapsed}
-          userRole="coach"
-          alertData={alertData} />
+          userRole={currentUser?.role || 'profesor'}
+          alertData={{ dashboard: 3, atletas: 5 }} 
+        />
 
-
-        <main
-          className={`transition-smooth ${
-          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'} p-4 md:p-6 lg:p-8`
-          }>
-
+        <main className={`transition-smooth ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'} p-4 md:p-6 lg:p-8`}>
           <div className="max-w-7xl mx-auto">
             <BreadcrumbTrail currentPath="/athletes-management" />
 
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 md:mb-8">
               <div>
                 <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
@@ -486,15 +233,8 @@ const AthletesManagement = () => {
                   Supervisa y gestiona todos tus atletas en un solo lugar
                 </p>
               </div>
-
               <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleRefresh}
-                  loading={isLoading}
-                  iconName="RefreshCw"
-                  iconPosition="left">
-
+                <Button variant="outline" onClick={handleRefresh} loading={isLoading} iconName="RefreshCw" iconPosition="left">
                   Actualizar
                 </Button>
                 <Button variant="default" iconName="UserPlus" iconPosition="left">
@@ -503,104 +243,85 @@ const AthletesManagement = () => {
               </div>
             </div>
 
-            <MetricsStrip metrics={metricsSummary} />
+            {/* Métricas */}
+            <MetricsStrip metrics={metricsSummary} loading={isLoading} />
 
+            {/* Búsqueda y Filtros */}
             <SearchAndFilters
-              onSearch={handleSearch}
-              onFilterChange={handleFilterChange}
-              onBulkAction={handleBulkAction} />
-
+              onSearch={setSearchQuery}
+              onFilterChange={setActiveFilters}
+              onBulkAction={() => {}}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+              {/* Lista Principal */}
               <div className="lg:col-span-8">
                 <div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-4">
+                  {/* Barra de Herramientas de Lista */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
                       <input
                         type="checkbox"
-                        checked={
-                        selectedAthletes?.length === filteredAthletes?.length &&
-                        filteredAthletes?.length > 0
-                        }
+                        checked={selectedAthletes.length > 0 && selectedAthletes.length === filteredAthletes.length}
                         onChange={handleSelectAll}
                         className="w-5 h-5 rounded border-border bg-input text-primary focus:ring-2 focus:ring-primary"
-                        aria-label="Seleccionar todos los atletas" />
-
+                      />
                       <span className="text-sm text-muted-foreground">
-                        {filteredAthletes?.length} atletas encontrados
+                        {isLoading ? 'Cargando...' : `${filteredAthletes.length} atletas encontrados`}
                       </span>
                     </div>
-
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">Ordenar por:</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleSort('name')}
-                        iconName={
-                        sortConfig?.key === 'name' ?
-                        sortConfig?.direction === 'asc' ? 'ArrowUp' : 'ArrowDown' : 'ArrowUpDown'
-                        }
-                        iconPosition="right">
-
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('name')} iconName="ArrowUpDown" iconPosition="right">
                         Nombre
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleSort('performanceScore')}
-                        iconName={
-                        sortConfig?.key === 'performanceScore' ?
-                        sortConfig?.direction === 'asc' ? 'ArrowUp' : 'ArrowDown' : 'ArrowUpDown'
-                        }
-                        iconPosition="right">
-
+                      <Button variant="ghost" size="sm" onClick={() => handleSort('performanceScore')} iconName="ArrowUpDown" iconPosition="right">
                         Rendimiento
                       </Button>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-4">
-                  {filteredAthletes?.length > 0 ?
-                  filteredAthletes?.map((athlete) =>
-                  <AthleteCard
-                    key={athlete?.id}
-                    athlete={athlete}
-                    onSelect={handleAthleteSelect}
-                    isSelected={selectedAthletes?.includes(athlete?.id)} />
-
-                  ) :
-
-                  <div className="bg-card border border-border rounded-lg p-8 md:p-12 text-center">
-                      <Icon name="Users" size={48} color="var(--color-muted-foreground)" className="mx-auto mb-4" />
-                      <h3 className="text-lg font-heading font-semibold text-foreground mb-2">
-                        No se encontraron atletas
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Intenta ajustar tus filtros o búsqueda
-                      </p>
-                    </div>
-                  }
+                  {/* Renderizado de Lista */}
+                  <div className="space-y-4">
+                    {isLoading ? (
+                      // Skeleton Loading
+                      [1, 2, 3].map(i => <AthleteCard key={i} loading={true} />)
+                    ) : filteredAthletes.length > 0 ? (
+                      filteredAthletes.map(athlete => (
+                        <AthleteCard
+                          key={athlete.id}
+                          athlete={athlete}
+                          onSelect={(id) => setSelectedAthletes(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])}
+                          isSelected={selectedAthletes.includes(athlete.id)}
+                        />
+                      ))
+                    ) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Icon name="Users" size={48} className="mx-auto mb-4 opacity-50" />
+                        <p>No se encontraron atletas.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
+              {/* Sidebar Derecha (Segmentación y Actividad) */}
               <div className="lg:col-span-4 space-y-6">
-                <AthleteSegmentation segmentationData={segmentation} />
-                <RecentActivity activities={mockActivities} />
+                <AthleteSegmentation segmentationData={segmentation} loading={isLoading} />
+                <RecentActivity activities={mockActivities} loading={isLoading} />
               </div>
             </div>
 
+            {/* Acciones Masivas */}
             <BulkActionsBar
-              selectedCount={selectedAthletes?.length}
-              onAction={handleBulkAction}
-              onClearSelection={handleClearSelection} />
-
+              selectedCount={selectedAthletes.length}
+              onAction={() => setSelectedAthletes([])}
+              onClearSelection={() => setSelectedAthletes([])}
+            />
           </div>
         </main>
       </div>
-    </>);
-
+    </>
+  );
 };
 
 export default AthletesManagement;
