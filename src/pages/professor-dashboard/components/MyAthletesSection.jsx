@@ -3,47 +3,31 @@ import { useNavigate } from 'react-router-dom';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
-const MyAthletesSection = ({ athleteIds }) => {
+const MyAthletesSection = ({ athletes, athleteIds }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const mockAthletes = [
-  {
-    id: 'ATH001',
-    name: 'Carlos Mendoza',
-    email: 'carlos.mendoza@email.com',
-    profileImage: 'https://img.rocket.new/generatedImages/rocket_gen_img_16be51f71-1763295001188.png',
-    profileImageAlt: 'Retrato profesional de hombre hispano con cabello negro corto en traje azul marino',
-    attendanceRate: 92,
-    performanceScore: 88,
-    lastSession: '2026-01-10'
-  },
-  {
-    id: 'ATH005',
-    name: 'Luis García',
-    email: 'luis.garcia@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1cf0ad530-1763298896487.png",
-    profileImageAlt: 'Retrato profesional de hombre hispano con cabello corto en camisa deportiva',
-    attendanceRate: 95,
-    performanceScore: 92,
-    lastSession: '2026-01-10'
-  },
-  {
-    id: 'ATH006',
-    name: 'Laura Fernández',
-    email: 'laura.fernandez@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1138873f9-1763301509107.png",
-    profileImageAlt: 'Retrato profesional de mujer hispana con cabello largo en ropa deportiva',
-    attendanceRate: 88,
-    performanceScore: 85,
-    lastSession: '2026-01-08'
-  }];
+  const normalizedAthletes = (athletes ?? []).map((athlete) => {
+    const name = athlete?.name || athlete?.full_name || athlete?.display_name || 'Atleta';
+    return {
+      ...athlete,
+      name,
+      email: athlete?.email || 'Sin correo',
+      profileImage: athlete?.profile_image || athlete?.avatar_url,
+      profileImageAlt: athlete?.profile_image_alt || `Foto de ${name}`,
+      attendanceRate: athlete?.attendance_rate ?? athlete?.attendanceRate ?? 0,
+      performanceScore: athlete?.performance_score ?? athlete?.performanceScore ?? 0,
+      lastSession: athlete?.last_session || athlete?.lastSession || 'Sin sesiones'
+    };
+  });
 
+  const visibleAthletes = athleteIds?.length
+    ? normalizedAthletes?.filter((athlete) => athleteIds?.includes(athlete?.id))
+    : normalizedAthletes;
 
-  const athletes = mockAthletes?.filter((a) => athleteIds?.includes(a?.id));
-  const filteredAthletes = athletes?.filter((a) =>
-  a?.name?.toLowerCase()?.includes(searchQuery?.toLowerCase()) ||
-  a?.email?.toLowerCase()?.includes(searchQuery?.toLowerCase())
+  const filteredAthletes = visibleAthletes?.filter((athlete) =>
+  athlete?.name?.toLowerCase()?.includes(searchQuery?.toLowerCase()) ||
+  athlete?.email?.toLowerCase()?.includes(searchQuery?.toLowerCase())
   );
 
   return (

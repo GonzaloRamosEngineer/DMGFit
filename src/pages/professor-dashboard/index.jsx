@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import NavigationSidebar from '../../components/ui/NavigationSidebar';
@@ -6,11 +6,15 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
-import { getPlansByProfessor, getAthletesByProfessor, mockSessions, mockAttendance, mockNotes } from '../../data/mockData';
+import { supabase } from '../../lib/supabaseClient';
+import { fetchPlansByCoach } from '../../services/plans';
+import { fetchAthletesByCoach } from '../../services/athletes';
+import { fetchSessionsByCoach } from '../../services/sessions';
 import MyPlansSection from './components/MyPlansSection';
 import MyAthletesSection from './components/MyAthletesSection';
 import AttendanceTracker from './components/AttendanceTracker';
 import QuickStats from './components/QuickStats';
+import PerformanceEvolutionChart from '../performance-analytics/components/PerformanceEvolutionChart';
 
 const ProfessorDashboard = () => {
   const navigate = useNavigate();
@@ -18,19 +22,289 @@ const ProfessorDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedDate, setSelectedDate] = useState(new Date()?.toISOString()?.split('T')?.[0]);
+  const [plans, setPlans] = useState([]);
+  const [athletes, setAthletes] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [routines, setRoutines] = useState([]);
+  const [athleteRoutines, setAthleteRoutines] = useState([]);
+  const [workoutResults, setWorkoutResults] = useState([]);
+  const [routineFilter, setRoutineFilter] = useState('all');
+  const [trackingFilter, setTrackingFilter] = useState('all');
 
   const professorName = currentUser?.name || 'Ana García';
-  const myPlans = getPlansByProfessor(professorName);
-  const myAthleteIds = getAthletesByProfessor(professorName);
-  const mySessions = mockSessions?.filter(s => s?.professor === professorName);
-  const myNotes = mockNotes?.filter(n => n?.professorName === professorName);
+  const coachId = currentUser?.coach_id || currentUser?.coachId || currentUser?.id;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadProfessorData = async () => {
+      if (!coachId) {
+        return;
+      }
+
+      try {
+        const [plansData, athletesData, sessionsData] = await Promise.all([
+          fetchPlansByCoach(coachId),
+          fetchAthletesByCoach(coachId),
+          fetchSessionsByCoach(coachId)
+        ]);
+
+        const sessionIds = sessionsData?.map((session) => session?.id).filter(Boolean) || [];
+        let attendanceData = [];
+
+        if (sessionIds?.length > 0) {
+          const { data, error } = await supabase
+            .from('attendance')
+            .select('*')
+            .in('session_id', sessionIds);
+
+          if (error) {
+            throw error;
+          }
+
+          attendanceData = data ?? [];
+        }
+
+        const { data: notesData, error: notesError } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('coach_id', coachId)
+          .order('date', { ascending: false });
+
+        if (notesError) {
+          throw notesError;
+        }
+
+        const { data: routinesData, error: routinesError } = await supabase
+          .from('routines')
+          .select('*')
+          .eq('coach_id', coachId)
+          .order('created_at', { ascending: false });
+
+        if (routinesError) {
+          throw routinesError;
+        }
+
+        const athleteIds = athletesData?.map((athlete) => athlete?.id).filter(Boolean) ?? [];
+        let athleteRoutinesData = [];
+        let workoutResultsData = [];
+
+        if (athleteIds?.length) {
+          const { data: athleteRoutinesResponse, error: athleteRoutinesError } = await supabase
+            .from('athlete_routines')
+            .select('*')
+            .in('athlete_id', athleteIds);
+
+          if (athleteRoutinesError) {
+            throw athleteRoutinesError;
+          }
+
+          athleteRoutinesData = athleteRoutinesResponse ?? [];
+
+          const { data: workoutResultsResponse, error: workoutResultsError } = await supabase
+            .from('workout_results')
+            .select('*')
+            .in('athlete_id', athleteIds);
+
+          if (workoutResultsError) {
+            throw workoutResultsError;
+          }
+
+          workoutResultsData = workoutResultsResponse ?? [];
+        }
+
+        const attendanceByAthlete = (attendanceData ?? []).reduce((acc, record) => {
+          const athleteId = record?.athlete_id;
+          if (!athleteId) {
+            return acc;
+          }
+          acc[athleteId] = acc[athleteId] || [];
+          acc[athleteId].push(record);
+          return acc;
+        }, {});
+
+        const enrichedAthletes = (athletesData ?? []).map((athlete) => {
+          const athleteAttendance = attendanceByAthlete?.[athlete?.id] ?? [];
+          const presentCount = athleteAttendance?.filter((record) => record?.status === 'present')?.length || 0;
+          const attendanceRate = athleteAttendance?.length
+            ? Math.round((presentCount / athleteAttendance.length) * 100)
+            : 0;
+          return {
+            ...athlete,
+            attendanceRate
+          };
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        setPlans(plansData ?? []);
+        setAthletes(enrichedAthletes ?? []);
+        setSessions(sessionsData ?? []);
+        setAttendance(attendanceData ?? []);
+        setNotes(notesData ?? []);
+        setRoutines(routinesData ?? []);
+        setAthleteRoutines(athleteRoutinesData ?? []);
+        setWorkoutResults(workoutResultsData ?? []);
+      } catch (error) {
+        console.error('Error loading professor dashboard data', error);
+      }
+    };
+
+    loadProfessorData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [coachId]);
+
+  const myPlans = plans;
+  const myAthletes = athletes;
+  const myAthleteIds = myAthletes?.map((athlete) => athlete?.id) ?? [];
+  const mySessions = sessions;
+  const myNotes = notes;
 
   const todaySessions = mySessions?.filter(s => s?.date === selectedDate);
   const totalAthletes = myAthleteIds?.length || 0;
   const completedSessions = mySessions?.filter(s => s?.status === 'completed')?.length || 0;
   const avgAttendance = Math.round(
-    (mockAttendance?.filter(a => a?.status === 'present')?.length / Math.max(mockAttendance?.length, 1)) * 100
+    (attendance?.filter(a => a?.status === 'present')?.length / Math.max(attendance?.length, 1)) * 100
   );
+
+  const athleteRoutinesByAthlete = useMemo(() => {
+    return (athleteRoutines ?? []).reduce((acc, record) => {
+      const athleteId = record?.athlete_id;
+      const routineId = record?.routine_id;
+      if (!athleteId || !routineId) {
+        return acc;
+      }
+      acc[athleteId] = acc[athleteId] || new Set();
+      acc[athleteId].add(routineId);
+      return acc;
+    }, {});
+  }, [athleteRoutines]);
+
+  const workoutResultsByAthlete = useMemo(() => {
+    return (workoutResults ?? []).reduce((acc, result) => {
+      const athleteId = result?.athlete_id;
+      if (!athleteId) {
+        return acc;
+      }
+      acc[athleteId] = acc[athleteId] || [];
+      acc[athleteId].push(result);
+      return acc;
+    }, {});
+  }, [workoutResults]);
+
+  const filteredAthletes = useMemo(() => {
+    const now = new Date();
+    return (myAthletes ?? []).filter((athlete) => {
+      const athleteId = athlete?.id;
+      const routinesForAthlete = athleteRoutinesByAthlete?.[athleteId];
+      const matchesRoutine =
+        routineFilter === 'all' || (routinesForAthlete && routinesForAthlete.has(routineFilter));
+
+      if (!matchesRoutine) {
+        return false;
+      }
+
+      if (trackingFilter === 'all') {
+        return true;
+      }
+
+      const athleteResults = workoutResultsByAthlete?.[athleteId] ?? [];
+      const lastResultDate = athleteResults
+        .map((result) => new Date(result?.recorded_at || result?.created_at || result?.date))
+        .filter((date) => !Number.isNaN(date?.getTime()))
+        .sort((a, b) => b - a)[0];
+
+      if (trackingFilter === 'no-results') {
+        return !lastResultDate;
+      }
+
+      if (!lastResultDate) {
+        return false;
+      }
+
+      const diffDays = Math.ceil((now - lastResultDate) / (1000 * 60 * 60 * 24));
+
+      if (trackingFilter === 'recent') {
+        return diffDays <= 14;
+      }
+
+      if (trackingFilter === 'stale') {
+        return diffDays > 14;
+      }
+
+      return true;
+    });
+  }, [myAthletes, athleteRoutinesByAthlete, routineFilter, trackingFilter, workoutResultsByAthlete]);
+
+  const evolutionChartData = useMemo(() => {
+    const eligibleAthleteIds = filteredAthletes?.map((athlete) => String(athlete?.id)) ?? [];
+    const selectedRoutineId = routineFilter !== 'all' ? routineFilter : null;
+    const filteredResults = (workoutResults ?? []).filter((result) => {
+      if (!eligibleAthleteIds.includes(String(result?.athlete_id))) {
+        return false;
+      }
+      if (!selectedRoutineId) {
+        return true;
+      }
+      return (
+        result?.routine_id === selectedRoutineId ||
+        result?.routineId === selectedRoutineId ||
+        result?.routine === selectedRoutineId
+      );
+    });
+
+    const grouped = filteredResults.reduce((acc, result) => {
+      const date = new Date(result?.recorded_at || result?.created_at || result?.date);
+      if (Number.isNaN(date?.getTime())) {
+        return acc;
+      }
+      const monthKey = date?.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+      const sortKey = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+      const athleteId = String(result?.athlete_id);
+      if (!acc[monthKey]) {
+        acc[monthKey] = { month: monthKey, sortKey };
+      }
+      if (!acc[monthKey][athleteId]) {
+        acc[monthKey][athleteId] = [];
+      }
+      const value = Number(result?.value ?? result?.score ?? result?.metric_value ?? result?.result ?? result?.performance);
+      if (Number.isFinite(value)) {
+        acc[monthKey][athleteId].push(value);
+      }
+      return acc;
+    }, {});
+
+    return Object.values(grouped)
+      .map((entry) => {
+        const dataPoint = { month: entry.month, sortKey: entry.sortKey };
+        eligibleAthleteIds?.forEach((athleteId) => {
+          const values = entry?.[athleteId] || [];
+          if (values?.length) {
+            dataPoint[athleteId] = Math.round(values.reduce((sum, v) => sum + v, 0) / values.length);
+          }
+        });
+        return dataPoint;
+      })
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ sortKey, ...entry }) => entry);
+  }, [filteredAthletes, routineFilter, workoutResults]);
+
+  const evolutionAthletes = useMemo(() => {
+    const palette = ['#FF4444', '#FFD700', '#00D4FF', '#30D158', '#BF5AF2', '#FF9F0A'];
+    return (filteredAthletes ?? []).slice(0, 4).map((athlete, index) => ({
+      id: String(athlete?.id),
+      name: athlete?.name,
+      dataKey: String(athlete?.id),
+      color: palette[index % palette.length]
+    }));
+  }, [filteredAthletes]);
 
   const alertData = {
     dashboard: 2,
@@ -116,6 +390,69 @@ const ProfessorDashboard = () => {
                   completedSessions={completedSessions}
                   avgAttendance={avgAttendance}
                 />
+
+                <div className="bg-card border border-border rounded-xl p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                    <div>
+                      <h3 className="text-lg font-heading font-semibold text-foreground">Filtros de Rutinas y Seguimiento</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Filtra atletas por rutina asignada y ritmo de seguimiento usando workouts reales.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-col gap-1 min-w-[200px]">
+                        <label className="text-xs text-muted-foreground">Rutina</label>
+                        <select
+                          value={routineFilter}
+                          onChange={(event) => setRoutineFilter(event?.target?.value)}
+                          className="h-10 px-3 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="all">Todas las rutinas</option>
+                          {routines?.map((routine) => (
+                            <option key={routine?.id} value={routine?.id}>
+                              {routine?.name || routine?.title || 'Rutina'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-[200px]">
+                        <label className="text-xs text-muted-foreground">Seguimiento</label>
+                        <select
+                          value={trackingFilter}
+                          onChange={(event) => setTrackingFilter(event?.target?.value)}
+                          className="h-10 px-3 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="all">Todos</option>
+                          <option value="recent">Resultados recientes</option>
+                          <option value="stale">Seguimiento pendiente</option>
+                          <option value="no-results">Sin resultados</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="p-4 rounded-lg border border-border bg-muted/30">
+                      <p className="text-xs text-muted-foreground">Atletas filtrados</p>
+                      <p className="text-2xl font-semibold text-foreground">{filteredAthletes?.length}</p>
+                    </div>
+                    <div className="p-4 rounded-lg border border-border bg-muted/30">
+                      <p className="text-xs text-muted-foreground">Rutinas disponibles</p>
+                      <p className="text-2xl font-semibold text-foreground">{routines?.length || 0}</p>
+                    </div>
+                    <div className="p-4 rounded-lg border border-border bg-muted/30">
+                      <p className="text-xs text-muted-foreground">Resultados registrados</p>
+                      <p className="text-2xl font-semibold text-foreground">{workoutResults?.length || 0}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {evolutionChartData?.length > 0 && evolutionAthletes?.length > 0 && (
+                  <PerformanceEvolutionChart
+                    data={evolutionChartData}
+                    athletes={evolutionAthletes}
+                  />
+                )}
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="bg-card border border-border rounded-xl p-6">
@@ -188,7 +525,10 @@ const ProfessorDashboard = () => {
             )}
 
             {activeTab === 'athletes' && (
-              <MyAthletesSection athleteIds={myAthleteIds} />
+              <MyAthletesSection
+                athletes={filteredAthletes}
+                athleteIds={filteredAthletes?.map((athlete) => athlete?.id)}
+              />
             )}
 
             {activeTab === 'attendance' && (
