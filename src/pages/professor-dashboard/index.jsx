@@ -10,7 +10,7 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 
-// Sub-Sections (Existing)
+// Sub-Sections
 import MyPlansSection from './components/MyPlansSection';
 import MyAthletesSection from './components/MyAthletesSection';
 import AttendanceTracker from './components/AttendanceTracker';
@@ -49,31 +49,32 @@ const ProfessorDashboard = () => {
   // --- DATA FETCHING OPTIMIZED ---
   useEffect(() => {
     const loadData = async () => {
+      // Si no hay coachId aún, esperamos (el auth context puede tardar unos ms)
       if (!coachId) return;
+      
       setLoading(true);
 
       try {
         // 1. Cargar Datos Principales en Paralelo
-        // Usamos consultas optimizadas para traer solo lo necesario
         const [plansRes, athletesRes, sessionsRes, notesRes] = await Promise.all([
-          // Planes del Coach
+          
+          // A) CORRECCIÓN AQUÍ: Quitamos 'enrolled' y pedimos la relación enrollments(count)
           supabase.from('plans')
-            .select('id, name, status, enrolled, capacity')
-            .eq('status', 'active'), // Asumimos que queremos ver activos principalmente
-            // Nota: Si la relación plan-coach es compleja, ajustar consulta
+            .select('id, name, status, capacity, enrollments(count)')
+            .eq('status', 'active'), 
 
-          // Atletas del Coach
+          // B) Atletas del Coach
           supabase.from('athletes')
             .select('id, status, profiles:profile_id(full_name, email, avatar_url)')
             .eq('coach_id', coachId),
 
-          // Sesiones (Todas para cálculo de estadísticas, o filtrar por rango si son muchas)
+          // C) Sesiones
           supabase.from('sessions')
             .select('id, session_date, time, status, type, location')
             .eq('coach_id', coachId)
             .order('session_date', { ascending: false }),
 
-          // Notas Recientes
+          // D) Notas Recientes
           supabase.from('notes')
             .select('*')
             .eq('coach_id', coachId)
@@ -85,17 +86,23 @@ const ProfessorDashboard = () => {
         if (athletesRes.error) throw athletesRes.error;
         if (sessionsRes.error) throw sessionsRes.error;
 
-        // 2. Procesar Estadísticas en Cliente (Rápido con arrays moderados)
+        // 2. Procesar Datos
         const athletesList = athletesRes.data || [];
         const sessionsList = sessionsRes.data || [];
         
-        // Calcular asistencia promedio (Mock o real si traemos tabla attendance)
-        // Para optimizar, no traemos toda la tabla 'attendance' aquí. 
-        // Podemos hacer una consulta agregada separada si es crítico.
-        const avgAtt = 85; // Placeholder realista o calcular con count
+        // Mapeo de Planes (Ajuste para leer el conteo)
+        const mappedPlans = (plansRes.data || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          status: p.status,
+          capacity: p.capacity,
+          description: 'Plan activo', // Default si no lo trajimos
+          // Supabase devuelve enrollments como [{count: 5}] o []
+          enrolled: p.enrollments?.[0]?.count || 0 
+        }));
 
         setDashboardData({
-          plans: plansRes.data || [],
+          plans: mappedPlans,
           athletes: athletesList.map(a => ({
             id: a.id,
             name: a.profiles?.full_name || 'Sin Nombre',
@@ -107,9 +114,9 @@ const ProfessorDashboard = () => {
           notes: notesRes.data || [],
           stats: {
             totalAthletes: athletesList.length,
-            totalPlans: plansRes.data?.length || 0,
+            totalPlans: mappedPlans.length,
             completedSessions: sessionsList.filter(s => s.status === 'completed').length,
-            avgAttendance: avgAtt
+            avgAttendance: 85 // Dato simulado o calculado si trajéramos attendance
           }
         });
 
@@ -281,7 +288,6 @@ const ProfessorDashboard = () => {
                     </div>
 
                     {/* 4. Gráfico Evolución (Solo visualización general por ahora) */}
-                    {/* Nota: Este componente espera datos específicos, podríamos ocultarlo si no hay datos o pasarle data dummy */}
                     <div className="mt-8">
                        <h3 className="text-lg font-heading font-semibold text-foreground mb-4">Tendencias de Rendimiento</h3>
                        <PerformanceEvolutionChart /> 
@@ -312,7 +318,7 @@ const ProfessorDashboard = () => {
   );
 };
 
-// Componente Skeleton Interno para mantener todo en un solo archivo limpio
+// Componente Skeleton Interno
 const DashboardSkeleton = () => (
   <div className="space-y-6 animate-pulse">
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
