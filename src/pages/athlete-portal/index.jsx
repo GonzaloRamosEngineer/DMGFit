@@ -28,7 +28,7 @@ const AthletePortal = () => {
   const [sessions, setSessions] = useState([]);
   const [payments, setPayments] = useState([]);
 
-  const athleteId = 'ATH001';
+  const athleteId = currentUser?.athleteId || currentUser?.athlete_id || currentUser?.id;
 
   useEffect(() => {
     let isMounted = true;

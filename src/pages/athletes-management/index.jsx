@@ -11,6 +11,7 @@ import BulkActionsBar from './components/BulkActionsBar';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabaseClient';
 
 const AthletesManagement = () => {
   const { currentUser } = useAuth();
@@ -22,135 +23,20 @@ const AthletesManagement = () => {
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [isLoading, setIsLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
-
-  const mockMetrics = {
-    totalAthletes: 248,
-    activeThisMonth: 215,
-    avgPerformance: 82,
-    retentionRate: 89
-  };
-
-  const mockSegmentation = {
-    elite: 45,
-    advanced: 89,
-    intermediate: 78,
-    beginner: 36,
-    total: 248
-  };
-
-  const mockAthletes = [
-  {
-    id: 'ATH001',
-    name: 'Carlos Mendoza',
-    email: 'carlos.mendoza@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_16be51f71-1763295001188.png",
-    profileImageAlt: 'Retrato profesional de hombre hispano con cabello negro corto en traje azul marino',
-    coach: 'Ana García',
-    attendanceRate: 92,
-    performanceScore: 88,
-    performanceTrend: 5,
-    paymentStatus: 'paid',
-    isActive: true,
-    attendanceLast30Days: [95, 88, 92, 90]
-  },
-  {
-    id: 'ATH002',
-    name: 'María Rodríguez',
-    email: 'maria.rodriguez@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1de57631c-1763294258585.png",
-    profileImageAlt: 'Retrato profesional de mujer hispana con cabello castaño largo en blusa blanca',
-    coach: 'Carlos Martínez',
-    attendanceRate: 85,
-    performanceScore: 91,
-    performanceTrend: 8,
-    paymentStatus: 'paid',
-    isActive: true,
-    attendanceLast30Days: [82, 85, 88, 87]
-  },
-  {
-    id: 'ATH003',
-    name: 'Juan Pérez',
-    email: 'juan.perez@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_16b9f22e3-1763295150822.png",
-    profileImageAlt: 'Retrato profesional de hombre hispano con barba corta en camisa gris',
-    coach: 'Luis Rodríguez',
-    attendanceRate: 78,
-    performanceScore: 75,
-    performanceTrend: -3,
-    paymentStatus: 'pending',
-    isActive: true,
-    attendanceLast30Days: [80, 75, 78, 77]
-  },
-  {
-    id: 'ATH004',
-    name: 'Ana Martínez',
-    email: 'ana.martinez@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_134210297-1763300264821.png",
-    profileImageAlt: 'Retrato profesional de mujer hispana con cabello negro recogido en chaqueta negra',
-    coach: 'María López',
-    attendanceRate: 65,
-    performanceScore: 68,
-    performanceTrend: 0,
-    paymentStatus: 'overdue',
-    isActive: false,
-    attendanceLast30Days: [70, 65, 62, 65]
-  },
-  {
-    id: 'ATH005',
-    name: 'Luis García',
-    email: 'luis.garcia@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1b37752d2-1763296920783.png",
-    profileImageAlt: 'Retrato profesional de hombre hispano con gafas en polo azul',
-    coach: 'Ana García',
-    attendanceRate: 95,
-    performanceScore: 94,
-    performanceTrend: 12,
-    paymentStatus: 'paid',
-    isActive: true,
-    attendanceLast30Days: [95, 96, 94, 95]
-  },
-  {
-    id: 'ATH006',
-    name: 'Carmen López',
-    email: 'carmen.lopez@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_19ad23742-1763295892621.png",
-    profileImageAlt: 'Retrato profesional de mujer hispana con cabello rubio en vestido rojo',
-    coach: 'Carlos Martínez',
-    attendanceRate: 88,
-    performanceScore: 86,
-    performanceTrend: 6,
-    paymentStatus: 'paid',
-    isActive: true,
-    attendanceLast30Days: [85, 88, 90, 88]
-  },
-  {
-    id: 'ATH007',
-    name: 'Roberto Sánchez',
-    email: 'roberto.sanchez@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_1eaf91ec8-1763300403456.png",
-    profileImageAlt: 'Retrato profesional de hombre hispano con cabello corto en camisa blanca',
-    coach: 'Luis Rodríguez',
-    attendanceRate: 72,
-    performanceScore: 70,
-    performanceTrend: -5,
-    paymentStatus: 'pending',
-    isActive: true,
-    attendanceLast30Days: [75, 70, 72, 71]
-  },
-  {
-    id: 'ATH008',
-    name: 'Isabel Fernández',
-    email: 'isabel.fernandez@email.com',
-    profileImage: "https://img.rocket.new/generatedImages/rocket_gen_img_134210297-1763300264821.png",
-    profileImageAlt: 'Retrato profesional de mujer hispana con cabello castaño ondulado en blusa azul',
-    coach: 'María López',
-    attendanceRate: 90,
-    performanceScore: 89,
-    performanceTrend: 7,
-    paymentStatus: 'paid',
-    isActive: true,
-    attendanceLast30Days: [88, 90, 92, 90]
-  }];
+  const [athletes, setAthletes] = useState([]);
+  const [metricsSummary, setMetricsSummary] = useState({
+    totalAthletes: 0,
+    activeThisMonth: 0,
+    avgPerformance: 0,
+    retentionRate: 0
+  });
+  const [segmentation, setSegmentation] = useState({
+    elite: 0,
+    advanced: 0,
+    intermediate: 0,
+    beginner: 0,
+    total: 0
+  });
 
 
   const mockActivities = [
@@ -198,19 +84,244 @@ const AthletesManagement = () => {
     timestamp: new Date(Date.now() - 7200000)
   }];
 
+  const coachId = currentUser?.coach_id || currentUser?.coachId || currentUser?.id;
+
+  const calculateAttendanceRate = (records = []) => {
+    if (!records?.length) {
+      return 0;
+    }
+    const presentCount = records?.filter((record) => record?.status === 'present')?.length || 0;
+    return Math.round((presentCount / records.length) * 100);
+  };
+
+  const buildWeeklyAttendance = (records = []) => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(now.getDate() - 28);
+
+    return Array.from({ length: 4 }).map((_, index) => {
+      const weekStart = new Date(start);
+      weekStart.setDate(start.getDate() + index * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+
+      const weekRecords = records?.filter((record) => {
+        const recordDate = new Date(record?.date);
+        return recordDate >= weekStart && recordDate < weekEnd;
+      });
+
+      return calculateAttendanceRate(weekRecords);
+    });
+  };
+
+  const buildPerformanceMetrics = (records = []) => {
+    if (!records?.length) {
+      return { score: 0, trend: 0 };
+    }
+
+    const sorted = [...records].sort((a, b) => new Date(a?.date) - new Date(b?.date));
+    const latest = sorted?.[sorted.length - 1];
+    const previous = sorted?.[sorted.length - 2];
+    const score = Math.round(latest?.value ?? 0);
+    const trend = previous ? score - Math.round(previous?.value ?? 0) : 0;
+
+    return { score, trend };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAthletesData = async () => {
+      setIsLoading(true);
+      try {
+        let athleteQuery = supabase.from('athletes').select('*');
+
+        if (currentUser?.role === 'profesor' && coachId) {
+          athleteQuery = athleteQuery.eq('coach_id', coachId);
+        }
+
+        const { data: athletesData, error: athletesError } = await athleteQuery;
+
+        if (athletesError) {
+          throw athletesError;
+        }
+
+        const athleteList = athletesData ?? [];
+        const athleteIds = athleteList?.map((athlete) => athlete?.id).filter(Boolean);
+
+        let attendanceData = [];
+        let metricsData = [];
+        let paymentsData = [];
+
+        if (athleteIds?.length > 0) {
+          const [
+            { data: attendance, error: attendanceError },
+            { data: metrics, error: metricsError },
+            { data: payments, error: paymentsError }
+          ] = await Promise.all([
+            supabase.from('attendance').select('*').in('athlete_id', athleteIds),
+            supabase.from('metrics').select('*').in('athlete_id', athleteIds),
+            supabase.from('payments').select('*').in('athlete_id', athleteIds)
+          ]);
+
+          if (attendanceError) {
+            throw attendanceError;
+          }
+          if (metricsError) {
+            throw metricsError;
+          }
+          if (paymentsError) {
+            throw paymentsError;
+          }
+
+          attendanceData = attendance ?? [];
+          metricsData = metrics ?? [];
+          paymentsData = payments ?? [];
+        }
+
+        const attendanceByAthlete = attendanceData.reduce((acc, record) => {
+          const athleteId = record?.athlete_id;
+          if (!athleteId) {
+            return acc;
+          }
+          acc[athleteId] = acc[athleteId] || [];
+          acc[athleteId].push(record);
+          return acc;
+        }, {});
+
+        const metricsByAthlete = metricsData.reduce((acc, record) => {
+          const athleteId = record?.athlete_id;
+          if (!athleteId) {
+            return acc;
+          }
+          acc[athleteId] = acc[athleteId] || [];
+          acc[athleteId].push(record);
+          return acc;
+        }, {});
+
+        const paymentsByAthlete = paymentsData.reduce((acc, record) => {
+          const athleteId = record?.athlete_id;
+          if (!athleteId) {
+            return acc;
+          }
+          acc[athleteId] = acc[athleteId] || [];
+          acc[athleteId].push(record);
+          return acc;
+        }, {});
+
+        const enrichedAthletes = athleteList.map((athlete) => {
+          const athleteId = athlete?.id;
+          const attendanceRecords = attendanceByAthlete?.[athleteId] ?? [];
+          const performanceRecords = metricsByAthlete?.[athleteId] ?? [];
+          const paymentRecords = paymentsByAthlete?.[athleteId] ?? [];
+          const performance = buildPerformanceMetrics(performanceRecords);
+          const attendanceRate = calculateAttendanceRate(attendanceRecords);
+          const latestPayment = paymentRecords
+            ?.slice()
+            ?.sort((a, b) => new Date(b?.date) - new Date(a?.date))?.[0];
+          const name = athlete?.name || athlete?.full_name || athlete?.display_name || 'Atleta';
+
+          return {
+            id: athleteId,
+            name,
+            email: athlete?.email || 'Sin correo',
+            profileImage: athlete?.profile_image || athlete?.avatar_url,
+            profileImageAlt: athlete?.profile_image_alt || `Foto de ${name}`,
+            coach: athlete?.coach_name || athlete?.coach || currentUser?.name || 'Sin asignar',
+            attendanceRate,
+            performanceScore: performance?.score,
+            performanceTrend: performance?.trend,
+            paymentStatus: latestPayment?.status || 'pending',
+            isActive: athlete?.is_active ?? athlete?.active ?? true,
+            attendanceLast30Days: buildWeeklyAttendance(attendanceRecords)
+          };
+        });
+
+        const performanceScores = enrichedAthletes.map((athlete) => athlete?.performanceScore || 0);
+        const avgPerformance = performanceScores?.length
+          ? Math.round(performanceScores.reduce((sum, value) => sum + value, 0) / performanceScores.length)
+          : 0;
+
+        const recentActiveAthletes = new Set(
+          attendanceData
+            ?.filter((record) => {
+              const recordDate = new Date(record?.date);
+              const thirtyDaysAgo = new Date();
+              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+              return recordDate >= thirtyDaysAgo;
+            })
+            ?.map((record) => record?.athlete_id)
+        );
+
+        const totalAthletes = enrichedAthletes?.length;
+        const activeThisMonth = recentActiveAthletes?.size || 0;
+        const retentionRate = totalAthletes
+          ? Math.round((activeThisMonth / totalAthletes) * 100)
+          : 0;
+
+        const segmentationCounts = enrichedAthletes.reduce(
+          (acc, athlete) => {
+            const score = athlete?.performanceScore ?? 0;
+            if (score >= 90) {
+              acc.elite += 1;
+            } else if (score >= 75) {
+              acc.advanced += 1;
+            } else if (score >= 60) {
+              acc.intermediate += 1;
+            } else {
+              acc.beginner += 1;
+            }
+            return acc;
+          },
+          {
+            elite: 0,
+            advanced: 0,
+            intermediate: 0,
+            beginner: 0
+          }
+        );
+
+        if (!isMounted) {
+          return;
+        }
+
+        setAthletes(enrichedAthletes);
+        setMetricsSummary({
+          totalAthletes,
+          activeThisMonth,
+          avgPerformance,
+          retentionRate
+        });
+        setSegmentation({
+          ...segmentationCounts,
+          total: totalAthletes
+        });
+      } catch (error) {
+        console.error('Error loading athletes management data', error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadAthletesData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [coachId, currentUser?.role, currentUser?.name, lastRefresh]);
 
   // Role-based filtering: Admin sees all athletes, Professor sees only their athletes
-  const visibleAthletes = React.useMemo(() => {
+  const visibleAthletes = useMemo(() => {
     if (currentUser?.role === 'admin') {
-      return mockAthletes;
+      return athletes;
     } else if (currentUser?.role === 'profesor') {
       // Filter athletes assigned to this professor
-      return mockAthletes?.filter(athlete => 
-        athlete?.coach === currentUser?.name
-      );
+      return athletes?.filter((athlete) => athlete?.coach === currentUser?.name);
     }
     return [];
-  }, [currentUser]);
+  }, [athletes, currentUser]);
 
   useEffect(() => {
     applyFiltersAndSearch();
@@ -392,7 +503,7 @@ const AthletesManagement = () => {
               </div>
             </div>
 
-            <MetricsStrip metrics={mockMetrics} />
+            <MetricsStrip metrics={metricsSummary} />
 
             <SearchAndFilters
               onSearch={handleSearch}
@@ -475,7 +586,7 @@ const AthletesManagement = () => {
               </div>
 
               <div className="lg:col-span-4 space-y-6">
-                <AthleteSegmentation segmentationData={mockSegmentation} />
+                <AthleteSegmentation segmentationData={segmentation} />
                 <RecentActivity activities={mockActivities} />
               </div>
             </div>
