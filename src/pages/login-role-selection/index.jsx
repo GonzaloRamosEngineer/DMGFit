@@ -8,7 +8,7 @@ import Icon from '../../components/AppIcon';
 
 const LoginRoleSelection = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const auth = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -18,32 +18,6 @@ const LoginRoleSelection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const demoUsers = [
-  {
-    role: 'admin',
-    username: 'admin@digitalmatch.com',
-    password: 'admin123',
-    name: 'Administrador Sistema',
-    avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_10fa66223-1763296776467.png",
-    avatarAlt: 'Retrato profesional de administrador con traje formal'
-  },
-  {
-    role: 'profesor',
-    username: 'profesor@digitalmatch.com',
-    password: 'profesor123',
-    name: 'Ana García',
-    avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_118427f75-1763294329565.png",
-    avatarAlt: 'Retrato profesional de profesora con ropa deportiva'
-  },
-  {
-    role: 'atleta',
-    username: 'atleta@digitalmatch.com',
-    password: 'atleta123',
-    name: 'Carlos Rodríguez',
-    avatar: "https://img.rocket.new/generatedImages/rocket_gen_img_14ecadb88-1763292065925.png",
-    avatarAlt: 'Retrato profesional de atleta con camiseta deportiva roja'
-  }];
-
 
   const handleInputChange = (e) => {
     const { name, value } = e?.target;
@@ -51,60 +25,42 @@ const LoginRoleSelection = () => {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e?.preventDefault();
     setIsLoading(true);
     setError('');
 
-    setTimeout(() => {
-      const user = demoUsers?.find(
-        (u) => u?.username === formData?.username && u?.password === formData?.password
-      );
+    const loginFn = auth?.login;
+    if (typeof loginFn !== 'function') {
+      setError('No se pudo inicializar la sesión. Revisa la configuración de autenticación.');
+      setIsLoading(false);
+      return;
+    }
 
-      if (user) {
-        login({
-          id: `USER-${Date.now()}`,
-          name: user?.name,
-          email: user?.username,
-          role: user?.role,
-          avatar: user?.avatar,
-          avatarAlt: user?.avatarAlt
-        });
+    const { error: loginError, user } = await loginFn({
+      email: formData?.username,
+      password: formData?.password,
+      expectedRole: formData?.role
+    });
 
-        const redirectPaths = {
-          admin: '/main-dashboard',
-          profesor: '/professor-dashboard',
-          atleta: '/athlete-portal'
-        };
-
-        navigate(redirectPaths?.[user?.role] || '/main-dashboard');
+    if (loginError) {
+      if (loginError?.message === 'role_mismatch') {
+        setError('El rol seleccionado no coincide con tu usuario.');
       } else {
-        setError('Credenciales incorrectas. Usa las cuentas demo.');
+        setError('Credenciales incorrectas. Verifica email y contraseña.');
       }
       setIsLoading(false);
-    }, 800);
-  };
+      return;
+    }
 
-  const handleDemoLogin = (demoUser) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      login({
-        id: `USER-${Date.now()}`,
-        name: demoUser?.name,
-        email: demoUser?.username,
-        role: demoUser?.role,
-        avatar: demoUser?.avatar,
-        avatarAlt: demoUser?.avatarAlt
-      });
+    const redirectPaths = {
+      admin: '/main-dashboard',
+      profesor: '/professor-dashboard',
+      atleta: '/athlete-portal'
+    };
 
-      const redirectPaths = {
-        admin: '/main-dashboard',
-        profesor: '/professor-dashboard',
-        atleta: '/athlete-portal'
-      };
-
-      navigate(redirectPaths?.[demoUser?.role] || '/main-dashboard');
-    }, 500);
+    navigate(redirectPaths?.[user?.role] || '/main-dashboard');
+    setIsLoading(false);
   };
 
   return (
@@ -203,40 +159,6 @@ const LoginRoleSelection = () => {
               </Button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-border">
-              <p className="text-sm text-muted-foreground text-center mb-4">Cuentas Demo para Pruebas</p>
-              <div className="space-y-3">
-                {demoUsers?.map((user) =>
-                <button
-                  key={user?.role}
-                  onClick={() => handleDemoLogin(user)}
-                  disabled={isLoading}
-                  className="w-full flex items-center gap-3 p-3 bg-muted/50 hover:bg-muted rounded-lg transition-smooth border border-border/50 hover:border-primary/30 disabled:opacity-50 disabled:cursor-not-allowed">
-
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <Icon
-                      name={user?.role === 'admin' ? 'Shield' : user?.role === 'profesor' ? 'GraduationCap' : 'User'}
-                      size={20}
-                      color="var(--color-primary)" />
-
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-foreground">{user?.name}</p>
-                      <p className="text-xs text-muted-foreground">{user?.username}</p>
-                    </div>
-                    <div className="px-2 py-1 bg-primary/10 rounded text-xs font-medium text-primary capitalize">
-                      {user?.role}
-                    </div>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 text-center">
-            <p className="text-xs text-muted-foreground">
-              Sistema de demostración con datos simulados
-            </p>
           </div>
         </div>
       </div>
