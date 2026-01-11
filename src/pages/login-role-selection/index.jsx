@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
-import { useAuth } from '../../contexts/AuthContext';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Icon from '../../components/AppIcon';
+import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../contexts/AuthContext';
 
 const LoginRoleSelection = () => {
   const navigate = useNavigate();
-  const auth = useAuth();
+  const { isAuthenticated, currentUser } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
-    password: '',
-    role: 'admin'
+    password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,14 +30,7 @@ const LoginRoleSelection = () => {
     setIsLoading(true);
     setError('');
 
-    const loginFn = auth?.login;
-    if (typeof loginFn !== 'function') {
-      setError('No se pudo inicializar la sesión. Revisa la configuración de autenticación.');
-      setIsLoading(false);
-      return;
-    }
-
-    const { error: loginError, user } = await loginFn({
+    const { error: loginError, user } = await login({
       email: formData?.username,
       password: formData?.password,
       expectedRole: formData?.role
@@ -62,6 +55,22 @@ const LoginRoleSelection = () => {
     navigate(redirectPaths?.[user?.role] || '/main-dashboard');
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    const redirectPaths = {
+      admin: '/main-dashboard',
+      profesor: '/professor-dashboard',
+      atleta: '/athlete-portal'
+    };
+
+    if (isAuthenticated) {
+      if (currentUser?.role) {
+        navigate(redirectPaths?.[currentUser?.role] || '/main-dashboard', { replace: true });
+      } else {
+        setError('No se encontró un rol asociado a tu cuenta.');
+      }
+    }
+  }, [isAuthenticated, currentUser, navigate]);
 
   return (
     <>
@@ -121,23 +130,6 @@ const LoginRoleSelection = () => {
                     <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={20} />
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <label htmlFor="role" className="block text-sm font-medium text-foreground mb-2">
-                  Rol
-                </label>
-                <select
-                  id="role"
-                  name="role"
-                  value={formData?.role}
-                  onChange={handleInputChange}
-                  className="w-full h-10 px-4 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth">
-
-                  <option value="admin">Administrador</option>
-                  <option value="profesor">Profesor/Instructor</option>
-                  <option value="atleta">Atleta/Alumno</option>
-                </select>
               </div>
 
               {error &&
