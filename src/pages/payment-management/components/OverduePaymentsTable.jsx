@@ -5,9 +5,29 @@ import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
 
-const OverduePaymentsTable = ({ payments, onSendReminder, onScheduleCall, onCreatePlan }) => {
+const OverduePaymentsTable = ({ payments, onSendReminder, onScheduleCall, onCreatePlan, loading = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayments, setSelectedPayments] = useState([]);
+
+  // Skeleton Loader
+  if (loading) {
+    return (
+      <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
+        <div className="p-4 border-b border-border flex justify-between">
+          <div className="h-6 bg-muted/50 rounded w-1/3"></div>
+          <div className="h-8 bg-muted/50 rounded w-1/4"></div>
+        </div>
+        <div className="p-4 space-y-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="flex gap-4">
+              <div className="h-10 w-10 bg-muted/50 rounded-full"></div>
+              <div className="h-4 bg-muted/50 rounded w-full mt-3"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const filteredPayments = payments?.filter(payment =>
     payment?.athleteName?.toLowerCase()?.includes(searchTerm?.toLowerCase()) ||
@@ -45,7 +65,7 @@ const OverduePaymentsTable = ({ payments, onSendReminder, onScheduleCall, onCrea
               Pagos Vencidos
             </h3>
             <p className="text-sm text-muted-foreground">
-              {filteredPayments?.length} atletas con pagos pendientes
+              {filteredPayments?.length || 0} atletas con pagos pendientes
             </p>
           </div>
           {selectedPayments?.length > 0 && (
@@ -58,128 +78,97 @@ const OverduePaymentsTable = ({ payments, onSendReminder, onScheduleCall, onCrea
 
         <Input
           type="search"
-          placeholder="Buscar por nombre o ID de atleta..."
+          placeholder="Buscar por nombre o ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e?.target?.value)}
         />
       </div>
+      
       <div className="overflow-x-auto">
         <table className="w-full min-w-[800px]">
           <thead className="bg-muted/50">
             <tr>
-              <th className="px-4 py-3 text-left">
+              <th className="px-4 py-3 text-left w-10">
                 <input
                   type="checkbox"
                   checked={selectedPayments?.length === filteredPayments?.length && filteredPayments?.length > 0}
                   onChange={handleSelectAll}
                   className="w-4 h-4 rounded border-border bg-input"
-                  aria-label="Select all payments"
                 />
               </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                Atleta
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                Monto Adeudado
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                Días Vencido
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                Último Contacto
-              </th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
-                Acciones
-              </th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Atleta</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Monto</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Días Vencido</th>
+              <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Contacto</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filteredPayments?.map((payment) => (
-              <tr key={payment?.id} className="hover:bg-muted/30 transition-smooth">
-                <td className="px-4 py-4">
-                  <input
-                    type="checkbox"
-                    checked={selectedPayments?.includes(payment?.id)}
-                    onChange={() => handleSelectPayment(payment?.id)}
-                    className="w-4 h-4 rounded border-border bg-input"
-                    aria-label={`Select payment for ${payment?.athleteName}`}
-                  />
-                </td>
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <Image
-                      src={payment?.athleteImage}
-                      alt={payment?.athleteImageAlt}
-                      className="w-10 h-10 rounded-full object-cover"
+            {filteredPayments?.length > 0 ? (
+              filteredPayments.map((payment) => (
+                <tr key={payment?.id} className="hover:bg-muted/30 transition-smooth group">
+                  <td className="px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedPayments?.includes(payment?.id)}
+                      onChange={() => handleSelectPayment(payment?.id)}
+                      className="w-4 h-4 rounded border-border bg-input"
                     />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {payment?.athleteName}
-                      </p>
-                      <p className="text-xs text-muted-foreground font-data">
-                        ID: {payment?.athleteId}
-                      </p>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      {payment?.athleteImage ? (
+                        <Image
+                          src={payment.athleteImage}
+                          alt={payment.athleteName}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Icon name="User" size={16} className="text-primary" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{payment?.athleteName}</p>
+                        <p className="text-xs text-muted-foreground font-data">ID: {payment?.athleteId?.slice(0,8)}</p>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-4 py-4">
-                  <p className="text-base font-data font-semibold text-foreground">
-                    €{payment?.amountOwed?.toLocaleString()}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {payment?.invoiceCount} facturas
-                  </p>
-                </td>
-                <td className="px-4 py-4">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getSeverityColor(payment?.daysOverdue)}`}>
-                    <Icon name="Clock" size={14} className="mr-1" />
-                    {payment?.daysOverdue} días
-                  </span>
-                </td>
-                <td className="px-4 py-4">
-                  <p className="text-sm text-foreground">{payment?.lastContact}</p>
-                  <p className="text-xs text-muted-foreground">{payment?.contactMethod}</p>
-                </td>
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onSendReminder([payment?.id])}
-                    >
-                      <Icon name="Bell" size={16} />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onScheduleCall(payment?.id)}
-                    >
-                      <Icon name="Phone" size={16} />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onCreatePlan(payment?.id)}
-                    >
-                      <Icon name="FileText" size={16} />
-                    </Button>
-                    <QuickActionMenu
-                      entityId={payment?.id}
-                      entityType="payment"
-                    />
-                  </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <p className="text-base font-data font-semibold text-foreground">€{payment?.amountOwed?.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">{payment?.invoiceCount || 1} facturas</p>
+                  </td>
+                  <td className="px-4 py-4">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getSeverityColor(payment?.daysOverdue)}`}>
+                      <Icon name="Clock" size={14} className="mr-1" />
+                      {payment?.daysOverdue} días
+                    </span>
+                  </td>
+                  <td className="px-4 py-4">
+                    <p className="text-sm text-foreground">{payment?.lastContact || 'Nunca'}</p>
+                    <p className="text-xs text-muted-foreground">{payment?.contactMethod || '-'}</p>
+                  </td>
+                  <td className="px-4 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="outline" size="sm" onClick={() => onSendReminder([payment?.id])} title="Recordar">
+                        <Icon name="Bell" size={16} />
+                      </Button>
+                      <QuickActionMenu entityId={payment?.id} entityType="payment" />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="6" className="py-12 text-center text-muted-foreground">
+                  <Icon name="CheckCircle" size={48} className="mx-auto mb-3 opacity-20" />
+                  <p>No se encontraron pagos vencidos.</p>
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
-      {filteredPayments?.length === 0 && (
-        <div className="p-12 text-center">
-          <Icon name="Search" size={48} color="var(--color-muted-foreground)" className="mx-auto mb-4" />
-          <p className="text-muted-foreground">No se encontraron pagos vencidos</p>
-        </div>
-      )}
     </div>
   );
 };
