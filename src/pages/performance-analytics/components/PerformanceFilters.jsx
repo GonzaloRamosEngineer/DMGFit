@@ -7,51 +7,21 @@ const PerformanceFilters = ({
   filters, 
   onFilterChange, 
   onReset, 
-  onExport 
+  onExport,
+  loading = false // Para deshabilitar inputs mientras carga
 }) => {
-  const athleteGroupOptions = [
-    { value: 'all', label: 'Todos los Atletas' },
-    { value: 'individual', label: 'Individual' },
-    { value: 'team', label: 'Equipo' },
-    { value: 'facility', label: 'Instalación Completa' }
-  ];
-
-  const metricOptions = [
-    { value: 'overall', label: 'Rendimiento General' },
-    { value: 'strength', label: 'Fuerza' },
-    { value: 'endurance', label: 'Resistencia' },
-    { value: 'technique', label: 'Técnica' },
-    { value: 'speed', label: 'Velocidad' },
-    { value: 'flexibility', label: 'Flexibilidad' }
-  ];
-
+  // Opciones estáticas (ideales para empezar)
   const timePeriodOptions = [
     { value: 'week', label: 'Última Semana' },
     { value: 'month', label: 'Último Mes' },
     { value: 'quarter', label: 'Último Trimestre' },
     { value: 'year', label: 'Último Año' },
-    { value: 'custom', label: 'Rango Personalizado' }
   ];
 
-  const comparisonOptions = [
-    { value: 'athlete-to-athlete', label: 'Atleta vs Atleta' },
-    { value: 'period-over-period', label: 'Período vs Período' },
-    { value: 'goal-vs-actual', label: 'Meta vs Real' }
-  ];
-
-  const coachOptions = [
-    { value: 'all', label: 'Todos los Entrenadores' },
-    { value: 'coach1', label: 'Carlos Martínez' },
-    { value: 'coach2', label: 'Laura Sánchez' },
-    { value: 'coach3', label: 'Miguel Torres' }
-  ];
-
-  const programOptions = [
-    { value: 'all', label: 'Todos los Programas' },
-    { value: 'strength', label: 'Programa de Fuerza' },
-    { value: 'cardio', label: 'Programa Cardiovascular' },
-    { value: 'hiit', label: 'Programa HIIT' },
-    { value: 'flexibility', label: 'Programa de Flexibilidad' }
+  const metricOptions = [
+    { value: 'Peso Corporal', label: 'Peso Corporal' },
+    { value: 'Sentadilla', label: 'Fuerza (Sentadilla)' },
+    // Puedes agregar más según tus datos reales
   ];
 
   return (
@@ -69,6 +39,7 @@ const PerformanceFilters = ({
             variant="outline"
             size="sm"
             onClick={onReset}
+            disabled={loading}
             iconName="RotateCcw"
             iconPosition="left"
             className="text-xs md:text-sm"
@@ -79,6 +50,7 @@ const PerformanceFilters = ({
             variant="default"
             size="sm"
             onClick={onExport}
+            disabled={loading}
             iconName="Download"
             iconPosition="left"
             className="text-xs md:text-sm"
@@ -87,67 +59,35 @@ const PerformanceFilters = ({
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Select
-          label="Grupo de Atletas"
-          options={athleteGroupOptions}
-          value={filters?.athleteGroup}
-          onChange={(value) => onFilterChange('athleteGroup', value)}
-          className="w-full"
-        />
-
-        <Select
-          label="Métrica de Rendimiento"
-          options={metricOptions}
-          value={filters?.metric}
-          onChange={(value) => onFilterChange('metric', value)}
-          className="w-full"
-        />
-
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Filtro de Tiempo */}
         <Select
           label="Período de Tiempo"
           options={timePeriodOptions}
-          value={filters?.timePeriod}
+          value={filters?.timePeriod || 'month'}
           onChange={(value) => onFilterChange('timePeriod', value)}
+          disabled={loading}
           className="w-full"
         />
 
+        {/* Filtro de Métrica */}
         <Select
-          label="Modo de Comparación"
-          options={comparisonOptions}
-          value={filters?.comparison}
-          onChange={(value) => onFilterChange('comparison', value)}
+          label="Métrica Principal"
+          options={metricOptions}
+          value={filters?.metric || 'Peso Corporal'}
+          onChange={(value) => onFilterChange('metric', value)}
+          disabled={loading}
           className="w-full"
         />
-      </div>
-      <div className="mt-4 pt-4 border-t border-border">
-        <div className="flex items-center gap-2 mb-3 md:mb-4">
-          <Icon name="SlidersHorizontal" size={16} color="var(--color-muted-foreground)" className="md:w-5 md:h-5" />
-          <span className="text-xs md:text-sm font-medium text-muted-foreground">Filtros Avanzados</span>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Entrenador"
-            options={coachOptions}
-            value={filters?.coach}
-            onChange={(value) => onFilterChange('coach', value)}
-            className="w-full"
-          />
-
-          <Select
-            label="Programa de Entrenamiento"
-            options={programOptions}
-            value={filters?.program}
-            onChange={(value) => onFilterChange('program', value)}
-            className="w-full"
-          />
-        </div>
+        {/* Aquí podrías agregar más filtros en el futuro si traes la lista de Coaches de la DB */}
       </div>
+
       <div className="mt-4 flex items-start gap-2 p-3 bg-accent/10 rounded-lg border border-accent/20">
         <Icon name="Info" size={16} color="var(--color-accent)" className="flex-shrink-0 mt-0.5 md:w-5 md:h-5" />
         <p className="text-xs md:text-sm text-foreground">
-          Los datos se actualizan diariamente a las 00:00. Las métricas de rendimiento se calculan basándose en asistencia, progreso y logros de objetivos.
+          Los datos mostrados reflejan los registros históricos almacenados en la base de datos.
         </p>
       </div>
     </div>
