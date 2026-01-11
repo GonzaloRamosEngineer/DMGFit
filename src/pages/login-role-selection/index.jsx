@@ -1,15 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react'; // Eliminamos useEffect
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Icon from '../../components/AppIcon';
-import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 
 const LoginRoleSelection = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, currentUser, login } = useAuth();
+  const { login } = useAuth(); // Ya no necesitamos isAuthenticated ni currentUser aquí
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -17,7 +16,6 @@ const LoginRoleSelection = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
 
   const handleInputChange = (e) => {
     const { name, value } = e?.target;
@@ -31,51 +29,48 @@ const LoginRoleSelection = () => {
     setError('');
 
     try {
+      // 1. Intentamos loguear
+      // Nota: No pasamos expectedRole porque en este form solo pedimos user/pass
       const { error: loginError, user } = await login({
         email: formData?.username,
-        password: formData?.password,
-        expectedRole: formData?.role
+        password: formData?.password
       });
 
       if (loginError) {
+        console.error("Error en login:", loginError);
         if (loginError?.message === 'role_mismatch') {
           setError('El rol seleccionado no coincide con tu usuario.');
         } else {
           setError('Credenciales incorrectas. Verifica email y contraseña.');
         }
+        setIsLoading(false); // Importante: apagamos loading si hay error
         return;
       }
 
+      // 2. Definimos rutas
       const redirectPaths = {
         admin: '/main-dashboard',
         profesor: '/professor-dashboard',
         atleta: '/athlete-portal'
       };
 
-      navigate(redirectPaths?.[user?.role] || '/main-dashboard');
+      // 3. Obtenemos el rol (con fallback a 'atleta' si viene null)
+      const userRole = user?.role || 'atleta';
+      const targetPath = redirectPaths[userRole] || '/main-dashboard';
+
+      console.log('Login exitoso. Redirigiendo a:', targetPath);
+      
+      // 4. Navegamos
+      navigate(targetPath, { replace: true });
+
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error('Login failed (Catch):', err);
       setError('Ocurrió un error inesperado. Intenta nuevamente.');
-    } finally {
       setIsLoading(false);
-    }
+    } 
+    // Nota: No usamos 'finally' para setIsLoading(false) aquí porque si navigate
+    // tiene éxito, el componente se desmonta y cambiar estado daría error/warning.
   };
-
-  useEffect(() => {
-    const redirectPaths = {
-      admin: '/main-dashboard',
-      profesor: '/professor-dashboard',
-      atleta: '/athlete-portal'
-    };
-
-    if (isAuthenticated) {
-      if (currentUser?.role) {
-        navigate(redirectPaths?.[currentUser?.role] || '/main-dashboard', { replace: true });
-      } else {
-        setError('No se encontró un rol asociado a tu cuenta.');
-      }
-    }
-  }, [isAuthenticated, currentUser, navigate]);
 
   return (
     <>
@@ -109,7 +104,6 @@ const LoginRoleSelection = () => {
                   placeholder="usuario@digitalmatch.com"
                   className="w-full"
                   required />
-
               </div>
 
               <div>
@@ -131,14 +125,13 @@ const LoginRoleSelection = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-smooth">
-
                     <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={20} />
                   </button>
                 </div>
               </div>
 
               {error &&
-              <div className="bg-error/10 border border-error/20 rounded-lg p-3 flex items-start gap-2">
+                <div className="bg-error/10 border border-error/20 rounded-lg p-3 flex items-start gap-2">
                   <Icon name="AlertCircle" size={20} color="var(--color-error)" className="flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-error">{error}</p>
                 </div>
@@ -151,16 +144,14 @@ const LoginRoleSelection = () => {
                 fullWidth
                 loading={isLoading}
                 iconName="LogIn">
-
                 Iniciar Sesión
               </Button>
             </form>
-
           </div>
         </div>
       </div>
-    </>);
-
+    </>
+  );
 };
 
 export default LoginRoleSelection;
