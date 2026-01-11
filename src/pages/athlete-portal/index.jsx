@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { getAthletePlan, getAthleteAttendance, getAthleteMetrics, getAthleteNotes, mockSessions } from '../../data/mockData';
+import { fetchAthleteNotes } from '../../services/athletes';
+import { fetchAttendanceByAthlete } from '../../services/attendance';
+import { fetchMetricsByAthlete } from '../../services/metrics';
+import { fetchPaymentsByAthlete } from '../../services/payments';
+import { fetchPlanByAthlete } from '../../services/plans';
+import { fetchUpcomingSessionsByAthlete } from '../../services/sessions';
 import MyPlanCard from './components/MyPlanCard';
 import UpcomingSessionsCard from './components/UpcomingSessionsCard';
 import AttendanceCard from './components/AttendanceCard';
@@ -16,28 +21,61 @@ import CoachNotesCard from './components/CoachNotesCard';
 const AthletePortal = () => {
   const { currentUser } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [plan, setPlan] = useState(null);
+  const [attendance, setAttendance] = useState([]);
+  const [metrics, setMetrics] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [payments, setPayments] = useState([]);
 
   const athleteId = 'ATH001';
-  const myPlan = getAthletePlan(athleteId);
-  const myAttendance = getAthleteAttendance(athleteId);
-  const myMetrics = getAthleteMetrics(athleteId);
-  const myNotes = getAthleteNotes(athleteId);
 
-  const upcomingSessions = mockSessions?.filter(s => {
-    const sessionDate = new Date(s?.date);
-    const today = new Date();
-    return sessionDate >= today && s?.attendees?.includes(athleteId);
-  })?.slice(0, 3);
+  useEffect(() => {
+    let isMounted = true;
 
-  const attendanceRate = myAttendance?.length > 0
-    ? Math.round((myAttendance?.filter(a => a?.status === 'present')?.length / myAttendance?.length) * 100)
-    : 0;
+    const loadAthleteData = async () => {
+      try {
+        const [planData, attendanceData, metricsData, notesData, sessionsData, paymentsData] = await Promise.all([
+          fetchPlanByAthlete(athleteId),
+          fetchAttendanceByAthlete(athleteId),
+          fetchMetricsByAthlete(athleteId),
+          fetchAthleteNotes(athleteId),
+          fetchUpcomingSessionsByAthlete(athleteId, 3),
+          fetchPaymentsByAthlete(athleteId)
+        ]);
 
-  const mockPayments = [
-    { id: 'PAY-001', date: '2026-01-01', amount: 150, status: 'paid', concept: 'Mensualidad Enero 2026' },
-    { id: 'PAY-002', date: '2025-12-01', amount: 150, status: 'paid', concept: 'Mensualidad Diciembre 2025' },
-    { id: 'PAY-003', date: '2025-11-01', amount: 150, status: 'paid', concept: 'Mensualidad Noviembre 2025' }
-  ];
+        if (!isMounted) {
+          return;
+        }
+
+        setPlan(planData);
+        setAttendance(attendanceData ?? []);
+        setMetrics(metricsData ?? []);
+        setNotes(notesData ?? []);
+        setSessions(sessionsData ?? []);
+        setPayments(paymentsData ?? []);
+      } catch (error) {
+        console.error('Error loading athlete portal data', error);
+      }
+    };
+
+    if (athleteId) {
+      loadAthleteData();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [athleteId]);
+
+  const attendanceRate = useMemo(() => {
+    if (!attendance?.length) {
+      return 0;
+    }
+
+    const presentCount = attendance?.filter(a => a?.status === 'present')?.length || 0;
+    return Math.round((presentCount / attendance.length) * 100);
+  }, [attendance]);
 
   const breadcrumbItems = [
     { label: 'Mi Portal', path: '/athlete-portal', active: true }
@@ -87,7 +125,9 @@ const AthletePortal = () => {
                     <Icon name="CheckCircle" size={20} color="var(--color-success)" />
                   </div>
                   <div>
-                    <p className="text-2xl font-heading font-bold text-foreground">{myAttendance?.filter(a => a?.status === 'present')?.length}</p>
+                    <p className="text-2xl font-heading font-bold text-foreground">
+                      {attendance?.filter(a => a?.status === 'present')?.length}
+                    </p>
                     <p className="text-sm text-muted-foreground">Sesiones Completadas</p>
                   </div>
                 </div>
@@ -99,7 +139,7 @@ const AthletePortal = () => {
                     <Icon name="Award" size={20} color="var(--color-secondary)" />
                   </div>
                   <div>
-                    <p className="text-2xl font-heading font-bold text-foreground">{myMetrics?.length}</p>
+                    <p className="text-2xl font-heading font-bold text-foreground">{metrics?.length}</p>
                     <p className="text-sm text-muted-foreground">Métricas Registradas</p>
                   </div>
                 </div>
@@ -108,15 +148,15 @@ const AthletePortal = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-6">
-                <MyPlanCard plan={myPlan} />
-                <UpcomingSessionsCard sessions={upcomingSessions} />
-                <AttendanceCard attendance={myAttendance} attendanceRate={attendanceRate} />
+                <MyPlanCard plan={plan} />
+                <UpcomingSessionsCard sessions={sessions} />
+                <AttendanceCard attendance={attendance} attendanceRate={attendanceRate} />
               </div>
 
               <div className="space-y-6">
-                <MetricsCard metrics={myMetrics} />
-                <PaymentsCard payments={mockPayments} />
-                <CoachNotesCard notes={myNotes} />
+                <MetricsCard metrics={metrics} />
+                <PaymentsCard payments={payments} />
+                <CoachNotesCard notes={notes} />
               </div>
             </div>
           </div>
