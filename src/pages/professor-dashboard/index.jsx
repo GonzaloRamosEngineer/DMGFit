@@ -6,7 +6,10 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
-import { getPlansByProfessor, getAthletesByProfessor, mockSessions, mockAttendance, mockNotes } from '../../data/mockData';
+import { supabase } from '../../lib/supabaseClient';
+import { fetchPlansByCoach } from '../../services/plans';
+import { fetchAthletesByCoach } from '../../services/athletes';
+import { fetchSessionsByCoach } from '../../services/sessions';
 import MyPlansSection from './components/MyPlansSection';
 import MyAthletesSection from './components/MyAthletesSection';
 import AttendanceTracker from './components/AttendanceTracker';
@@ -18,18 +21,110 @@ const ProfessorDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedDate, setSelectedDate] = useState(new Date()?.toISOString()?.split('T')?.[0]);
+  const [plans, setPlans] = useState([]);
+  const [athletes, setAthletes] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [attendance, setAttendance] = useState([]);
 
   const professorName = currentUser?.name || 'Ana García';
-  const myPlans = getPlansByProfessor(professorName);
-  const myAthleteIds = getAthletesByProfessor(professorName);
-  const mySessions = mockSessions?.filter(s => s?.professor === professorName);
-  const myNotes = mockNotes?.filter(n => n?.professorName === professorName);
+  const coachId = currentUser?.coach_id || currentUser?.coachId || currentUser?.id;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadProfessorData = async () => {
+      if (!coachId) {
+        return;
+      }
+
+      try {
+        const [plansData, athletesData, sessionsData] = await Promise.all([
+          fetchPlansByCoach(coachId),
+          fetchAthletesByCoach(coachId),
+          fetchSessionsByCoach(coachId)
+        ]);
+
+        const sessionIds = sessionsData?.map((session) => session?.id).filter(Boolean) || [];
+        let attendanceData = [];
+
+        if (sessionIds?.length > 0) {
+          const { data, error } = await supabase
+            .from('attendance')
+            .select('*')
+            .in('session_id', sessionIds);
+
+          if (error) {
+            throw error;
+          }
+
+          attendanceData = data ?? [];
+        }
+
+        const { data: notesData, error: notesError } = await supabase
+          .from('notes')
+          .select('*')
+          .eq('coach_id', coachId)
+          .order('date', { ascending: false });
+
+        if (notesError) {
+          throw notesError;
+        }
+
+        const attendanceByAthlete = (attendanceData ?? []).reduce((acc, record) => {
+          const athleteId = record?.athlete_id;
+          if (!athleteId) {
+            return acc;
+          }
+          acc[athleteId] = acc[athleteId] || [];
+          acc[athleteId].push(record);
+          return acc;
+        }, {});
+
+        const enrichedAthletes = (athletesData ?? []).map((athlete) => {
+          const athleteAttendance = attendanceByAthlete?.[athlete?.id] ?? [];
+          const presentCount = athleteAttendance?.filter((record) => record?.status === 'present')?.length || 0;
+          const attendanceRate = athleteAttendance?.length
+            ? Math.round((presentCount / athleteAttendance.length) * 100)
+            : 0;
+          return {
+            ...athlete,
+            attendanceRate
+          };
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        setPlans(plansData ?? []);
+        setAthletes(enrichedAthletes ?? []);
+        setSessions(sessionsData ?? []);
+        setAttendance(attendanceData ?? []);
+        setNotes(notesData ?? []);
+      } catch (error) {
+        console.error('Error loading professor dashboard data', error);
+      }
+    };
+
+    loadProfessorData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [coachId]);
+
+  const myPlans = plans;
+  const myAthletes = athletes;
+  const myAthleteIds = myAthletes?.map((athlete) => athlete?.id) ?? [];
+  const mySessions = sessions;
+  const myNotes = notes;
 
   const todaySessions = mySessions?.filter(s => s?.date === selectedDate);
   const totalAthletes = myAthleteIds?.length || 0;
   const completedSessions = mySessions?.filter(s => s?.status === 'completed')?.length || 0;
   const avgAttendance = Math.round(
-    (mockAttendance?.filter(a => a?.status === 'present')?.length / Math.max(mockAttendance?.length, 1)) * 100
+    (attendance?.filter(a => a?.status === 'present')?.length / Math.max(attendance?.length, 1)) * 100
   );
 
   const alertData = {
@@ -188,7 +283,7 @@ const ProfessorDashboard = () => {
             )}
 
             {activeTab === 'athletes' && (
-              <MyAthletesSection athleteIds={myAthleteIds} />
+              <MyAthletesSection athletes={myAthletes} athleteIds={myAthleteIds} />
             )}
 
             {activeTab === 'attendance' && (
