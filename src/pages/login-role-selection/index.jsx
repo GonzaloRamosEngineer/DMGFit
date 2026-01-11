@@ -9,7 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const LoginRoleSelection = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, currentUser, login } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     password: ''
