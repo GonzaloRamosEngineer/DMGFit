@@ -49,6 +49,7 @@
     "react-hook-form": "^7.55.0",
     "react-router-hash-link": "^2.4.3",
     "recharts": "^2.15.2",
+    "@supabase/supabase-js": "^2.49.1",
     "tailwindcss-animate": "^1.0.7",
     "tailwindcss-elevation": "^2.0.0",
     "tailwindcss-fluid-type": "^2.0.7"
