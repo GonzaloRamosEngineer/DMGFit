@@ -3,7 +3,7 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 
-const AttendancePerformanceChart = ({ data, onDrillDown }) => {
+const AttendancePerformanceChart = ({ data, onDrillDown, loading = false }) => {
   const [activeView, setActiveView] = useState('week');
 
   const viewOptions = [
@@ -13,15 +13,15 @@ const AttendancePerformanceChart = ({ data, onDrillDown }) => {
   ];
 
   const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload?.length) {
+    if (active && payload && payload.length) {
       return (
-        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg z-50">
           <p className="text-sm font-medium text-foreground mb-2">{label}</p>
-          {payload?.map((entry, index) => (
+          {payload.map((entry, index) => (
             <div key={index} className="flex items-center justify-between space-x-4 text-xs">
-              <span className="text-muted-foreground">{entry?.name}:</span>
-              <span className="font-medium" style={{ color: entry?.color }}>
-                {entry?.name === 'Asistencia' ? `${entry?.value}%` : entry?.value}
+              <span className="text-muted-foreground">{entry.name}:</span>
+              <span className="font-medium" style={{ color: entry.color }}>
+                {entry.name === 'Asistencia' ? `${entry.value}%` : entry.value}
               </span>
             </div>
           ))}
@@ -30,6 +30,23 @@ const AttendancePerformanceChart = ({ data, onDrillDown }) => {
     }
     return null;
   };
+
+  // 1. ESTADO DE CARGA VISUAL
+  if (loading) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-4 md:p-6 animate-pulse">
+        <div className="flex justify-between mb-6">
+          <div className="h-6 bg-muted/50 rounded w-1/3"></div>
+          <div className="h-8 bg-muted/50 rounded w-1/4"></div>
+        </div>
+        <div className="h-64 bg-muted/30 rounded w-full"></div>
+        <div className="mt-4 pt-4 border-t border-border flex justify-between">
+          <div className="h-4 bg-muted/50 rounded w-1/4"></div>
+          <div className="h-4 bg-muted/50 rounded w-1/4"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card border border-border rounded-lg p-4 md:p-6">
@@ -44,67 +61,76 @@ const AttendancePerformanceChart = ({ data, onDrillDown }) => {
         </div>
         
         <div className="flex items-center space-x-2">
-          {viewOptions?.map((option) => (
+          {viewOptions.map((option) => (
             <Button
-              key={option?.value}
-              variant={activeView === option?.value ? 'default' : 'outline'}
+              key={option.value}
+              variant={activeView === option.value ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setActiveView(option?.value)}
+              onClick={() => setActiveView(option.value)}
             >
-              {option?.label}
+              {option.label}
             </Button>
           ))}
         </div>
       </div>
+
       <div className="w-full h-64 md:h-80 lg:h-96" aria-label="Gráfico de asistencia y rendimiento">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.08)" />
-            <XAxis 
-              dataKey="period" 
-              stroke="var(--color-muted-foreground)"
-              style={{ fontSize: '12px' }}
-            />
-            <YAxis 
-              yAxisId="left"
-              stroke="var(--color-muted-foreground)"
-              style={{ fontSize: '12px' }}
-              label={{ value: 'Asistencia (%)', angle: -90, position: 'insideLeft', style: { fill: 'var(--color-muted-foreground)', fontSize: '12px' } }}
-            />
-            <YAxis 
-              yAxisId="right"
-              orientation="right"
-              stroke="var(--color-muted-foreground)"
-              style={{ fontSize: '12px' }}
-              label={{ value: 'Rendimiento', angle: 90, position: 'insideRight', style: { fill: 'var(--color-muted-foreground)', fontSize: '12px' } }}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend 
-              wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
-              iconType="circle"
-            />
-            <Bar 
-              yAxisId="left"
-              dataKey="attendance" 
-              name="Asistencia"
-              fill="var(--color-primary)" 
-              radius={[4, 4, 0, 0]}
-              onClick={(data) => onDrillDown && onDrillDown(data)}
-              style={{ cursor: 'pointer' }}
-            />
-            <Line 
-              yAxisId="right"
-              type="monotone" 
-              dataKey="performance" 
-              name="Rendimiento"
-              stroke="var(--color-secondary)" 
-              strokeWidth={3}
-              dot={{ fill: 'var(--color-secondary)', r: 4 }}
-              activeDot={{ r: 6 }}
-            />
-          </ComposedChart>
+          {/* 2. PROTECCIÓN CONTRA DATOS VACÍOS */}
+          {data && data.length > 0 ? (
+            <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.08)" />
+              <XAxis 
+                dataKey="period" 
+                stroke="var(--color-muted-foreground)"
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis 
+                yAxisId="left"
+                stroke="var(--color-muted-foreground)"
+                style={{ fontSize: '12px' }}
+                label={{ value: 'Asistencia (%)', angle: -90, position: 'insideLeft', style: { fill: 'var(--color-muted-foreground)', fontSize: '12px' } }}
+              />
+              <YAxis 
+                yAxisId="right"
+                orientation="right"
+                stroke="var(--color-muted-foreground)"
+                style={{ fontSize: '12px' }}
+                label={{ value: 'Rendimiento', angle: 90, position: 'insideRight', style: { fill: 'var(--color-muted-foreground)', fontSize: '12px' } }}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                iconType="circle"
+              />
+              <Bar 
+                yAxisId="left"
+                dataKey="attendance" 
+                name="Asistencia"
+                fill="var(--color-primary)" 
+                radius={[4, 4, 0, 0]}
+                onClick={(data) => onDrillDown && onDrillDown(data)}
+                style={{ cursor: 'pointer' }}
+              />
+              <Line 
+                yAxisId="right"
+                type="monotone" 
+                dataKey="performance" 
+                name="Rendimiento"
+                stroke="var(--color-secondary)" 
+                strokeWidth={3}
+                dot={{ fill: 'var(--color-secondary)', r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+            </ComposedChart>
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              No hay datos disponibles para mostrar el gráfico.
+            </div>
+          )}
         </ResponsiveContainer>
       </div>
+
       <div className="mt-4 pt-4 border-t border-border">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
           <div className="flex items-center space-x-3">

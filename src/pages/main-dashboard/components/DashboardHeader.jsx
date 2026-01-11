@@ -36,7 +36,7 @@ const DashboardHeader = ({
   const formatLastUpdated = (timestamp) => {
     if (!timestamp) return 'Nunca';
     const date = new Date(timestamp);
-    return date?.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
