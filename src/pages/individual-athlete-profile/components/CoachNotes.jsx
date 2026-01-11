@@ -3,9 +3,22 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 
-const CoachNotes = ({ notes, onAddNote }) => {
+const CoachNotes = ({ notes, onAddNote, loading = false }) => {
   const [newNote, setNewNote] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-6 animate-pulse">
+        <div className="h-6 bg-muted/50 rounded w-1/3 mb-6"></div>
+        <div className="space-y-4">
+          {[1,2,3].map(i => (
+            <div key={i} className="h-20 bg-muted/30 rounded-lg"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const handleAddNote = () => {
     if (newNote?.trim()) {
@@ -16,7 +29,7 @@ const CoachNotes = ({ notes, onAddNote }) => {
   };
 
   return (
-    <div className="space-y-3 md:space-y-4">
+    <div className="bg-card border border-border rounded-lg p-4 md:p-6">
       <div className="flex items-center justify-between mb-3 md:mb-4">
         <h3 className="text-base md:text-lg font-heading font-semibold text-foreground">
           Notas del Entrenador
@@ -31,47 +44,38 @@ const CoachNotes = ({ notes, onAddNote }) => {
           Nueva
         </Button>
       </div>
+
       {isAdding && (
-        <div className="bg-muted/30 border border-border rounded-lg p-3 md:p-4 mb-3 md:mb-4">
+        <div className="bg-muted/30 border border-border rounded-lg p-3 md:p-4 mb-3 md:mb-4 animate-in fade-in slide-in-from-top-2">
           <Input
             type="text"
-            placeholder="Escribe una nota..."
+            placeholder="Escribe una nota sobre el progreso..."
             value={newNote}
-            onChange={(e) => setNewNote(e?.target?.value)}
+            onChange={(e) => setNewNote(e.target.value)}
             className="mb-3"
+            autoFocus
           />
-          <div className="flex gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleAddNote}
-              disabled={!newNote?.trim()}
-            >
-              Guardar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setIsAdding(false);
-                setNewNote('');
-              }}
-            >
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => setIsAdding(false)}>
               Cancelar
+            </Button>
+            <Button variant="default" size="sm" onClick={handleAddNote} disabled={!newNote.trim()}>
+              Guardar
             </Button>
           </div>
         </div>
       )}
-      <div className="space-y-2 md:space-y-3 max-h-96 overflow-y-auto">
-        {notes?.length === 0 ? (
-          <div className="text-center py-6 md:py-8 text-muted-foreground">
-            <Icon name="FileText" size={32} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm md:text-base">No hay notas registradas</p>
+
+      <div className="space-y-2 md:space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+        {!notes || notes.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-lg">
+            <Icon name="FileText" size={32} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No hay notas registradas</p>
           </div>
         ) : (
-          notes?.map((note) => (
+          notes.map((note) => (
             <div 
-              key={note?.id}
+              key={note.id}
               className="bg-muted/30 border border-border rounded-lg p-3 md:p-4 transition-smooth hover:bg-muted/50"
             >
               <div className="flex items-start gap-2 md:gap-3 mb-2">
@@ -80,15 +84,15 @@ const CoachNotes = ({ notes, onAddNote }) => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs md:text-sm font-medium text-foreground mb-1">
-                    {note?.author}
+                    {note.author || 'Entrenador'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {note?.timestamp}
+                    {new Date(note.date || note.timestamp).toLocaleDateString()}
                   </p>
                 </div>
               </div>
               <p className="text-sm md:text-base text-foreground leading-relaxed">
-                {note?.content}
+                {note.content}
               </p>
             </div>
           ))
