@@ -9,7 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const LoginRoleSelection = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated, currentUser, login } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -30,30 +30,35 @@ const LoginRoleSelection = () => {
     setIsLoading(true);
     setError('');
 
-    const { error: loginError, user } = await login({
-      email: formData?.username,
-      password: formData?.password,
-      expectedRole: formData?.role
-    });
+    try {
+      const { error: loginError, user } = await login({
+        email: formData?.username,
+        password: formData?.password,
+        expectedRole: formData?.role
+      });
 
-    if (loginError) {
-      if (loginError?.message === 'role_mismatch') {
-        setError('El rol seleccionado no coincide con tu usuario.');
-      } else {
-        setError('Credenciales incorrectas. Verifica email y contraseña.');
+      if (loginError) {
+        if (loginError?.message === 'role_mismatch') {
+          setError('El rol seleccionado no coincide con tu usuario.');
+        } else {
+          setError('Credenciales incorrectas. Verifica email y contraseña.');
+        }
+        return;
       }
+
+      const redirectPaths = {
+        admin: '/main-dashboard',
+        profesor: '/professor-dashboard',
+        atleta: '/athlete-portal'
+      };
+
+      navigate(redirectPaths?.[user?.role] || '/main-dashboard');
+    } catch (err) {
+      console.error('Login failed:', err);
+      setError('Ocurrió un error inesperado. Intenta nuevamente.');
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    const redirectPaths = {
-      admin: '/main-dashboard',
-      profesor: '/professor-dashboard',
-      atleta: '/athlete-portal'
-    };
-
-    navigate(redirectPaths?.[user?.role] || '/main-dashboard');
-    setIsLoading(false);
   };
 
   useEffect(() => {
