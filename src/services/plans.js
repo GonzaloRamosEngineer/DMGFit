@@ -38,13 +38,15 @@ export const fetchPlanByAthlete = async (athleteId) => {
 
 export const fetchPlansByCoach = async (coachId) => {
   const { data, error } = await supabase
-    .from('plans')
-    .select('*')
+    .from('plan_coaches')
+    .select('plan_id, plans (*)')
     .eq('coach_id', coachId);
 
   if (error) {
     throw error;
   }
 
-  return data ?? [];
+  return (data ?? [])
+    .map((entry) => entry?.plans)
+    .filter(Boolean);
 };
