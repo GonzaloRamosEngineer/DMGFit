@@ -1,45 +1,72 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Helmet } from 'react-helmet';
-import NavigationSidebar from '../../components/ui/NavigationSidebar';
-import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
-import MetricsStrip from './components/MetricsStrip';
-import SearchAndFilters from './components/SearchAndFilters';
-import AthleteCard from './components/AthleteCard';
-import AthleteSegmentation from './components/AthleteSegmentation';
-import RecentActivity from './components/RecentActivity';
-import BulkActionsBar from './components/BulkActionsBar';
-import Icon from '../../components/AppIcon';
-import Button from '../../components/ui/Button';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabaseClient';
+import React, { useState, useEffect, useMemo } from "react";
+import { Helmet } from "react-helmet";
+import NavigationSidebar from "../../components/ui/NavigationSidebar";
+import BreadcrumbTrail from "../../components/ui/BreadcrumbTrail";
+import MetricsStrip from "./components/MetricsStrip";
+import SearchAndFilters from "./components/SearchAndFilters";
+import AthleteCard from "./components/AthleteCard";
+import AthleteSegmentation from "./components/AthleteSegmentation";
+import RecentActivity from "./components/RecentActivity";
+import BulkActionsBar from "./components/BulkActionsBar";
+import Icon from "../../components/AppIcon";
+import Button from "../../components/ui/Button";
+import { useAuth } from "../../contexts/AuthContext";
+import { supabase } from "../../lib/supabaseClient";
+import AddAthleteModal from "./components/AddAthleteModal";
 
 const AthletesManagement = () => {
   const { currentUser } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedAthletes, setSelectedAthletes] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
-  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "asc",
+  });
   const [isLoading, setIsLoading] = useState(true); // Inicializamos en true
   const [lastRefresh, setLastRefresh] = useState(new Date());
-  
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
   // Datos reales
   const [athletes, setAthletes] = useState([]);
   const [metricsSummary, setMetricsSummary] = useState({
     totalAthletes: 0,
     activeThisMonth: 0,
     avgPerformance: 0,
-    retentionRate: 0
+    retentionRate: 0,
   });
   const [segmentation, setSegmentation] = useState({
-    elite: 0, advanced: 0, intermediate: 0, beginner: 0, total: 0
+    elite: 0,
+    advanced: 0,
+    intermediate: 0,
+    beginner: 0,
+    total: 0,
   });
 
   // Datos mock para actividad reciente (hasta que tengamos tabla de actividad)
   const mockActivities = [
-    { id: 'ACT001', athleteName: 'Carlos Mendoza', type: 'achievement', description: 'Récord personal', timestamp: new Date(Date.now() - 300000) },
-    { id: 'ACT002', athleteName: 'María Rodríguez', type: 'payment', description: 'Pago mensual completado', timestamp: new Date(Date.now() - 900000) },
-    { id: 'ACT005', athleteName: 'Nuevo Atleta', type: 'registration', description: 'Registro completado', timestamp: new Date(Date.now() - 7200000) }
+    {
+      id: "ACT001",
+      athleteName: "Carlos Mendoza",
+      type: "achievement",
+      description: "Récord personal",
+      timestamp: new Date(Date.now() - 300000),
+    },
+    {
+      id: "ACT002",
+      athleteName: "María Rodríguez",
+      type: "payment",
+      description: "Pago mensual completado",
+      timestamp: new Date(Date.now() - 900000),
+    },
+    {
+      id: "ACT005",
+      athleteName: "Nuevo Atleta",
+      type: "registration",
+      description: "Registro completado",
+      timestamp: new Date(Date.now() - 7200000),
+    },
   ];
 
   // --- CARGA DE DATOS ---
@@ -50,9 +77,7 @@ const AthletesManagement = () => {
       setIsLoading(true);
       try {
         // 1. Consulta Base de Atletas
-        let query = supabase
-          .from('athletes')
-          .select(`
+        let query = supabase.from("athletes").select(`
             id, 
             status, 
             join_date,
@@ -62,15 +87,15 @@ const AthletesManagement = () => {
           `);
 
         // Filtro por rol (Profesor solo ve sus atletas)
-        if (currentUser?.role === 'profesor' && currentUser?.coachId) {
-          query = query.eq('coach_id', currentUser.coachId);
+        if (currentUser?.role === "profesor" && currentUser?.coachId) {
+          query = query.eq("coach_id", currentUser.coachId);
         }
 
         const { data: athletesData, error } = await query;
         if (error) throw error;
 
         // 2. Obtener IDs para consultas masivas
-        const athleteIds = athletesData.map(a => a.id);
+        const athleteIds = athletesData.map((a) => a.id);
 
         if (athleteIds.length === 0) {
           if (isMounted) {
@@ -82,51 +107,81 @@ const AthletesManagement = () => {
 
         // 3. Consultas Paralelas de Datos Relacionados
         const [attendanceRes, metricsRes, paymentsRes] = await Promise.all([
-          supabase.from('attendance').select('athlete_id, status, date').in('athlete_id', athleteIds),
-          supabase.from('metrics').select('athlete_id, value').in('athlete_id', athleteIds).order('date', { ascending: false }),
-          supabase.from('payments').select('athlete_id, status, date').in('athlete_id', athleteIds)
+          supabase
+            .from("attendance")
+            .select("athlete_id, status, date")
+            .in("athlete_id", athleteIds),
+          supabase
+            .from("metrics")
+            .select("athlete_id, value")
+            .in("athlete_id", athleteIds)
+            .order("date", { ascending: false }),
+          supabase
+            .from("payments")
+            .select("athlete_id, status, date")
+            .in("athlete_id", athleteIds),
         ]);
 
         // 4. Procesamiento de Datos (Enriquecimiento)
-        const enrichedAthletes = athletesData.map(athlete => {
+        const enrichedAthletes = athletesData.map((athlete) => {
           // Filtrar datos relacionados para este atleta
-          const attRecords = attendanceRes.data?.filter(r => r.athlete_id === athlete.id) || [];
-          const perfRecords = metricsRes.data?.filter(r => r.athlete_id === athlete.id) || [];
-          const payRecords = paymentsRes.data?.filter(r => r.athlete_id === athlete.id) || [];
+          const attRecords =
+            attendanceRes.data?.filter((r) => r.athlete_id === athlete.id) ||
+            [];
+          const perfRecords =
+            metricsRes.data?.filter((r) => r.athlete_id === athlete.id) || [];
+          const payRecords =
+            paymentsRes.data?.filter((r) => r.athlete_id === athlete.id) || [];
 
           // Calcular Métricas Individuales
-          const attendanceRate = attRecords.length > 0 
-            ? Math.round((attRecords.filter(r => r.status === 'present').length / attRecords.length) * 100) 
-            : 0;
-          
+          const attendanceRate =
+            attRecords.length > 0
+              ? Math.round(
+                  (attRecords.filter((r) => r.status === "present").length /
+                    attRecords.length) *
+                    100
+                )
+              : 0;
+
           const latestMetric = perfRecords[0]?.value || 0; // Asumiendo que el valor más reciente es el score actual
-          
+
           // Buscar último pago
-          const latestPayment = payRecords.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+          const latestPayment = payRecords.sort(
+            (a, b) => new Date(b.date) - new Date(a.date)
+          )[0];
 
           return {
             id: athlete.id,
-            name: athlete.profiles?.full_name || 'Sin Nombre',
-            email: athlete.profiles?.email || '',
+            name: athlete.profiles?.full_name || "Sin Nombre",
+            email: athlete.profiles?.email || "",
             profileImage: athlete.profiles?.avatar_url,
-            coach: athlete.coaches?.profiles?.full_name || 'Sin Asignar',
-            isActive: athlete.status === 'active',
+            coach: athlete.coaches?.profiles?.full_name || "Sin Asignar",
+            isActive: athlete.status === "active",
             attendanceRate,
             performanceScore: Math.round(latestMetric), // Score simulado basado en última métrica
             performanceTrend: 1, // Simulado por ahora
-            paymentStatus: latestPayment?.status || 'pending',
-            attendanceLast30Days: [80, 90, 75, 85] // Datos dummy para el sparkline por ahora
+            paymentStatus: latestPayment?.status || "pending",
+            attendanceLast30Days: [80, 90, 75, 85], // Datos dummy para el sparkline por ahora
           };
         });
 
         // 5. Calcular Resúmenes Globales
         const totalAthletes = enrichedAthletes.length;
-        const avgPerf = Math.round(enrichedAthletes.reduce((sum, a) => sum + a.performanceScore, 0) / (totalAthletes || 1));
-        const activeCount = enrichedAthletes.filter(a => a.isActive).length;
+        const avgPerf = Math.round(
+          enrichedAthletes.reduce((sum, a) => sum + a.performanceScore, 0) /
+            (totalAthletes || 1)
+        );
+        const activeCount = enrichedAthletes.filter((a) => a.isActive).length;
 
         // Segmentación
-        const seg = { elite: 0, advanced: 0, intermediate: 0, beginner: 0, total: totalAthletes };
-        enrichedAthletes.forEach(a => {
+        const seg = {
+          elite: 0,
+          advanced: 0,
+          intermediate: 0,
+          beginner: 0,
+          total: totalAthletes,
+        };
+        enrichedAthletes.forEach((a) => {
           if (a.performanceScore >= 90) seg.elite++;
           else if (a.performanceScore >= 75) seg.advanced++;
           else if (a.performanceScore >= 60) seg.intermediate++;
@@ -139,12 +194,11 @@ const AthletesManagement = () => {
             totalAthletes,
             activeThisMonth: activeCount,
             avgPerformance: avgPerf,
-            retentionRate: 95 // Hardcodeado o calcular real si hay datos históricos
+            retentionRate: 95, // Hardcodeado o calcular real si hay datos históricos
           });
           setSegmentation(seg);
           setIsLoading(false);
         }
-
       } catch (err) {
         console.error("Error cargando atletas:", err);
         if (isMounted) setIsLoading(false);
@@ -152,7 +206,9 @@ const AthletesManagement = () => {
     };
 
     loadAthletesData();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [currentUser, lastRefresh]);
 
   // --- FILTRADO Y BÚSQUEDA ---
@@ -162,15 +218,17 @@ const AthletesManagement = () => {
     // Búsqueda
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(a => 
-        a.name.toLowerCase().includes(q) || 
-        a.email.toLowerCase().includes(q)
+      result = result.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q)
       );
     }
 
     // Filtros
     if (activeFilters.paymentStatus) {
-      result = result.filter(a => a.paymentStatus === activeFilters.paymentStatus);
+      result = result.filter(
+        (a) => a.paymentStatus === activeFilters.paymentStatus
+      );
     }
     // ... (Agregar lógica para otros filtros aquí si es necesario)
 
@@ -178,11 +236,13 @@ const AthletesManagement = () => {
     result.sort((a, b) => {
       const valA = a[sortConfig.key];
       const valB = b[sortConfig.key];
-      
-      if (typeof valA === 'string') {
-        return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+
+      if (typeof valA === "string") {
+        return sortConfig.direction === "asc"
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA);
       }
-      return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+      return sortConfig.direction === "asc" ? valA - valB : valB - valA;
     });
 
     return result;
@@ -190,9 +250,9 @@ const AthletesManagement = () => {
 
   // --- HANDLERS ---
   const handleSort = (key) => {
-    setSortConfig(prev => ({
+    setSortConfig((prev) => ({
       key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
   };
 
@@ -202,8 +262,9 @@ const AthletesManagement = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedAthletes.length === filteredAthletes.length) setSelectedAthletes([]);
-    else setSelectedAthletes(filteredAthletes.map(a => a.id));
+    if (selectedAthletes.length === filteredAthletes.length)
+      setSelectedAthletes([]);
+    else setSelectedAthletes(filteredAthletes.map((a) => a.id));
   };
 
   return (
@@ -211,15 +272,19 @@ const AthletesManagement = () => {
       <Helmet>
         <title>Gestión de Atletas - DigitalMatch</title>
       </Helmet>
-      
+
       <div className="min-h-screen bg-background">
         <NavigationSidebar
           isCollapsed={sidebarCollapsed}
-          userRole={currentUser?.role || 'profesor'}
-          alertData={{ dashboard: 3, atletas: 5 }} 
+          userRole={currentUser?.role || "profesor"}
+          alertData={{ dashboard: 3, atletas: 5 }}
         />
 
-        <main className={`transition-smooth ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'} p-4 md:p-6 lg:p-8`}>
+        <main
+          className={`transition-smooth ${
+            sidebarCollapsed ? "lg:ml-20" : "lg:ml-60"
+          } p-4 md:p-6 lg:p-8`}
+        >
           <div className="max-w-7xl mx-auto">
             <BreadcrumbTrail currentPath="/athletes-management" />
 
@@ -234,10 +299,21 @@ const AthletesManagement = () => {
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Button variant="outline" onClick={handleRefresh} loading={isLoading} iconName="RefreshCw" iconPosition="left">
+                <Button
+                  variant="outline"
+                  onClick={handleRefresh}
+                  loading={isLoading}
+                  iconName="RefreshCw"
+                  iconPosition="left"
+                >
                   Actualizar
                 </Button>
-                <Button variant="default" iconName="UserPlus" iconPosition="left">
+                <Button
+                  variant="default"
+                  iconName="UserPlus"
+                  iconPosition="left"
+                  onClick={() => setIsAddModalOpen(true)} // <--- CONECTADO
+                >
                   Nuevo Atleta
                 </Button>
               </div>
@@ -262,19 +338,36 @@ const AthletesManagement = () => {
                     <div className="flex items-center gap-3">
                       <input
                         type="checkbox"
-                        checked={selectedAthletes.length > 0 && selectedAthletes.length === filteredAthletes.length}
+                        checked={
+                          selectedAthletes.length > 0 &&
+                          selectedAthletes.length === filteredAthletes.length
+                        }
                         onChange={handleSelectAll}
                         className="w-5 h-5 rounded border-border bg-input text-primary focus:ring-2 focus:ring-primary"
                       />
                       <span className="text-sm text-muted-foreground">
-                        {isLoading ? 'Cargando...' : `${filteredAthletes.length} atletas encontrados`}
+                        {isLoading
+                          ? "Cargando..."
+                          : `${filteredAthletes.length} atletas encontrados`}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleSort('name')} iconName="ArrowUpDown" iconPosition="right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSort("name")}
+                        iconName="ArrowUpDown"
+                        iconPosition="right"
+                      >
                         Nombre
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleSort('performanceScore')} iconName="ArrowUpDown" iconPosition="right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSort("performanceScore")}
+                        iconName="ArrowUpDown"
+                        iconPosition="right"
+                      >
                         Rendimiento
                       </Button>
                     </div>
@@ -284,19 +377,31 @@ const AthletesManagement = () => {
                   <div className="space-y-4">
                     {isLoading ? (
                       // Skeleton Loading
-                      [1, 2, 3].map(i => <AthleteCard key={i} loading={true} />)
+                      [1, 2, 3].map((i) => (
+                        <AthleteCard key={i} loading={true} />
+                      ))
                     ) : filteredAthletes.length > 0 ? (
-                      filteredAthletes.map(athlete => (
+                      filteredAthletes.map((athlete) => (
                         <AthleteCard
                           key={athlete.id}
                           athlete={athlete}
-                          onSelect={(id) => setSelectedAthletes(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])}
+                          onSelect={(id) =>
+                            setSelectedAthletes((prev) =>
+                              prev.includes(id)
+                                ? prev.filter((p) => p !== id)
+                                : [...prev, id]
+                            )
+                          }
                           isSelected={selectedAthletes.includes(athlete.id)}
                         />
                       ))
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
-                        <Icon name="Users" size={48} className="mx-auto mb-4 opacity-50" />
+                        <Icon
+                          name="Users"
+                          size={48}
+                          className="mx-auto mb-4 opacity-50"
+                        />
                         <p>No se encontraron atletas.</p>
                       </div>
                     )}
@@ -306,8 +411,14 @@ const AthletesManagement = () => {
 
               {/* Sidebar Derecha (Segmentación y Actividad) */}
               <div className="lg:col-span-4 space-y-6">
-                <AthleteSegmentation segmentationData={segmentation} loading={isLoading} />
-                <RecentActivity activities={mockActivities} loading={isLoading} />
+                <AthleteSegmentation
+                  segmentationData={segmentation}
+                  loading={isLoading}
+                />
+                <RecentActivity
+                  activities={mockActivities}
+                  loading={isLoading}
+                />
               </div>
             </div>
 
@@ -317,9 +428,22 @@ const AthletesManagement = () => {
               onAction={() => setSelectedAthletes([])}
               onClearSelection={() => setSelectedAthletes([])}
             />
+
+            {/* Modal de Nuevo Atleta */}
+            {isAddModalOpen && (
+              <AddAthleteModal 
+                onClose={() => setIsAddModalOpen(false)}
+                onAthleteAdded={() => {
+                  handleRefresh(); // Recargar la lista para ver al nuevo
+                  setIsAddModalOpen(false);
+                }}
+              />
+            )}
           </div>
         </main>
       </div>
+
+
     </>
   );
 };
