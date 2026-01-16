@@ -120,7 +120,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
           coach_id: formData.coachId || null,
           status: "active",
           join_date: formData.joinDate,
-          // plan_id se manejaría si tuviéramos tabla intermedia, aquí asumimos gestión por pagos
+          plan_id: formData.planId || null
         })
         .select()
         .single();
