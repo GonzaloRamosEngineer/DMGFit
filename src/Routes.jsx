@@ -21,6 +21,7 @@ import AthletePortal from "./pages/athlete-portal";
 import PDFExportCenter from "./pages/pdf-export-center";
 import CoachesManagement from "./pages/coaches-management";
 import AccessControl from './pages/access-control';
+import AccessHistory from './pages/access-history';
 
 const Routes = () => {
   return (
