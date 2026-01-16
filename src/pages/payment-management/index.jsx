@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
-import { generatePaymentReportPDF } from '../../utils/pdfExport';
+// import { generatePaymentReportPDF } from '../../utils/pdfExport'; // Descomentar si existe la utilidad
 
 // Componentes UI
 import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
-import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
 
 // Componentes de Pagos
@@ -20,11 +19,17 @@ import PaymentMethodChart from './components/PaymentMethodChart';
 import RecentTransactionsFeed from './components/RecentTransactionsFeed';
 import AutomatedReminderControl from './components/AutomatedReminderControl';
 
+// MODAL NUEVO
+import AddPaymentModal from './components/AddPaymentModal';
+
 const PaymentManagement = () => {
   const { currentUser } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
   
+  // Estado para el Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // Estados de Filtros
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedRange, setSelectedRange] = useState('thisMonth');
@@ -44,136 +49,141 @@ const PaymentManagement = () => {
 
   const alertData = { dashboard: 3, atletas: 5, rendimiento: 2, pagos: 12 };
 
-  // --- CARGA DE DATOS ---
-  useEffect(() => {
-    const fetchPaymentData = async () => {
-      try {
-        setLoading(true);
-        const today = new Date();
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+  // --- FUNCIÓN DE CARGA DE DATOS (Refactorizada para ser reutilizable) ---
+  const fetchPaymentData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
 
-        // 1. Obtener Pagos (Generales)
-        const { data: paymentsData, error } = await supabase
-          .from('payments')
-          .select(`
-            id, amount, status, payment_date, method, concept,
-            athletes ( id, profiles ( full_name, avatar_url ) )
-          `)
-          .order('payment_date', { ascending: false });
+      // 1. Obtener Pagos (Generales)
+      const { data: paymentsData, error } = await supabase
+        .from('payments')
+        .select(`
+          id, amount, status, payment_date, method, concept,
+          athletes ( id, profiles ( full_name, avatar_url ) )
+        `)
+        .order('payment_date', { ascending: false });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        // 2. Procesar Métricas Financieras
-        const currentMonthPayments = paymentsData.filter(p => p.payment_date >= startOfMonth && p.status === 'paid');
-        const monthlyRevenue = currentMonthPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-        
-        const totalDue = paymentsData.filter(p => p.status === 'pending' || p.status === 'overdue');
-        const overdueAmount = totalDue.filter(p => p.status === 'overdue' || new Date(p.payment_date) < today)
-                                      .reduce((sum, p) => sum + Number(p.amount), 0);
+      // 2. Procesar Métricas Financieras
+      const currentMonthPayments = paymentsData.filter(p => p.payment_date >= startOfMonth && p.status === 'paid');
+      const monthlyRevenue = currentMonthPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+      
+      const totalDue = paymentsData.filter(p => p.status === 'pending' || p.status === 'overdue');
+      const overdueAmount = totalDue.filter(p => p.status === 'overdue' || new Date(p.payment_date) < today)
+                            .reduce((sum, p) => sum + Number(p.amount), 0);
 
-        const collectionRate = paymentsData.length > 0 
-          ? Math.round((paymentsData.filter(p => p.status === 'paid').length / paymentsData.length) * 100) 
-          : 0;
+      const collectionRate = paymentsData.length > 0 
+        ? Math.round((paymentsData.filter(p => p.status === 'paid').length / paymentsData.length) * 100) 
+        : 0;
 
-        setFinancialMetrics([
-          {
-            title: 'Ingresos Mensuales',
-            value: monthlyRevenue.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
-            currency: '$',
-            trend: 'up', trendValue: '+5.0%', // Simulado por ahora (requeriría comparar con mes anterior)
-            icon: 'TrendingUp', iconColor: 'bg-success/20 text-success'
-          },
-          {
-            title: 'Tasa de Cobro',
-            value: `${collectionRate}%`,
-            trend: collectionRate > 90 ? 'up' : 'down', trendValue: collectionRate > 90 ? 'Excelente' : 'Mejorable',
-            icon: 'Target', iconColor: 'bg-primary/20 text-primary'
-          },
-          {
-            title: 'Monto Vencido',
-            value: overdueAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
-            currency: '$',
-            trend: overdueAmount > 0 ? 'down' : 'up', trendValue: overdueAmount > 0 ? 'Atención' : 'Limpio',
-            icon: 'AlertCircle', iconColor: 'bg-error/20 text-error'
-          },
-          {
-            title: 'Pagos Pendientes',
-            value: totalDue.length,
-            trend: 'neutral', trendValue: 'Total',
-            icon: 'Clock', iconColor: 'bg-warning/20 text-warning'
-          }
-        ]);
+      setFinancialMetrics([
+        {
+          title: 'Ingresos Mensuales',
+          value: monthlyRevenue.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
+          currency: '$',
+          trend: 'up', trendValue: '+5.0%', // Simulado
+          icon: 'TrendingUp', iconColor: 'bg-success/20 text-success'
+        },
+        {
+          title: 'Tasa de Cobro',
+          value: `${collectionRate}%`,
+          trend: collectionRate > 90 ? 'up' : 'down', trendValue: collectionRate > 90 ? 'Excelente' : 'Mejorable',
+          icon: 'Target', iconColor: 'bg-primary/20 text-primary'
+        },
+        {
+          title: 'Monto Vencido',
+          value: overdueAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
+          currency: '$',
+          trend: overdueAmount > 0 ? 'down' : 'up', trendValue: overdueAmount > 0 ? 'Atención' : 'Limpio',
+          icon: 'AlertCircle', iconColor: 'bg-error/20 text-error'
+        },
+        {
+          title: 'Pagos Pendientes',
+          value: totalDue.length,
+          trend: 'neutral', trendValue: 'Total',
+          icon: 'Clock', iconColor: 'bg-warning/20 text-warning'
+        }
+      ]);
 
-        // 3. Procesar Gráficos (Métodos de Pago)
-        const methodsCount = paymentsData.reduce((acc, p) => {
-          const method = p.method || 'otros';
-          acc[method] = (acc[method] || 0) + 1;
-          return acc;
-        }, {});
-        
-        const methodChartData = Object.keys(methodsCount).map(key => ({
-          method: key,
-          name: key.charAt(0).toUpperCase() + key.slice(1),
-          value: methodsCount[key],
-          percentage: Math.round((methodsCount[key] / paymentsData.length) * 100)
-        }));
-        setPaymentMethodData(methodChartData);
+      // 3. Procesar Gráficos (Métodos de Pago)
+      const methodsCount = paymentsData.reduce((acc, p) => {
+        const method = p.method || 'otros';
+        acc[method] = (acc[method] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const methodChartData = Object.keys(methodsCount).map(key => ({
+        method: key,
+        name: key.charAt(0).toUpperCase() + key.slice(1),
+        value: methodsCount[key],
+        percentage: Math.round((methodsCount[key] / paymentsData.length) * 100)
+      }));
+      setPaymentMethodData(methodChartData);
 
-        // 4. Procesar Listas (Vencidos y Recientes)
-        const overdue = paymentsData
-          .filter(p => (p.status === 'overdue' || (p.status === 'pending' && new Date(p.payment_date) < today)))
-          .map(p => ({
-            id: p.id,
-            athleteName: p.athletes?.profiles?.full_name || 'Desconocido',
-            athleteId: p.athletes?.id,
-            athleteImage: p.athletes?.profiles?.avatar_url,
-            amountOwed: p.amount,
-            daysOverdue: Math.floor((today - new Date(p.payment_date)) / (1000 * 60 * 60 * 24)),
-            status: 'overdue'
-          }));
-        setOverduePayments(overdue);
-
-        const recent = paymentsData.slice(0, 5).map(p => ({
+      // 4. Procesar Listas (Vencidos y Recientes)
+      const overdue = paymentsData
+        .filter(p => (p.status === 'overdue' || (p.status === 'pending' && new Date(p.payment_date) < today)))
+        .map(p => ({
           id: p.id,
           athleteName: p.athletes?.profiles?.full_name || 'Desconocido',
+          athleteId: p.athletes?.id,
           athleteImage: p.athletes?.profiles?.avatar_url,
-          description: p.concept || 'Pago registrado',
-          amount: p.amount,
-          method: p.method,
-          status: p.status,
-          timestamp: new Date(p.payment_date) // Usamos created_at si existe, sino payment_date
+          amountOwed: p.amount,
+          daysOverdue: Math.floor((today - new Date(p.payment_date)) / (1000 * 60 * 60 * 24)),
+          status: 'overdue'
         }));
-        setRecentTransactions(recent);
+      setOverduePayments(overdue);
 
-        // 5. Conteos para Filtros
-        setFilterCounts({
-          all: paymentsData.length,
-          current: paymentsData.filter(p => p.status === 'paid').length,
-          overdue: overdue.length,
-          pending: paymentsData.filter(p => p.status === 'pending' && new Date(p.payment_date) >= today).length
-        });
+      const recent = paymentsData.slice(0, 5).map(p => ({
+        id: p.id,
+        athleteName: p.athletes?.profiles?.full_name || 'Desconocido',
+        athleteImage: p.athletes?.profiles?.avatar_url,
+        description: p.concept || 'Pago registrado',
+        amount: p.amount,
+        method: p.method,
+        status: p.status,
+        timestamp: new Date(p.payment_date)
+      }));
+      setRecentTransactions(recent);
 
-        // 6. Datos dummy para gráfico de Revenue (Complejo de calcular en frontend, idealmente backend)
-        setRevenueData([
-          { month: 'Ene', efectivo: 12000, tarjeta: 15000, transferencia: 5000 },
-          { month: 'Feb', efectivo: 11000, tarjeta: 16000, transferencia: 6000 },
-          { month: 'Mar', efectivo: 13000, tarjeta: 18000, transferencia: 7000 },
-        ]); // Dejamos esto estático/híbrido por ahora para visualización
+      // 5. Conteos para Filtros
+      setFilterCounts({
+        all: paymentsData.length,
+        current: paymentsData.filter(p => p.status === 'paid').length,
+        overdue: overdue.length,
+        pending: paymentsData.filter(p => p.status === 'pending' && new Date(p.payment_date) >= today).length
+      });
 
-      } catch (error) {
-        console.error("Error cargando pagos:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // 6. Datos dummy para gráfico de Revenue
+      setRevenueData([
+        { month: 'Ene', efectivo: 12000, tarjeta: 15000, transferencia: 5000 },
+        { month: 'Feb', efectivo: 11000, tarjeta: 16000, transferencia: 6000 },
+        { month: 'Mar', efectivo: 13000, tarjeta: 18000, transferencia: 7000 },
+      ]); 
 
-    fetchPaymentData();
+    } catch (error) {
+      console.error("Error cargando pagos:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Efecto inicial
+  useEffect(() => {
+    fetchPaymentData();
+  }, [fetchPaymentData]);
 
   // --- HANDLERS ---
   const handleExportReport = async () => {
-    // Lógica de exportación (mantenida igual)
     console.log("Exportando...");
+    // generatePaymentReportPDF(...) // Implementar cuando la utilidad esté lista
+  };
+
+  const handlePaymentSuccess = () => {
+    fetchPaymentData(); // Recargar datos sin refrescar pantalla
   };
 
   return (
@@ -206,7 +216,15 @@ const PaymentManagement = () => {
                 <Button variant="outline" size="default" onClick={handleExportReport} iconName="Download" iconPosition="left">
                   Exportar Reporte
                 </Button>
-                <Button variant="default" size="default" iconName="Plus" iconPosition="left">
+                
+                {/* BOTÓN CONECTADO AL MODAL */}
+                <Button 
+                  variant="default" 
+                  size="default" 
+                  iconName="Plus" 
+                  iconPosition="left"
+                  onClick={() => setIsModalOpen(true)}
+                >
                   Registrar Pago
                 </Button>
               </div>
@@ -276,6 +294,14 @@ const PaymentManagement = () => {
           </div>
         </main>
       </div>
+
+      {/* MODAL DE REGISTRO DE PAGO */}
+      {isModalOpen && (
+        <AddPaymentModal 
+          onClose={() => setIsModalOpen(false)} 
+          onSuccess={handlePaymentSuccess} 
+        />
+      )}
     </>
   );
 };
