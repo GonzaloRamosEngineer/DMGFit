@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'; // Usamos useParams a
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 
+//context
+import { useAuth } from '../../contexts/AuthContext';
+
 // UI Components
 import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
@@ -21,8 +24,11 @@ import HealthMetrics from './components/HealthMetrics';
 import { generateAthletePDF } from '../../utils/pdfExport';
 
 const IndividualAthleteProfile = () => {
+
+
   const { id: athleteId } = useParams(); // ID desde la URL
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('performance');
   const [loading, setLoading] = useState(true);
