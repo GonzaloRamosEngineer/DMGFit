@@ -99,7 +99,14 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       path: '/access-history',
       badge: 0,
       roles: ['admin']
-    }
+    },
+    {
+  id: 'horarios',
+  label: 'Planificación',
+  icon: 'Calendar',
+  path: '/class-schedule',
+  roles: ['admin', 'profesor']
+}
 
   ];
 

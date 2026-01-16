@@ -20,8 +20,9 @@ import ProfessorDashboard from "./pages/professor-dashboard";
 import AthletePortal from "./pages/athlete-portal";
 import PDFExportCenter from "./pages/pdf-export-center";
 import CoachesManagement from "./pages/coaches-management";
-import AccessControl from './pages/access-control';
-import AccessHistory from './pages/access-history';
+import AccessControl from "./pages/access-control";
+import AccessHistory from "./pages/access-history";
+import ClassSchedule from "./pages/class-schedule";
 
 const Routes = () => {
   return (
@@ -38,14 +39,18 @@ const Routes = () => {
             element={<Navigate to="/login-role-selection" replace />}
           />
 
-
           <Route path="/access-control" element={<AccessControl />} />
 
           <Route path="/access-history" element={<AccessHistory />} />
 
-
-
-
+          <Route
+            path="/class-schedule"
+            element={
+              <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                <ClassSchedule />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/main-dashboard"
