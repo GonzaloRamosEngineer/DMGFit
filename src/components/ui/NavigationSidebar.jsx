@@ -34,13 +34,23 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       badge: 0,
       roles: ['atleta']
     },
+    // --- NUEVO ITEM AGREGADO ---
+    {
+      id: 'profesores',
+      label: 'Profesores',
+      icon: 'Briefcase', // Icono sugerido
+      path: '/coaches-management',
+      badge: 0,
+      roles: ['admin'] // Solo admin puede gestionar coaches
+    },
+    // ---------------------------
     {
       id: 'atletas',
       label: 'Atletas',
       icon: 'Users',
       path: '/athletes-management',
       badge: alertData?.atletas || 0,
-      roles: ['admin']
+      roles: ['admin', 'profesor'] // Ajustado para que los profes también vean la lista general
     },
     {
       id: 'planes',
@@ -120,7 +130,7 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
           )}
         </div>
 
-        <nav className="flex flex-col p-4 space-y-2">
+        <nav className="flex flex-col p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-140px)] custom-scrollbar">
           {menuItems?.map((item) => (
             <Link
               key={item?.id}
@@ -155,7 +165,7 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-card">
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
               <Icon
@@ -184,7 +194,7 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       </aside>
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-background z-40 lg:hidden"
+          className="fixed inset-0 bg-background z-40 lg:hidden opacity-50"
           onClick={closeMobileMenu}
           aria-hidden="true"
         />

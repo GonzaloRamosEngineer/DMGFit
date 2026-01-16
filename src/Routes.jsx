@@ -19,6 +19,7 @@ import PlanManagement from "./pages/plan-management";
 import ProfessorDashboard from "./pages/professor-dashboard";
 import AthletePortal from "./pages/athlete-portal";
 import PDFExportCenter from "./pages/pdf-export-center";
+import CoachesManagement from "./pages/coaches-management";
 
 const Routes = () => {
   return (
@@ -112,6 +113,15 @@ const Routes = () => {
             element={
               <ProtectedRoute allowedRoles={["admin", "profesor"]}>
                 <PDFExportCenter />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/coaches-management"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <CoachesManagement />
               </ProtectedRoute>
             }
           />
