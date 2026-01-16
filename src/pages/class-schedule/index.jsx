@@ -4,14 +4,19 @@ import { supabase } from '../../lib/supabaseClient';
 import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
+import Button from '../../components/ui/Button'; // Importamos Button
+
 import ClassSlotModal from './components/ClassSlotModal';
+import ActivityManagerModal from './components/ActivityManagerModal'; // Import nuevo
 
 const ClassSchedule = () => {
   const [schedule, setSchedule] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSlot, setSelectedSlot] = useState(null); // Para el modal
+  
+  // Modales
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [showActivityManager, setShowActivityManager] = useState(false);
 
-  // Configuración de la grilla
   const days = [
     { id: 1, name: 'Lunes' },
     { id: 2, name: 'Martes' },
@@ -21,21 +26,20 @@ const ClassSchedule = () => {
     { id: 6, name: 'Sábado' }
   ];
   
-  // Generamos horas de 10:00 a 21:00
-  const hours = Array.from({ length: 12 }, (_, i) => {
-    const h = i + 10;
-    return `${h}:00`;
-  });
+  const hours = Array.from({ length: 12 }, (_, i) => `${i + 10}:00`);
 
   const fetchSchedule = async () => {
     setLoading(true);
     try {
+      // OJO AL CAMBIO DE QUERY: Ahora traemos schedule_coaches
       const { data, error } = await supabase
         .from('weekly_schedule')
         .select(`
           id, day_of_week, start_time, end_time, capacity,
           class_types ( id, name, color ),
-          coaches ( id, profiles:profile_id(full_name) )
+          schedule_coaches (
+            coaches ( id, profiles:profile_id(full_name) )
+          )
         `);
       
       if (error) throw error;
@@ -51,9 +55,7 @@ const ClassSchedule = () => {
     fetchSchedule();
   }, []);
 
-  // Función para encontrar si hay clase en un día/hora específicos
   const getClassForSlot = (dayId, hourStr) => {
-    // hourStr viene como "10:00". En DB start_time es "10:00:00"
     return schedule.find(s => 
       s.day_of_week === dayId && 
       s.start_time.startsWith(hourStr)
@@ -62,22 +64,23 @@ const ClassSchedule = () => {
 
   const handleSlotClick = (dayId, hourStr, existingClass) => {
     if (existingClass) {
-      // Editar existente
+      // Mapeamos los profes al formato que espera el modal (array de IDs)
+      const coachIds = existingClass.schedule_coaches.map(sc => sc.coaches.id);
+      
       setSelectedSlot({
         id: existingClass.id,
         classTypeId: existingClass.class_types?.id,
-        coachId: existingClass.coaches?.id,
+        coachIds: coachIds, // IDs para los checkboxes
         dayOfWeek: dayId,
         startTime: existingClass.start_time,
         endTime: existingClass.end_time,
         capacity: existingClass.capacity
       });
     } else {
-      // Crear nuevo en este hueco
       setSelectedSlot({
         dayOfWeek: dayId,
         startTime: hourStr,
-        endTime: `${parseInt(hourStr) + 1}:00` // Por defecto 1 hora
+        endTime: `${parseInt(hourStr) + 1}:00`
       });
     }
   };
@@ -91,15 +94,22 @@ const ClassSchedule = () => {
           <Helmet><title>Grilla de Horarios - DigitalMatch</title></Helmet>
           <BreadcrumbTrail items={[{ label: 'Planificación Semanal', path: '#' }]} />
 
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div>
               <h1 className="text-3xl font-heading font-bold">Grilla de Clases</h1>
-              <p className="text-muted-foreground">Define los horarios fijos de la semana</p>
+              <p className="text-muted-foreground">Define los horarios y asignaciones de profesores</p>
             </div>
-            {/* Aquí podríamos poner un botón para "Gestionar Tipos de Clase" */}
+            
+            {/* BOTÓN PARA GESTIONAR ACTIVIDADES */}
+            <Button 
+              variant="outline" 
+              iconName="Settings" 
+              onClick={() => setShowActivityManager(true)}
+            >
+              Gestionar Actividades
+            </Button>
           </div>
 
-          {/* LA GRILLA */}
           <div className="bg-card border border-border rounded-xl overflow-x-auto shadow-sm">
             <table className="w-full min-w-[800px] border-collapse">
               <thead>
@@ -115,14 +125,22 @@ const ClassSchedule = () => {
               <tbody>
                 {hours.map(hour => (
                   <tr key={hour}>
-                    {/* Columna Hora */}
                     <td className="p-3 border-b border-border text-center text-xs font-mono text-muted-foreground font-bold bg-muted/10">
                       {hour}
                     </td>
 
-                    {/* Columnas Días */}
                     {days.map(day => {
                       const classInfo = getClassForSlot(day.id, hour);
+                      
+                      // Preparamos nombres de profes para mostrar
+                      const coachNames = classInfo?.schedule_coaches?.map(sc => 
+                        sc.coaches?.profiles?.full_name?.split(' ')[0]
+                      ) || [];
+                      
+                      const coachLabel = coachNames.length > 0 
+                        ? (coachNames.length > 1 ? `${coachNames[0]} +${coachNames.length - 1}` : coachNames[0])
+                        : 'Sin Profe';
+
                       return (
                         <td 
                           key={`${day.id}-${hour}`} 
@@ -131,16 +149,22 @@ const ClassSchedule = () => {
                         >
                           {classInfo ? (
                             <div 
-                              className="w-full h-full rounded-lg p-2 flex flex-col justify-center text-xs shadow-sm border border-black/5"
-                              style={{ backgroundColor: classInfo.class_types?.color + '20', borderLeftColor: classInfo.class_types?.color, borderLeftWidth: '4px' }}
+                              className="w-full h-full rounded-lg p-2 flex flex-col justify-center text-xs shadow-sm border border-black/5 relative overflow-hidden"
+                              style={{ 
+                                backgroundColor: classInfo.class_types?.color + '20', 
+                                borderLeft: `4px solid ${classInfo.class_types?.color}` 
+                              }}
                             >
                               <span className="font-bold text-foreground truncate" style={{ color: classInfo.class_types?.color }}>
                                 {classInfo.class_types?.name}
                               </span>
-                              <span className="text-muted-foreground truncate">
-                                {classInfo.coaches?.profiles?.full_name?.split(' ')[0]}
-                              </span>
-                              <div className="mt-1 flex items-center gap-1 opacity-70">
+                              
+                              <div className="flex items-center gap-1 mt-1 text-muted-foreground font-medium">
+                                <Icon name="User" size={10} />
+                                <span className="truncate">{coachLabel}</span>
+                              </div>
+                              
+                              <div className="mt-1 flex items-center gap-1 opacity-70 text-[10px]">
                                 <Icon name="Users" size={10} />
                                 <span>{classInfo.capacity}</span>
                               </div>
@@ -160,7 +184,6 @@ const ClassSchedule = () => {
               </tbody>
             </table>
           </div>
-
         </div>
       </div>
 
@@ -169,6 +192,12 @@ const ClassSchedule = () => {
           slotInfo={selectedSlot} 
           onClose={() => setSelectedSlot(null)}
           onSuccess={() => { fetchSchedule(); setSelectedSlot(null); }}
+        />
+      )}
+
+      {showActivityManager && (
+        <ActivityManagerModal 
+          onClose={() => setShowActivityManager(false)} 
         />
       )}
     </div>
