@@ -8,23 +8,29 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import CoachCard from './components/CoachCard';
-import AddCoachModal from './components/AddCoachModal';
+import CoachFormModal from './components/CoachFormModal'; // Nombre actualizado
+import CoachAthletesModal from './components/CoachAthletesModal'; // Nuevo
 
 const CoachesManagement = () => {
   const { currentUser } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [coaches, setCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Estados de Modales
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [coachToEdit, setCoachToEdit] = useState(null); // Si es null = Crear, si tiene obj = Editar
+  
+  const [isAthletesModalOpen, setIsAthletesModalOpen] = useState(false);
+  const [coachForAthletes, setCoachForAthletes] = useState(null);
 
   const fetchCoaches = async () => {
     setLoading(true);
     try {
-      // Traemos al coach y su perfil, y contamos sus atletas asignados
       const { data, error } = await supabase
         .from('coaches')
         .select(`
-          id, specialization, bio,
+          id, specialization, bio, phone,
           profiles:profile_id (full_name, email, avatar_url),
           athletes:athletes(count)
         `);
@@ -38,6 +44,7 @@ const CoachesManagement = () => {
         avatar: c.profiles?.avatar_url,
         specialization: c.specialization,
         bio: c.bio,
+        phone: c.phone,
         totalAthletes: c.athletes?.[0]?.count || 0
       })));
 
@@ -52,10 +59,31 @@ const CoachesManagement = () => {
     fetchCoaches();
   }, []);
 
+  // Handlers
+  const handleCreate = () => {
+    setCoachToEdit(null);
+    setIsFormModalOpen(true);
+  };
+
+  const handleEdit = (coach) => {
+    setCoachToEdit(coach);
+    setIsFormModalOpen(true);
+  };
+
+  const handleViewAthletes = (coach) => {
+    setCoachForAthletes(coach);
+    setIsAthletesModalOpen(true);
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm("¿Seguro que deseas eliminar este profesor?")) return;
-    // Lógica de borrado (idealmente soft delete o borrar perfil)
-    alert("Funcionalidad de borrado pendiente de implementar (requiere manejo de FK)");
+    try {
+      const { error } = await supabase.from('coaches').delete().eq('id', id);
+      if (error) throw error;
+      fetchCoaches();
+    } catch (err) {
+      alert("Error al eliminar: " + err.message);
+    }
   };
 
   return (
@@ -71,9 +99,9 @@ const CoachesManagement = () => {
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h1 className="text-3xl font-heading font-bold text-foreground">Equipo de Profesores</h1>
-                <p className="text-muted-foreground">Gestiona a los entrenadores de tu gimnasio</p>
+                <p className="text-muted-foreground">Gestiona a los entrenadores y sus asignaciones</p>
               </div>
-              <Button variant="default" iconName="UserPlus" onClick={() => setIsModalOpen(true)}>
+              <Button variant="default" iconName="UserPlus" onClick={handleCreate}>
                 Nuevo Profesor
               </Button>
             </div>
@@ -85,7 +113,13 @@ const CoachesManagement = () => {
             ) : coaches.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {coaches.map(coach => (
-                  <CoachCard key={coach.id} coach={coach} onDelete={handleDelete} />
+                  <CoachCard 
+                    key={coach.id} 
+                    coach={coach} 
+                    onDelete={handleDelete}
+                    onEdit={handleEdit}
+                    onViewAthletes={handleViewAthletes}
+                  />
                 ))}
               </div>
             ) : (
@@ -99,10 +133,20 @@ const CoachesManagement = () => {
         </div>
       </div>
 
-      {isModalOpen && (
-        <AddCoachModal 
-          onClose={() => setIsModalOpen(false)} 
-          onCoachAdded={() => { fetchCoaches(); setIsModalOpen(false); }} 
+      {/* Modal de Formulario (Crear / Editar) */}
+      {isFormModalOpen && (
+        <CoachFormModal 
+          onClose={() => setIsFormModalOpen(false)} 
+          onSuccess={fetchCoaches}
+          coachToEdit={coachToEdit}
+        />
+      )}
+
+      {/* Modal de Ver Atletas */}
+      {isAthletesModalOpen && (
+        <CoachAthletesModal 
+          coach={coachForAthletes}
+          onClose={() => setIsAthletesModalOpen(false)}
         />
       )}
     </>
