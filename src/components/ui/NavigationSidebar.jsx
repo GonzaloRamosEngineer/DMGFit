@@ -83,6 +83,14 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       path: '/pdf-export-center',
       badge: 0,
       roles: ['admin', 'profesor']
+    },
+    {
+      id: 'access-control',
+      label: 'Modo Kiosco',
+      icon: 'Monitor', // Asegúrate de tener este icono o usa 'Maximize'
+      path: '/access-control',
+      badge: 0,
+      roles: ['admin']
     }
   ];
 

@@ -20,6 +20,7 @@ import ProfessorDashboard from "./pages/professor-dashboard";
 import AthletePortal from "./pages/athlete-portal";
 import PDFExportCenter from "./pages/pdf-export-center";
 import CoachesManagement from "./pages/coaches-management";
+import AccessControl from './pages/access-control';
 
 const Routes = () => {
   return (
@@ -35,6 +36,13 @@ const Routes = () => {
             path="/"
             element={<Navigate to="/login-role-selection" replace />}
           />
+
+
+          <Route path="/access-control" element={<AccessControl />} />
+
+
+
+
 
           <Route
             path="/main-dashboard"
