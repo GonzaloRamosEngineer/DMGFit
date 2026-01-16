@@ -91,7 +91,16 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       path: '/access-control',
       badge: 0,
       roles: ['admin']
+    },
+    {
+      id: 'history-access',
+      label: 'Historial Accesos',
+      icon: 'Monitor', // Asegúrate de tener este icono o usa 'Maximize'
+      path: '/access-history',
+      badge: 0,
+      roles: ['admin']
     }
+
   ];
 
   const menuItems = allMenuItems?.filter(item => 

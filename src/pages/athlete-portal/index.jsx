@@ -3,14 +3,18 @@ import { Helmet } from 'react-helmet';
 import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
+import { supabase } from '../../lib/supabaseClient'; // Importamos supabase directo para queries custom
 
 import { useAuth } from '../../contexts/AuthContext';
+// Importamos los servicios existentes
 import { fetchAthleteNotes } from '../../services/athletes';
 import { fetchAttendanceByAthlete } from '../../services/attendance';
 import { fetchMetricsByAthlete } from '../../services/metrics';
 import { fetchPaymentsByAthlete } from '../../services/payments';
 import { fetchPlanByAthlete } from '../../services/plans';
 import { fetchUpcomingSessionsByAthlete } from '../../services/sessions';
+
+// Componentes de tarjetas
 import MyPlanCard from './components/MyPlanCard';
 import UpcomingSessionsCard from './components/UpcomingSessionsCard';
 import AttendanceCard from './components/AttendanceCard';
@@ -21,12 +25,15 @@ import CoachNotesCard from './components/CoachNotesCard';
 const AthletePortal = () => {
   const { currentUser } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Data State
   const [plan, setPlan] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [metrics, setMetrics] = useState([]);
   const [notes, setNotes] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [accessLogs, setAccessLogs] = useState([]); // Nuevo estado para molinete
 
   const athleteId = currentUser?.athleteId || currentUser?.athlete_id || currentUser?.id;
 
@@ -35,18 +42,37 @@ const AthletePortal = () => {
 
     const loadAthleteData = async () => {
       try {
-        const [planData, attendanceData, metricsData, notesData, sessionsData, paymentsData] = await Promise.all([
-          fetchPlanByAthlete(athleteId),
-          fetchAttendanceByAthlete(athleteId),
-          fetchMetricsByAthlete(athleteId),
-          fetchAthleteNotes(athleteId),
-          fetchUpcomingSessionsByAthlete(athleteId, 3),
-          fetchPaymentsByAthlete(athleteId)
+        // Obtenemos el ID real del atleta si estamos logueados como usuario
+        let realAthleteId = athleteId;
+        
+        // Si el ID parece ser el del usuario (auth.uid), buscamos el id de la tabla athletes
+        if (currentUser?.role === 'atleta') {
+             const { data: athData } = await supabase
+               .from('athletes')
+               .select('id')
+               .eq('profile_id', currentUser.id)
+               .single();
+             if (athData) realAthleteId = athData.id;
+        }
+
+        if (!realAthleteId) return;
+
+        const [planData, attendanceData, metricsData, notesData, sessionsData, paymentsData, accessLogsData] = await Promise.all([
+          fetchPlanByAthlete(realAthleteId),
+          fetchAttendanceByAthlete(realAthleteId),
+          fetchMetricsByAthlete(realAthleteId),
+          fetchAthleteNotes(realAthleteId),
+          fetchUpcomingSessionsByAthlete(realAthleteId, 3),
+          fetchPaymentsByAthlete(realAthleteId),
+          // Fetch manual para access_logs
+          supabase.from('access_logs')
+            .select('*')
+            .eq('athlete_id', realAthleteId)
+            .order('check_in_time', { ascending: false })
+            .limit(10)
         ]);
 
-        if (!isMounted) {
-          return;
-        }
+        if (!isMounted) return;
 
         setPlan(planData);
         setAttendance(attendanceData ?? []);
@@ -54,26 +80,25 @@ const AthletePortal = () => {
         setNotes(notesData ?? []);
         setSessions(sessionsData ?? []);
         setPayments(paymentsData ?? []);
+        setAccessLogs(accessLogsData?.data ?? []);
+        
       } catch (error) {
         console.error('Error loading athlete portal data', error);
       }
     };
 
-    if (athleteId) {
+    if (currentUser) {
       loadAthleteData();
     }
 
     return () => {
       isMounted = false;
     };
-  }, [athleteId]);
+  }, [currentUser, athleteId]);
 
   const attendanceRate = useMemo(() => {
-    if (!attendance?.length) {
-      return 0;
-    }
-
-    const presentCount = attendance?.filter(a => a?.status === 'present')?.length || 0;
+    if (!attendance?.length) return 0;
+    const presentCount = attendance.filter(a => a?.status === 'present')?.length || 0;
     return Math.round((presentCount / attendance.length) * 100);
   }, [attendance]);
 
@@ -106,6 +131,7 @@ const AthletePortal = () => {
               </div>
             </div>
 
+            {/* KPI CARDS */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
               <div className="bg-card border border-border rounded-xl p-6">
                 <div className="flex items-center gap-3 mb-2">
@@ -114,7 +140,7 @@ const AthletePortal = () => {
                   </div>
                   <div>
                     <p className="text-2xl font-heading font-bold text-foreground">{attendanceRate}%</p>
-                    <p className="text-sm text-muted-foreground">Asistencia</p>
+                    <p className="text-sm text-muted-foreground">Tasa Asistencia (Clases)</p>
                   </div>
                 </div>
               </div>
@@ -122,13 +148,13 @@ const AthletePortal = () => {
               <div className="bg-card border border-border rounded-xl p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center">
-                    <Icon name="CheckCircle" size={20} color="var(--color-success)" />
+                    <Icon name="LogIn" size={20} color="var(--color-success)" />
                   </div>
                   <div>
                     <p className="text-2xl font-heading font-bold text-foreground">
-                      {attendance?.filter(a => a?.status === 'present')?.length}
+                      {accessLogs.filter(l => l.access_granted).length}
                     </p>
-                    <p className="text-sm text-muted-foreground">Sesiones Completadas</p>
+                    <p className="text-sm text-muted-foreground">Visitas Totales</p>
                   </div>
                 </div>
               </div>
@@ -146,11 +172,39 @@ const AthletePortal = () => {
               </div>
             </div>
 
+            {/* MAIN GRID */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-6">
                 <MyPlanCard plan={plan} />
+                
+                {/* TARJETA DE ÚLTIMOS INGRESOS (MOLINETE) */}
+                <div className="bg-card border border-border rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                      <Icon name="Clock" size={24} />
+                    </div>
+                    <h3 className="font-bold text-lg text-foreground">Mis Últimos Ingresos</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {accessLogs.length > 0 ? (
+                      accessLogs.slice(0, 5).map((log, i) => (
+                        <div key={i} className="flex items-center gap-3 text-sm p-2 hover:bg-muted/20 rounded-lg transition-colors">
+                          <div className={`w-2 h-2 rounded-full ${log.access_granted ? 'bg-success' : 'bg-error'}`}></div>
+                          <span className="text-foreground font-medium">
+                            {new Date(log.check_in_time).toLocaleDateString()}
+                          </span>
+                          <span className="text-muted-foreground ml-auto font-mono">
+                            {new Date(log.check_in_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2 text-center">Aún no has registrado ingresos por molinete.</p>
+                    )}
+                  </div>
+                </div>
+
                 <UpcomingSessionsCard sessions={sessions} />
-                <AttendanceCard attendance={attendance} attendanceRate={attendanceRate} />
               </div>
 
               <div className="space-y-6">

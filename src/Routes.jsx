@@ -40,6 +40,8 @@ const Routes = () => {
 
           <Route path="/access-control" element={<AccessControl />} />
 
+          <Route path="/access-history" element={<AccessHistory />} />
+
 
 
 
