@@ -67,7 +67,7 @@ const PaymentHistory = ({ payments, loading = false }) => {
             
             <div className="flex items-center gap-2 md:gap-3 sm:flex-shrink-0">
               <span className="text-base md:text-lg font-semibold text-foreground data-text whitespace-nowrap">
-                €{payment.amount}
+                ${payment.amount}
               </span>
               <span className={`px-2 md:px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(payment.status)}`}>
                 {getStatusLabel(payment.status)}

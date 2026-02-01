@@ -2,10 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
-// import { generatePaymentReportPDF } from '../../utils/pdfExport'; // Descomentar si existe la utilidad
 
 // Componentes UI
-import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Button from '../../components/ui/Button';
 
@@ -18,13 +16,10 @@ import OverduePaymentsTable from './components/OverduePaymentsTable';
 import PaymentMethodChart from './components/PaymentMethodChart';
 import RecentTransactionsFeed from './components/RecentTransactionsFeed';
 import AutomatedReminderControl from './components/AutomatedReminderControl';
-
-// MODAL NUEVO
 import AddPaymentModal from './components/AddPaymentModal';
 
 const PaymentManagement = () => {
   const { currentUser } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
   
   // Estado para el Modal
@@ -44,19 +39,19 @@ const PaymentManagement = () => {
   const [filterCounts, setFilterCounts] = useState({ all: 0, current: 0, overdue: 0, pending: 0 });
 
   const [reminderSettings, setReminderSettings] = useState({
-    enabled: true, frequency: 'weekly', channels: ['email', 'sms']
+    enabled: true, 
+    frequency: 'weekly', 
+    channels: ['email', 'sms']
   });
 
-  const alertData = { dashboard: 3, atletas: 5, rendimiento: 2, pagos: 12 };
-
-  // --- FUNCIÓN DE CARGA DE DATOS (Refactorizada para ser reutilizable) ---
+  // --- FUNCIÓN DE CARGA DE DATOS ---
   const fetchPaymentData = useCallback(async () => {
     try {
       setLoading(true);
       const today = new Date();
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
 
-      // 1. Obtener Pagos (Generales)
+      // 1. Obtener Pagos
       const { data: paymentsData, error } = await supabase
         .from('payments')
         .select(`
@@ -84,27 +79,35 @@ const PaymentManagement = () => {
           title: 'Ingresos Mensuales',
           value: monthlyRevenue.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
           currency: '$',
-          trend: 'up', trendValue: '+5.0%', // Simulado
-          icon: 'TrendingUp', iconColor: 'bg-success/20 text-success'
+          trend: 'up', 
+          trendValue: '+5.0%',
+          icon: 'TrendingUp', 
+          iconColor: 'bg-success/20 text-success'
         },
         {
           title: 'Tasa de Cobro',
           value: `${collectionRate}%`,
-          trend: collectionRate > 90 ? 'up' : 'down', trendValue: collectionRate > 90 ? 'Excelente' : 'Mejorable',
-          icon: 'Target', iconColor: 'bg-primary/20 text-primary'
+          trend: collectionRate > 90 ? 'up' : 'down', 
+          trendValue: collectionRate > 90 ? 'Excelente' : 'Mejorable',
+          icon: 'Target', 
+          iconColor: 'bg-primary/20 text-primary'
         },
         {
           title: 'Monto Vencido',
           value: overdueAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
           currency: '$',
-          trend: overdueAmount > 0 ? 'down' : 'up', trendValue: overdueAmount > 0 ? 'Atención' : 'Limpio',
-          icon: 'AlertCircle', iconColor: 'bg-error/20 text-error'
+          trend: overdueAmount > 0 ? 'down' : 'up', 
+          trendValue: overdueAmount > 0 ? 'Atención' : 'Limpio',
+          icon: 'AlertCircle', 
+          iconColor: 'bg-error/20 text-error'
         },
         {
           title: 'Pagos Pendientes',
           value: totalDue.length,
-          trend: 'neutral', trendValue: 'Total',
-          icon: 'Clock', iconColor: 'bg-warning/20 text-warning'
+          trend: 'neutral', 
+          trendValue: 'Total',
+          icon: 'Clock', 
+          iconColor: 'bg-warning/20 text-warning'
         }
       ]);
 
@@ -171,7 +174,6 @@ const PaymentManagement = () => {
     }
   }, []);
 
-  // Efecto inicial
   useEffect(() => {
     fetchPaymentData();
   }, [fetchPaymentData]);
@@ -179,11 +181,10 @@ const PaymentManagement = () => {
   // --- HANDLERS ---
   const handleExportReport = async () => {
     console.log("Exportando...");
-    // generatePaymentReportPDF(...) // Implementar cuando la utilidad esté lista
   };
 
   const handlePaymentSuccess = () => {
-    fetchPaymentData(); // Recargar datos sin refrescar pantalla
+    fetchPaymentData();
   };
 
   return (
@@ -191,108 +192,107 @@ const PaymentManagement = () => {
       <Helmet>
         <title>Gestión de Pagos - DigitalMatch</title>
       </Helmet>
-      <div className="min-h-screen bg-background">
-        <NavigationSidebar
-          isCollapsed={sidebarCollapsed}
-          userRole={currentUser?.role || 'profesor'}
-          alertData={alertData} 
-        />
+      
+      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
+      <div className="p-4 md:p-6 lg:p-8 w-full">
+        <div className="max-w-7xl mx-auto">
+          <BreadcrumbTrail currentPath="/payment-management" />
 
-        <main className={`transition-smooth ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'}`}>
-          <div className="p-4 md:p-6 lg:p-8">
-            <BreadcrumbTrail currentPath="/payment-management" />
-
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-              <div>
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
-                  Gestión de Pagos
-                </h1>
-                <p className="text-sm md:text-base text-muted-foreground">
-                  Control financiero y análisis de cobros en tiempo real
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="default" onClick={handleExportReport} iconName="Download" iconPosition="left">
-                  Exportar Reporte
-                </Button>
-                
-                {/* BOTÓN CONECTADO AL MODAL */}
-                <Button 
-                  variant="default" 
-                  size="default" 
-                  iconName="Plus" 
-                  iconPosition="left"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  Registrar Pago
-                </Button>
-              </div>
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
+                Gestión de Pagos
+              </h1>
+              <p className="text-sm md:text-base text-muted-foreground">
+                Control financiero y análisis de cobros en tiempo real
+              </p>
             </div>
-
-            {/* Filtros y Rango */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-6">
-              <div className="lg:col-span-8 space-y-4">
-                <PaymentStatusFilter
-                  activeFilter={activeFilter}
-                  onFilterChange={setActiveFilter}
-                  counts={filterCounts}
-                  loading={loading}
-                />
-              </div>
-              <div className="lg:col-span-4">
-                <DateRangeSelector
-                  selectedRange={selectedRange}
-                  onRangeChange={setSelectedRange}
-                  customDates={customDates}
-                  onCustomDatesChange={setCustomDates}
-                  loading={loading}
-                />
-              </div>
-            </div>
-
-            {/* Métricas Financieras */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
-              {loading ? (
-                 [1,2,3,4].map(i => <FinancialMetricCard key={i} loading={true} />)
-              ) : (
-                 financialMetrics.map((metric, index) => <FinancialMetricCard key={index} {...metric} />)
-              )}
-            </div>
-
-            {/* Gráficos */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-6">
-              <div className="lg:col-span-8">
-                <RevenueChart data={revenueData} loading={loading} />
-              </div>
-              <div className="lg:col-span-4 space-y-4 md:space-y-6">
-                <PaymentMethodChart data={paymentMethodData} loading={loading} />
-                <AutomatedReminderControl
-                  settings={reminderSettings}
-                  onSettingsChange={setReminderSettings}
-                  loading={loading}
-                />
-              </div>
-            </div>
-
-            {/* Tablas Detalladas */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-              <div className="lg:col-span-8">
-                <OverduePaymentsTable
-                  payments={overduePayments}
-                  loading={loading}
-                  onSendReminder={() => {}}
-                />
-              </div>
-              <div className="lg:col-span-4">
-                <RecentTransactionsFeed 
-                  transactions={recentTransactions} 
-                  loading={loading} 
-                />
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline" 
+                size="default" 
+                onClick={handleExportReport} 
+                iconName="Download" 
+                iconPosition="left"
+              >
+                Exportar Reporte
+              </Button>
+              
+              <Button 
+                variant="default" 
+                size="default" 
+                iconName="Plus" 
+                iconPosition="left"
+                onClick={() => setIsModalOpen(true)}
+              >
+                Registrar Pago
+              </Button>
             </div>
           </div>
-        </main>
+
+          {/* Filtros y Rango */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-6">
+            <div className="lg:col-span-8 space-y-4">
+              <PaymentStatusFilter
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+                counts={filterCounts}
+                loading={loading}
+              />
+            </div>
+            <div className="lg:col-span-4">
+              <DateRangeSelector
+                selectedRange={selectedRange}
+                onRangeChange={setSelectedRange}
+                customDates={customDates}
+                onCustomDatesChange={setCustomDates}
+                loading={loading}
+              />
+            </div>
+          </div>
+
+          {/* Métricas Financieras */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+            {loading ? (
+               [1,2,3,4].map(i => <FinancialMetricCard key={i} loading={true} />)
+            ) : (
+               financialMetrics.map((metric, index) => <FinancialMetricCard key={index} {...metric} />)
+            )}
+          </div>
+
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-6">
+            <div className="lg:col-span-8">
+              <RevenueChart data={revenueData} loading={loading} />
+            </div>
+            <div className="lg:col-span-4 space-y-4 md:space-y-6">
+              <PaymentMethodChart data={paymentMethodData} loading={loading} />
+              <AutomatedReminderControl
+                settings={reminderSettings}
+                onSettingsChange={setReminderSettings}
+                loading={loading}
+              />
+            </div>
+          </div>
+
+          {/* Tablas Detalladas */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+            <div className="lg:col-span-8">
+              <OverduePaymentsTable
+                payments={overduePayments}
+                loading={loading}
+                onSendReminder={() => {}}
+              />
+            </div>
+            <div className="lg:col-span-4">
+              <RecentTransactionsFeed 
+                transactions={recentTransactions} 
+                loading={loading} 
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* MODAL DE REGISTRO DE PAGO */}

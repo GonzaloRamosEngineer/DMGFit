@@ -8,6 +8,7 @@ import {
 import ScrollToTop from "components/ScrollToTop";
 import ErrorBoundary from "components/ErrorBoundary";
 import ProtectedRoute from "components/ProtectedRoute";
+import AppLayout from "./AppLayout";
 import NotFound from "pages/NotFound";
 import LoginRoleSelection from "./pages/login-role-selection";
 import IndividualAthleteProfile from "./pages/individual-athlete-profile";
@@ -30,6 +31,7 @@ const Routes = () => {
       <ErrorBoundary>
         <ScrollToTop />
         <RouterRoutes>
+          {/* Public Routes - Sin Layout */}
           <Route
             path="/login-role-selection"
             element={<LoginRoleSelection />}
@@ -39,109 +41,140 @@ const Routes = () => {
             element={<Navigate to="/login-role-selection" replace />}
           />
 
-          <Route path="/access-control" element={<AccessControl />} />
+          {/* 2. Modo Kiosco - SIN sidebar (PANTALLA COMPLETA) */}
+  <Route
+    path="/access-control"
+    element={
+      <ProtectedRoute allowedRoles={["admin"]}>
+        <AccessControl />
+      </ProtectedRoute>
+    }
+  />
 
-          <Route path="/access-history" element={<AccessHistory />} />
+          {/* Protected Routes - Con AppLayout (Sidebar) */}
+          <Route element={<AppLayout />}>
+            {/* Admin Routes */}
+            <Route
+              path="/main-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                  <MainDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/class-schedule"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "profesor"]}>
-                <ClassSchedule />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/coaches-management"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <CoachesManagement />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/main-dashboard"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "profesor"]}>
-                <MainDashboard />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/athletes-management"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                  <AthletesManagement />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/professor-dashboard"
-            element={
-              <ProtectedRoute allowedRoles={["profesor"]}>
-                <ProfessorDashboard />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/plan-management"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <PlanManagement />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/athlete-portal"
-            element={
-              <ProtectedRoute allowedRoles={["atleta"]}>
-                <AthletePortal />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/payment-management"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <PaymentManagement />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/athletes-management"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "profesor"]}>
-                <AthletesManagement />
-              </ProtectedRoute>
-            }
-          />
+            {/* <Route
+              path="/access-control"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AccessControl />
+                </ProtectedRoute>
+              }
+            /> */}
 
-          <Route
-            path="/plan-management"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <PlanManagement />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/access-history"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AccessHistory />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/payment-management"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <PaymentManagement />
-              </ProtectedRoute>
-            }
-          />
+            {/* Professor Routes */}
+            <Route
+              path="/professor-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["profesor"]}>
+                  <ProfessorDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/performance-analytics"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "profesor"]}>
-                <PerformanceAnalytics />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/class-schedule"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                  <ClassSchedule />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/individual-athlete-profile/:id"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "profesor"]}>
-                <IndividualAthleteProfile />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/performance-analytics"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                  <PerformanceAnalytics />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/pdf-export-center"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "profesor"]}>
-                <PDFExportCenter />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/individual-athlete-profile/:id"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                  <IndividualAthleteProfile />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/coaches-management"
-            element={
-              <ProtectedRoute allowedRoles={["admin"]}>
-                <CoachesManagement />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/pdf-export-center"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                  <PDFExportCenter />
+                </ProtectedRoute>
+              }
+            />
 
+            {/* Athlete Routes */}
+            <Route
+              path="/athlete-portal"
+              element={
+                <ProtectedRoute allowedRoles={["atleta"]}>
+                  <AthletePortal />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+
+          {/* 404 - Sin Layout */}
           <Route path="*" element={<NotFound />} />
         </RouterRoutes>
       </ErrorBoundary>

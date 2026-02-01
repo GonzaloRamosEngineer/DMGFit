@@ -3,17 +3,15 @@ import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 
-import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import CoachCard from './components/CoachCard';
-import CoachFormModal from './components/CoachFormModal'; // Nombre actualizado
-import CoachAthletesModal from './components/CoachAthletesModal'; // Nuevo
+import CoachFormModal from './components/CoachFormModal';
+import CoachAthletesModal from './components/CoachAthletesModal';
 
 const CoachesManagement = () => {
   const { currentUser } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [coaches, setCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -88,48 +86,60 @@ const CoachesManagement = () => {
 
   return (
     <>
-      <Helmet><title>Gestión de Profesores - DigitalMatch</title></Helmet>
-      <div className="flex min-h-screen bg-background">
-        <NavigationSidebar isCollapsed={sidebarCollapsed} userRole={currentUser?.role || 'admin'} />
-        
-        <div className={`flex-1 transition-smooth ${sidebarCollapsed ? 'ml-20' : 'ml-60'}`}>
-          <div className="p-6 lg:p-8">
-            <BreadcrumbTrail items={[{ label: 'Gestión de Profesores', path: '/coaches-management', active: true }]} />
-            
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-heading font-bold text-foreground">Equipo de Profesores</h1>
-                <p className="text-muted-foreground">Gestiona a los entrenadores y sus asignaciones</p>
-              </div>
-              <Button variant="default" iconName="UserPlus" onClick={handleCreate}>
-                Nuevo Profesor
-              </Button>
+      <Helmet>
+        <title>Gestión de Profesores - Plataforma de Gestión Deportiva</title>
+      </Helmet>
+      
+      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
+      <div className="p-4 md:p-6 lg:p-8 w-full">
+        <div className="max-w-7xl mx-auto">
+          <BreadcrumbTrail 
+            items={[
+              { label: 'Gestión de Profesores', path: '/coaches-management', active: true }
+            ]} 
+          />
+          
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+            <div>
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
+                Equipo de Profesores
+              </h1>
+              <p className="text-sm md:text-base text-muted-foreground">
+                Gestiona a los entrenadores y sus asignaciones
+              </p>
             </div>
-
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[1,2,3].map(i => <div key={i} className="h-64 bg-muted/20 animate-pulse rounded-xl"></div>)}
-              </div>
-            ) : coaches.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {coaches.map(coach => (
-                  <CoachCard 
-                    key={coach.id} 
-                    coach={coach} 
-                    onDelete={handleDelete}
-                    onEdit={handleEdit}
-                    onViewAthletes={handleViewAthletes}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 border border-dashed border-border rounded-xl">
-                <Icon name="Users" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-semibold text-foreground">No hay profesores registrados</h3>
-                <p className="text-muted-foreground">Comienza agregando a tu staff.</p>
-              </div>
-            )}
+            <Button variant="default" iconName="UserPlus" onClick={handleCreate}>
+              Nuevo Profesor
+            </Button>
           </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[1,2,3].map(i => (
+                <div key={i} className="h-64 bg-muted/20 animate-pulse rounded-xl"></div>
+              ))}
+            </div>
+          ) : coaches.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {coaches.map(coach => (
+                <CoachCard 
+                  key={coach.id} 
+                  coach={coach} 
+                  onDelete={handleDelete}
+                  onEdit={handleEdit}
+                  onViewAthletes={handleViewAthletes}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 border border-dashed border-border rounded-xl">
+              <Icon name="Users" size={48} className="mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                No hay profesores registrados
+              </h3>
+              <p className="text-muted-foreground">Comienza agregando a tu staff.</p>
+            </div>
+          )}
         </div>
       </div>
 

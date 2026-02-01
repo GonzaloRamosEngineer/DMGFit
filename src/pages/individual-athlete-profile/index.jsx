@@ -7,7 +7,6 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../contexts/AuthContext";
 
 // UI Components
-import NavigationSidebar from "../../components/ui/NavigationSidebar";
 import BreadcrumbTrail from "../../components/ui/BreadcrumbTrail";
 import Icon from "../../components/AppIcon";
 
@@ -25,7 +24,7 @@ import { generateAthletePDF } from "../../utils/pdfExport";
 // --- SUB-COMPONENTE INTERNO: HISTORIAL DE ACCESOS (MOLINETE) ---
 const AthleteAccessLog = ({ logs }) => {
   return (
-    <div className="bg-card border border-border rounded-xl p-6 mt-6">
+    <div className="bg-card border border-border rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-heading font-semibold text-foreground flex items-center gap-2">
           <Icon name="CreditCard" size={20} className="text-primary" />
@@ -74,7 +73,6 @@ const IndividualAthleteProfile = () => {
   const { id: athleteId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("performance");
   const [loading, setLoading] = useState(true);
 
@@ -84,7 +82,7 @@ const IndividualAthleteProfile = () => {
     metrics: [],
     latestMetrics: {},
     attendance: [],
-    accessLogs: [], // Nuevo estado para logs de acceso
+    accessLogs: [],
     payments: [],
     notes: [],
     sessions: [],
@@ -188,7 +186,6 @@ const IndividualAthleteProfile = () => {
 
   // --- KPIs CALCULADOS ---
   const kpiStats = useMemo(() => {
-    // Si no hay datos, mostramos ceros
     const totalAtt = profileData.attendance.length;
     const totalAccess = profileData.accessLogs.filter(l => l.access_granted).length;
     
@@ -228,7 +225,7 @@ const IndividualAthleteProfile = () => {
           content: content,
           date: new Date().toISOString().split("T")[0],
           type: "general",
-          coach_id: currentUser?.coachId || null, // Manejo seguro de null
+          coach_id: currentUser?.coachId || null,
         })
         .select()
         .single();
@@ -260,90 +257,83 @@ const IndividualAthleteProfile = () => {
         </title>
       </Helmet>
 
-      <div className="flex min-h-screen bg-background">
-        <NavigationSidebar
-          isCollapsed={sidebarCollapsed}
-          userRole={currentUser?.role || "profesor"}
-          alertData={{ dashboard: 2 }}
-        />
+      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
+      <div className="p-4 md:p-6 lg:p-8 w-full">
+        <div className="max-w-7xl mx-auto">
+          <BreadcrumbTrail
+            items={[
+              { label: "Gestión de Atletas", path: "/athletes-management" },
+              { label: profileData.athlete?.name || "Perfil", path: "#", active: true },
+            ]}
+          />
 
-        <div className={`flex-1 transition-smooth ${sidebarCollapsed ? "ml-20" : "ml-60"}`}>
-          <div className="p-6 lg:p-8">
-            <BreadcrumbTrail
-              items={[
-                { label: "Gestión de Atletas", path: "/athletes-management" },
-                { label: profileData.athlete?.name || "Perfil", path: "#", active: true },
-              ]}
-            />
+          {/* HEADER */}
+          <AthleteHeader
+            athlete={profileData.athlete}
+            loading={loading}
+            onExport={handleExportPDF}
+          />
 
-            {/* HEADER */}
-            <AthleteHeader
-              athlete={profileData.athlete}
-              loading={loading}
-              onExport={handleExportPDF}
-            />
+          {/* KPI STRIP */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {loading
+              ? [1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-24 bg-card border border-border rounded-xl animate-pulse"></div>
+                ))
+              : kpiStats.map((stat, i) => <MetricCard key={i} {...stat} />)}
+          </div>
 
-            {/* KPI STRIP */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              {loading
-                ? [1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-24 bg-card border border-border rounded-xl animate-pulse"></div>
-                  ))
-                : kpiStats.map((stat, i) => <MetricCard key={i} {...stat} />)}
+          {/* MAIN CONTENT GRID */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LEFT COLUMN (2/3) */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* TABS DE NAVEGACIÓN */}
+              <div className="bg-card border border-border rounded-xl p-1 overflow-x-auto">
+                <div className="flex space-x-1 min-w-max">
+                  {["performance", "attendance", "payments"].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        activeTab === tab
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* CONTENIDO DE TABS */}
+              <div className="min-h-[400px]">
+                {activeTab === "performance" && (
+                  <PerformanceChart data={profileData.metrics} loading={loading} />
+                )}
+                {activeTab === "attendance" && (
+                  <AttendanceCalendar data={profileData.attendance} loading={loading} />
+                )}
+                {activeTab === "payments" && (
+                  <PaymentHistory payments={profileData.payments} loading={loading} />
+                )}
+              </div>
             </div>
 
-            {/* MAIN CONTENT GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* LEFT COLUMN (2/3) */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* TABS DE NAVEGACIÓN */}
-                <div className="bg-card border border-border rounded-xl p-1 overflow-x-auto">
-                  <div className="flex space-x-1 min-w-max">
-                    {["performance", "attendance", "payments"].map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          activeTab === tab
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        }`}
-                      >
-                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            {/* RIGHT COLUMN (1/3) */}
+            <div className="space-y-6">
+              <HealthMetrics metrics={profileData.latestMetrics} loading={loading} />
+              
+              {/* COMPONENTE DE ACCESOS */}
+              <AthleteAccessLog logs={profileData.accessLogs} />
 
-                {/* CONTENIDO DE TABS */}
-                <div className="min-h-[400px]">
-                  {activeTab === "performance" && (
-                    <PerformanceChart data={profileData.metrics} loading={loading} />
-                  )}
-                  {activeTab === "attendance" && (
-                    <AttendanceCalendar data={profileData.attendance} loading={loading} />
-                  )}
-                  {activeTab === "payments" && (
-                    <PaymentHistory payments={profileData.payments} loading={loading} />
-                  )}
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN (1/3) */}
-              <div className="space-y-6">
-                <HealthMetrics metrics={profileData.latestMetrics} loading={loading} />
-                
-                {/* COMPONENTE NUEVO DE ACCESOS */}
-                <AthleteAccessLog logs={profileData.accessLogs} />
-
-                <UpcomingSessions sessions={profileData.sessions} loading={loading} />
-                
-                <CoachNotes
-                  notes={profileData.notes}
-                  onAddNote={handleAddNote}
-                  loading={loading}
-                />
-              </div>
+              <UpcomingSessions sessions={profileData.sessions} loading={loading} />
+              
+              <CoachNotes
+                notes={profileData.notes}
+                onAddNote={handleAddNote}
+                loading={loading}
+              />
             </div>
           </div>
         </div>

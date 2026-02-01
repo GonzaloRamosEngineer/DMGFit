@@ -5,10 +5,9 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 
 // UI Components
-import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 
-// Analytics Components (Ya conectados)
+// Analytics Components
 import PerformanceKPICard from './components/PerformanceKPICard';
 import PerformanceScatterChart from './components/PerformanceScatterChart';
 import PerformanceEvolutionChart from './components/PerformanceEvolutionChart';
@@ -18,7 +17,6 @@ import PerformanceFilters from './components/PerformanceFilters';
 const PerformanceAnalytics = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Estados para datos dinámicos
@@ -35,14 +33,6 @@ const PerformanceAnalytics = () => {
     coach: 'all',
     program: 'all'
   });
-
-  // ALERTAS (Estáticas por ahora para la Sidebar)
-  const alertData = {
-    dashboard: 3,
-    atletas: 5,
-    rendimiento: 0,
-    pagos: 8
-  };
 
   // --- LOGICA DE CARGA DE DATOS ---
   useEffect(() => {
@@ -72,7 +62,7 @@ const PerformanceAnalytics = () => {
         setKpiStats([
           {
             title: 'Puntuación Promedio',
-            value: '78.5', // Este dato requeriría un cálculo complejo de backend, lo dejamos estimado
+            value: '78.5',
             unit: '/100',
             trend: 'up',
             trendValue: '+5.2%',
@@ -81,7 +71,7 @@ const PerformanceAnalytics = () => {
           },
           {
             title: 'Tasa de Mejora',
-            value: '12', // Dato simulado basado en el script SQL (aprox 12% mejora en sentadilla)
+            value: '12',
             unit: '%',
             trend: 'up',
             trendValue: '+2.1%',
@@ -89,7 +79,7 @@ const PerformanceAnalytics = () => {
             iconColor: 'var(--color-success)'
           },
           {
-            title: 'Asistencia Global', // Dato REAL calculado arriba
+            title: 'Asistencia Global',
             value: avgAttendance || 0,
             unit: '%',
             trend: 'down',
@@ -98,20 +88,17 @@ const PerformanceAnalytics = () => {
             iconColor: 'var(--color-accent)'
           },
           {
-            title: 'Total Atletas', // Dato REAL de la DB
+            title: 'Total Atletas',
             value: totalAthletes || 0,
             unit: '',
             trend: 'up',
             trendValue: '+1',
-            icon: 'Users', // Cambié el icono a Users
+            icon: 'Users',
             iconColor: 'var(--color-warning)'
           }
         ]);
 
         // 3. OBTENER DATOS PARA SCATTER Y LEADERBOARD
-        // Estrategia: Buscamos a nuestro atleta real 'Carlos' y lo mezclamos con datos
-        // de relleno para que los gráficos se vean bien poblados.
-        
         const { data: carlosProfile } = await supabase
           .from('profiles')
           .select('full_name, email, avatar_url')
@@ -124,8 +111,8 @@ const PerformanceAnalytics = () => {
           name: carlosProfile?.full_name || 'Carlos Mendoza',
           email: carlosProfile?.email,
           avatar: carlosProfile?.avatar_url,
-          attendance: avgAttendance || 92, // Usamos la asistencia calculada
-          improvement: 32, // Basado en el script SQL
+          attendance: avgAttendance || 92,
+          improvement: 32,
           score: 92,
           rankChange: 2,
           badge: 'top-performer'
@@ -156,7 +143,7 @@ const PerformanceAnalytics = () => {
     };
 
     fetchAnalyticsData();
-  }, [filters]); // Se recarga si cambian los filtros
+  }, [filters]);
 
   // --- HANDLERS ---
 
@@ -177,7 +164,6 @@ const PerformanceAnalytics = () => {
 
   const handleExport = () => {
     console.log('Exporting performance analytics report...');
-    // Aquí podrías implementar lógica real de exportación PDF
   };
 
   const handleAthleteClick = (athlete) => {
@@ -191,74 +177,67 @@ const PerformanceAnalytics = () => {
         <title>Analítica de Rendimiento - DigitalMatch</title>
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        <NavigationSidebar
-          isCollapsed={sidebarCollapsed}
-          userRole={currentUser?.role || 'profesor'}
-          alertData={alertData} 
-        />
+      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
+      <div className="p-4 md:p-6 lg:p-8 w-full">
+        <div className="max-w-7xl mx-auto">
+          <BreadcrumbTrail
+            currentPath="/performance-analytics"
+            entityData={{}} 
+          />
 
-        <main className={`transition-smooth ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'}`}>
-          <div className="p-4 md:p-6 lg:p-8">
-            <BreadcrumbTrail
-              currentPath="/performance-analytics"
-              entityData={{}} 
-            />
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
+              Análisis de Rendimiento
+            </h1>
+            <p className="text-sm md:text-base text-muted-foreground">
+              Análisis comparativo y seguimiento de tendencias basado en datos reales.
+            </p>
+          </div>
 
-            <div className="mb-6 md:mb-8">
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
-                Análisis de Rendimiento
-              </h1>
-              <p className="text-sm md:text-base text-muted-foreground">
-                Análisis comparativo y seguimiento de tendencias basado en datos reales.
-              </p>
+          {/* FILTROS */}
+          <PerformanceFilters
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onReset={handleResetFilters}
+            onExport={handleExport}
+            loading={loading}
+          />
+
+          {/* KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
+            {kpiStats.map((kpi, index) => (
+              <PerformanceKPICard 
+                key={index} 
+                {...kpi} 
+                loading={loading}
+              />
+            ))}
+          </div>
+
+          {/* SCATTER + LEADERBOARD */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-6 md:mb-8">
+            <div className="lg:col-span-9">
+              <PerformanceScatterChart
+                data={scatterData}
+                onAthleteClick={handleAthleteClick}
+                loading={loading}
+              />
             </div>
 
-            {/* FILTROS */}
-            <PerformanceFilters
-              filters={filters}
-              onFilterChange={handleFilterChange}
-              onReset={handleResetFilters}
-              onExport={handleExport}
-              loading={loading}
-            />
-
-            {/* KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-              {kpiStats.map((kpi, index) => (
-                <PerformanceKPICard 
-                  key={index} 
-                  {...kpi} 
-                  loading={loading} // Pasamos estado de carga
-                />
-              ))}
-            </div>
-
-            {/* SCATTER + LEADERBOARD */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-6 md:mb-8">
-              <div className="lg:col-span-9">
-                <PerformanceScatterChart
-                  data={scatterData}
-                  onAthleteClick={handleAthleteClick}
-                  loading={loading}
-                />
-              </div>
-
-              <div className="lg:col-span-3">
-                <PerformanceLeaderboard
-                  athletes={leaderboardData}
-                  onAthleteClick={handleAthleteClick}
-                  loading={loading}
-                />
-              </div>
-            </div>
-
-            {/* EVOLUCIÓN (Este componente ya gestiona su propia conexión a DB internamente) */}
-            <div className="mb-6 md:mb-8">
-              <PerformanceEvolutionChart />
+            <div className="lg:col-span-3">
+              <PerformanceLeaderboard
+                athletes={leaderboardData}
+                onAthleteClick={handleAthleteClick}
+                loading={loading}
+              />
             </div>
           </div>
-        </main>
+
+          {/* EVOLUCIÓN */}
+          <div className="mb-6 md:mb-8">
+            <PerformanceEvolutionChart />
+          </div>
+        </div>
       </div>
     </>
   );

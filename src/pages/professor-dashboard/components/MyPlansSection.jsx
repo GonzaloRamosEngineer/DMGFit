@@ -34,7 +34,7 @@ const MyPlansSection = ({ plans }) => {
                   </div>
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Icon name="DollarSign" size={16} />
-                    <span className="text-foreground">€{plan.price || 0}</span>
+                    <span className="text-foreground">${plan.price || 0}</span>
                   </div>
                 </div>
               </div>

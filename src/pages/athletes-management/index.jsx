@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Helmet } from "react-helmet";
-import NavigationSidebar from "../../components/ui/NavigationSidebar";
 import BreadcrumbTrail from "../../components/ui/BreadcrumbTrail";
 import MetricsStrip from "./components/MetricsStrip";
 import SearchAndFilters from "./components/SearchAndFilters";
@@ -16,7 +15,6 @@ import AddAthleteModal from "./components/AddAthleteModal";
 
 const AthletesManagement = () => {
   const { currentUser } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedAthletes, setSelectedAthletes] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({});
@@ -24,7 +22,7 @@ const AthletesManagement = () => {
     key: "name",
     direction: "asc",
   });
-  const [isLoading, setIsLoading] = useState(true); // Inicializamos en true
+  const [isLoading, setIsLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -143,7 +141,7 @@ const AthletesManagement = () => {
                 )
               : 0;
 
-          const latestMetric = perfRecords[0]?.value || 0; // Asumiendo que el valor más reciente es el score actual
+          const latestMetric = perfRecords[0]?.value || 0;
 
           // Buscar último pago
           const latestPayment = payRecords.sort(
@@ -158,10 +156,10 @@ const AthletesManagement = () => {
             coach: athlete.coaches?.profiles?.full_name || "Sin Asignar",
             isActive: athlete.status === "active",
             attendanceRate,
-            performanceScore: Math.round(latestMetric), // Score simulado basado en última métrica
+            performanceScore: Math.round(latestMetric),
             performanceTrend: 1, // Simulado por ahora
             paymentStatus: latestPayment?.status || "pending",
-            attendanceLast30Days: [80, 90, 75, 85], // Datos dummy para el sparkline por ahora
+            attendanceLast30Days: [80, 90, 75, 85], // Datos dummy para el sparkline
           };
         });
 
@@ -194,7 +192,7 @@ const AthletesManagement = () => {
             totalAthletes,
             activeThisMonth: activeCount,
             avgPerformance: avgPerf,
-            retentionRate: 95, // Hardcodeado o calcular real si hay datos históricos
+            retentionRate: 95,
           });
           setSegmentation(seg);
           setIsLoading(false);
@@ -230,7 +228,6 @@ const AthletesManagement = () => {
         (a) => a.paymentStatus === activeFilters.paymentStatus
       );
     }
-    // ... (Agregar lógica para otros filtros aquí si es necesario)
 
     // Ordenamiento
     result.sort((a, b) => {
@@ -273,177 +270,166 @@ const AthletesManagement = () => {
         <title>Gestión de Atletas - DigitalMatch</title>
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        <NavigationSidebar
-          isCollapsed={sidebarCollapsed}
-          userRole={currentUser?.role || "profesor"}
-          alertData={{ dashboard: 3, atletas: 5 }}
-        />
+      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
+      <div className="p-4 md:p-6 lg:p-8 w-full">
+        <div className="max-w-7xl mx-auto">
+          <BreadcrumbTrail currentPath="/athletes-management" />
 
-        <main
-          className={`transition-smooth ${
-            sidebarCollapsed ? "lg:ml-20" : "lg:ml-60"
-          } p-4 md:p-6 lg:p-8`}
-        >
-          <div className="max-w-7xl mx-auto">
-            <BreadcrumbTrail currentPath="/athletes-management" />
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 md:mb-8">
+            <div>
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
+                Gestión de Atletas
+              </h1>
+              <p className="text-sm md:text-base text-muted-foreground">
+             Supervisa y gestiona todos tus atletas en un solo lugar
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 md:mb-8">
-              <div>
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
-                  Gestión de Atletas
-                </h1>
-                <p className="text-sm md:text-base text-muted-foreground">
-                  Supervisa y gestiona todos tus atletas en un solo lugar
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleRefresh}
-                  loading={isLoading}
-                  iconName="RefreshCw"
-                  iconPosition="left"
-                >
-                  Actualizar
-                </Button>
-                <Button
-                  variant="default"
-                  iconName="UserPlus"
-                  iconPosition="left"
-                  onClick={() => setIsAddModalOpen(true)} // <--- CONECTADO
-                >
-                  Nuevo Atleta
-                </Button>
-              </div>
+
+              </p>
             </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                loading={isLoading}
+                iconName="RefreshCw"
+                iconPosition="left"
+              >
+                Actualizar
+              </Button>
+              <Button
+                variant="default"
+                iconName="UserPlus"
+                iconPosition="left"
+                onClick={() => setIsAddModalOpen(true)}
+              >
+                Nuevo Atleta
+              </Button>
+            </div>
+          </div>
 
-            {/* Métricas */}
-            <MetricsStrip metrics={metricsSummary} loading={isLoading} />
+          {/* Métricas */}
+          <MetricsStrip metrics={metricsSummary} loading={isLoading} />
 
-            {/* Búsqueda y Filtros */}
-            <SearchAndFilters
-              onSearch={setSearchQuery}
-              onFilterChange={setActiveFilters}
-              onBulkAction={() => {}}
-            />
+          {/* Búsqueda y Filtros */}
+          <SearchAndFilters
+            onSearch={setSearchQuery}
+            onFilterChange={setActiveFilters}
+            onBulkAction={() => {}}
+          />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-              {/* Lista Principal */}
-              <div className="lg:col-span-8">
-                <div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-4">
-                  {/* Barra de Herramientas de Lista */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedAthletes.length > 0 &&
-                          selectedAthletes.length === filteredAthletes.length
-                        }
-                        onChange={handleSelectAll}
-                        className="w-5 h-5 rounded border-border bg-input text-primary focus:ring-2 focus:ring-primary"
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {isLoading
-                          ? "Cargando..."
-                          : `${filteredAthletes.length} atletas encontrados`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleSort("name")}
-                        iconName="ArrowUpDown"
-                        iconPosition="right"
-                      >
-                        Nombre
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleSort("performanceScore")}
-                        iconName="ArrowUpDown"
-                        iconPosition="right"
-                      >
-                        Rendimiento
-                      </Button>
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+            {/* Lista Principal */}
+            <div className="lg:col-span-8">
+              <div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-4">
+                {/* Barra de Herramientas de Lista */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedAthletes.length > 0 &&
+                        selectedAthletes.length === filteredAthletes.length
+                      }
+                      onChange={handleSelectAll}
+                      className="w-5 h-5 rounded border-border bg-input text-primary focus:ring-2 focus:ring-primary"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {isLoading
+                        ? "Cargando..."
+                        : `${filteredAthletes.length} atletas encontrados`}
+                    </span>
                   </div>
-
-                  {/* Renderizado de Lista */}
-                  <div className="space-y-4">
-                    {isLoading ? (
-                      // Skeleton Loading
-                      [1, 2, 3].map((i) => (
-                        <AthleteCard key={i} loading={true} />
-                      ))
-                    ) : filteredAthletes.length > 0 ? (
-                      filteredAthletes.map((athlete) => (
-                        <AthleteCard
-                          key={athlete.id}
-                          athlete={athlete}
-                          onSelect={(id) =>
-                            setSelectedAthletes((prev) =>
-                              prev.includes(id)
-                                ? prev.filter((p) => p !== id)
-                                : [...prev, id]
-                            )
-                          }
-                          isSelected={selectedAthletes.includes(athlete.id)}
-                        />
-                      ))
-                    ) : (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <Icon
-                          name="Users"
-                          size={48}
-                          className="mx-auto mb-4 opacity-50"
-                        />
-                        <p>No se encontraron atletas.</p>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSort("name")}
+                      iconName="ArrowUpDown"
+                      iconPosition="right"
+                    >
+                      Nombre
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSort("performanceScore")}
+                      iconName="ArrowUpDown"
+                      iconPosition="right"
+                    >
+                      Rendimiento
+                    </Button>
                   </div>
                 </div>
-              </div>
 
-              {/* Sidebar Derecha (Segmentación y Actividad) */}
-              <div className="lg:col-span-4 space-y-6">
-                <AthleteSegmentation
-                  segmentationData={segmentation}
-                  loading={isLoading}
-                />
-                <RecentActivity
-                  activities={mockActivities}
-                  loading={isLoading}
-                />
+                {/* Renderizado de Lista */}
+                <div className="space-y-4">
+                  {isLoading ? (
+                    // Skeleton Loading
+                    [1, 2, 3].map((i) => (
+                      <AthleteCard key={i} loading={true} />
+                    ))
+                  ) : filteredAthletes.length > 0 ? (
+                    filteredAthletes.map((athlete) => (
+                      <AthleteCard
+                        key={athlete.id}
+                        athlete={athlete}
+                        onSelect={(id) =>
+                          setSelectedAthletes((prev) =>
+                            prev.includes(id)
+                              ? prev.filter((p) => p !== id)
+                              : [...prev, id]
+                          )
+                        }
+                        isSelected={selectedAthletes.includes(athlete.id)}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Icon
+                        name="Users"
+                        size={48}
+                        className="mx-auto mb-4 opacity-50"
+                      />
+                      <p>No se encontraron atletas.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Acciones Masivas */}
-            <BulkActionsBar
-              selectedCount={selectedAthletes.length}
-              onAction={() => setSelectedAthletes([])}
-              onClearSelection={() => setSelectedAthletes([])}
-            />
-
-            {/* Modal de Nuevo Atleta */}
-            {isAddModalOpen && (
-              <AddAthleteModal 
-                onClose={() => setIsAddModalOpen(false)}
-                onAthleteAdded={() => {
-                  handleRefresh(); // Recargar la lista para ver al nuevo
-                  setIsAddModalOpen(false);
-                }}
+            {/* Sidebar Derecha (Segmentación y Actividad) */}
+            <div className="lg:col-span-4 space-y-6">
+              <AthleteSegmentation
+                segmentationData={segmentation}
+                loading={isLoading}
               />
-            )}
+              <RecentActivity
+                activities={mockActivities}
+                loading={isLoading}
+              />
+            </div>
           </div>
-        </main>
+
+          {/* Acciones Masivas */}
+          <BulkActionsBar
+            selectedCount={selectedAthletes.length}
+            onAction={() => setSelectedAthletes([])}
+            onClearSelection={() => setSelectedAthletes([])}
+          />
+
+          {/* Modal de Nuevo Atleta */}
+          {isAddModalOpen && (
+            <AddAthleteModal 
+              onClose={() => setIsAddModalOpen(false)}
+              onAthleteAdded={() => {
+                handleRefresh();
+                setIsAddModalOpen(false);
+              }}
+            />
+          )}
+        </div>
       </div>
-
-
     </>
   );
 };

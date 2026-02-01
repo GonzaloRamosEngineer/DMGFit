@@ -5,7 +5,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { generateDashboardSummaryPDF } from '../../utils/pdfExport';
 
 // Componentes UI
-import NavigationSidebar from '../../components/ui/NavigationSidebar';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 
 // Componentes del Dashboard
@@ -20,7 +19,6 @@ const MainDashboard = () => {
   const { currentUser } = useAuth();
   
   // Estados de UI
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -76,14 +74,14 @@ const MainDashboard = () => {
           title: "Atletas Activos",
           value: activeAthletes || 0,
           trend: "up",
-          trendValue: "+1.2%", // Dato simulado de tendencia
+          trendValue: "+1.2%",
           icon: "Users",
           threshold: "green",
           subtitle: `De ${totalAthletes || 0} totales`
         },
         {
           title: "Asistencia Hoy",
-          value: attendanceToday || 0, // Si no hay datos hoy, será 0
+          value: attendanceToday || 0,
           trend: "neutral",
           trendValue: "0%",
           icon: "TrendingUp",
@@ -101,7 +99,7 @@ const MainDashboard = () => {
         },
         {
           title: "Rendimiento Prom.",
-          value: "8.4", // Este dato suele requerir agregación compleja, lo mantenemos estático o calculado
+          value: "8.4",
           trend: "up",
           trendValue: "+0.2",
           icon: "Award",
@@ -111,7 +109,6 @@ const MainDashboard = () => {
       ]);
 
       // --- 2. ALERTAS (Basadas en Pagos) ---
-      // Buscamos pagos no realizados y fecha anterior a hoy
       const { data: overduePayments } = await supabase
         .from('payments')
         .select(`
@@ -128,12 +125,11 @@ const MainDashboard = () => {
         title: 'Pago Vencido',
         description: `El pago de $${p.amount} venció el ${p.payment_date}.`,
         athleteName: p.athletes?.profiles?.full_name || 'Atleta Desconocido',
-        timestamp: new Date(p.payment_date), // Usamos la fecha de vencimiento como referencia
+        timestamp: new Date(p.payment_date),
         actionable: true,
         actionLabel: 'Verificar'
       })) || [];
 
-      // Agregamos una alerta de sistema si no hay datos
       if (generatedAlerts.length === 0) {
         generatedAlerts.push({
           id: 'sys-ok',
@@ -146,7 +142,6 @@ const MainDashboard = () => {
       }
       setAlerts(generatedAlerts);
       setAlertBadgeCount(prev => ({ ...prev, pagos: pendingCount }));
-
 
       // --- 3. SESIONES DE HOY ---
       const { data: todaysSessions } = await supabase
@@ -167,17 +162,14 @@ const MainDashboard = () => {
         coachName: s.coaches?.profiles?.full_name || 'Por asignar',
         coachAvatar: s.coaches?.profiles?.avatar_url,
         program: s.plans?.name || s.type || 'Entrenamiento',
-        attendanceCount: Math.floor(Math.random() * (s.capacity || 10)), // Simulado porque requeriría contar tabla 'session_attendees'
+        attendanceCount: Math.floor(Math.random() * (s.capacity || 10)),
         capacity: s.capacity || 20,
         status: s.status || 'scheduled'
       })) || [];
 
       setSessions(formattedSessions);
 
-
-      // --- 4. GRÁFICO (Datos Híbridos/Simulados para visualización) ---
-      // Para un gráfico real necesitaríamos agrupar por día en SQL, lo cual es avanzado.
-      // Usamos datos estáticos realistas para mantener la UI funcional.
+      // --- 4. GRÁFICO ---
       setChartData([
         { period: "Lun", attendance: 82, performance: 7.5 },
         { period: "Mar", attendance: 88, performance: 7.9 },
@@ -202,7 +194,7 @@ const MainDashboard = () => {
 
     let interval;
     if (autoRefresh) {
-      interval = setInterval(fetchData, 30000); // Refrescar cada 30s
+      interval = setInterval(fetchData, 30000);
     }
     return () => clearInterval(interval);
   }, [autoRefresh]);
@@ -220,56 +212,46 @@ const MainDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <NavigationSidebar
-        isCollapsed={sidebarCollapsed}
-        userRole={currentUser?.role || 'coach'}
-        alertData={alertBadgeCount} 
+    <div className="p-4 md:p-6 lg:p-8 w-full">
+      <BreadcrumbTrail currentPath="/main-dashboard" />
+
+      <DashboardHeader
+        onRefreshToggle={handleRefreshToggle}
+        autoRefresh={autoRefresh}
+        lastUpdated={lastUpdated} 
       />
 
-      <main className={`transition-smooth ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'}`}>
-        <div className="p-4 md:p-6 lg:p-8">
-          <BreadcrumbTrail currentPath="/main-dashboard" />
+      {/* GRID DE KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
+        {loading 
+          ? [1,2,3,4].map(i => <KPICard key={i} loading={true} />)
+          : kpiStats.map((kpi, index) => <KPICard key={index} {...kpi} />)
+        }
+      </div>
 
-          <DashboardHeader
-            onRefreshToggle={handleRefreshToggle}
-            autoRefresh={autoRefresh}
-            lastUpdated={lastUpdated} 
-          />
-
-          {/* GRID DE KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
-            {loading 
-              ? [1,2,3,4].map(i => <KPICard key={i} loading={true} />)
-              : kpiStats.map((kpi, index) => <KPICard key={index} {...kpi} />)
-            }
-          </div>
-
-          {/* GRÁFICO Y ALERTAS */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-4 md:mb-6">
-            <div className="lg:col-span-8">
-              <AttendancePerformanceChart
-                data={chartData}
-                loading={loading}
-                onDrillDown={() => navigate('/performance-analytics')} 
-              />
-            </div>
-            <div className="lg:col-span-4">
-              <AlertFeed
-                alerts={alerts}
-                loading={loading}
-                onActionClick={handleAlertAction} 
-              />
-            </div>
-          </div>
-
-          {/* SESIONES */}
-          <SessionSummaryGrid 
-            sessions={sessions} 
-            loading={loading} 
+      {/* GRÁFICO Y ALERTAS */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 mb-4 md:mb-6">
+        <div className="lg:col-span-8">
+          <AttendancePerformanceChart
+            data={chartData}
+            loading={loading}
+            onDrillDown={() => navigate('/performance-analytics')} 
           />
         </div>
-      </main>
+        <div className="lg:col-span-4">
+          <AlertFeed
+            alerts={alerts}
+            loading={loading}
+            onActionClick={handleAlertAction} 
+          />
+        </div>
+      </div>
+
+      {/* SESIONES */}
+      <SessionSummaryGrid 
+        sessions={sessions} 
+        loading={loading} 
+      />
     </div>
   );
 };
