@@ -71,7 +71,7 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
       // 1. Crear el usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
-        password: athlete.dni || '12345678',
+        password: `gym${String(athlete.dni).replace(/\D/g, '')}`,
         options: {
           data: { 
             full_name: athlete.name, 
