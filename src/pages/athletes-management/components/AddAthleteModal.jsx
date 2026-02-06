@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabaseClient";
+import { createFullAthlete, checkDniExists } from "../../../services/athletes"; // Importamos los nuevos servicios
 import Icon from "../../../components/AppIcon";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
@@ -72,73 +73,45 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     setLoading(true);
 
     try {
-      // 1. Limpieza de DNI (Solo números) - Del segundo código
+      // 1. Limpieza y validación de DNI
       const cleanDni = formData.dni.trim().replace(/\D/g, '');
-      if (!cleanDni) throw new Error("El DNI es obligatorio y debe contener números.");
+      if (!cleanDni) throw new Error("El DNI es obligatorio.");
 
-      // 2. Lógica de Identidad (Profile)
-      const newProfileId = crypto.randomUUID();
+      // 2. Preparar email (si no hay, generamos uno interno para Auth)
       const finalEmail = formData.email 
         ? formData.email.trim() 
-        : `dni_${cleanDni}@dmg.internal`;
+        : `dni_${cleanDni}@digitalmatch.internal`;
 
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: newProfileId,
+      // 3. Llamada al servicio integral
+      // Esta función ahora maneja Auth + Profile + Athlete + Enrollment + Payment
+      const result = await createFullAthlete({
         full_name: formData.fullName,
         email: finalEmail,
-        role: "atleta",
+        dni: cleanDni,
+        phone: formData.phone,
+        plan_id: formData.planId,
+        coach_id: formData.coachId || null,
+        // Pasamos datos extra para el perfil extendido
+        birth_date: formData.birthDate,
+        gender: formData.gender !== "select" ? formData.gender : null,
+        address: formData.address,
+        city: formData.city,
+        emergency_contact_name: formData.emergencyName,
+        emergency_contact_phone: formData.emergencyPhone,
+        medical_conditions: formData.medicalConditions,
       });
 
-      if (profileError) throw profileError;
-
-      // 3. Crear Ficha de Atleta
-      const { data: newAthlete, error: athleteError } = await supabase
-        .from("athletes")
-        .insert({
-          profile_id: newProfileId,
-          dni: cleanDni,
-          birth_date: formData.birthDate || null,
-          gender: formData.gender !== "select" ? formData.gender : null,
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          emergency_contact_name: formData.emergencyName,
-          emergency_contact_phone: formData.emergencyPhone,
-          medical_conditions: formData.medicalConditions,
-          coach_id: formData.coachId || null,
-          status: "active",
-          join_date: formData.joinDate,
-          plan_id: formData.planId || null
-        })
-        .select()
-        .single();
-
-      if (athleteError) throw athleteError;
-
-      // 4. Generar Deuda Inicial
-      if (formData.planId) {
-        const { error: paymentError } = await supabase.from("payments").insert({
-          athlete_id: newAthlete.id,
-          amount: formData.amount,
-          status: "pending",
-          payment_date: formData.joinDate,
-          method: "efectivo",
-          concept: `Inscripción - ${plans.find((p) => p.id === formData.planId)?.name}`,
-        });
-        if (paymentError) console.error("Error creando pago inicial", paymentError);
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
+      // Éxito
       onAthleteAdded();
       onClose();
 
     } catch (error) {
       console.error("Error registrando atleta:", error);
-      if (error.code === "23505") {
-        const field = error.message?.includes("dni") ? "DNI" : "Correo";
-        alert(`Error: El ${field} ya está registrado en el sistema.`);
-      } else {
-        alert("Error al registrar: " + (error.message || "Error desconocido"));
-      }
+      alert(error.message || "Error al registrar el atleta");
     } finally {
       setLoading(false);
     }
@@ -157,7 +130,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
               </div>
               <div>
                 <h2 className="text-2xl font-heading font-bold text-foreground">Nuevo Atleta</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">Gestión administrativa y acceso App</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Creación de cuenta y acceso al portal</p>
               </div>
             </div>
             <button onClick={onClose} className="p-2.5 hover:bg-muted/50 rounded-xl transition-all">
@@ -169,7 +142,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
         <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(92vh-140px)] custom-scrollbar">
           <div className="px-8 py-6 space-y-8">
             
-            {/* Sección 1: Identidad */}
+            {/* Sección 1: Identidad y Acceso */}
             <section className="space-y-5">
               <div className="flex items-center gap-3 pb-3 border-b-2 border-primary/20">
                 <Icon name="User" size={20} color="var(--color-primary)" />
@@ -177,18 +150,16 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <Input label="Nombre Completo" name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="Ej: Juan Pérez" />
+                <Input label="Nombre Completo *" name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="Ej: Juan Pérez" />
                 
                 <div className="flex flex-col gap-1">
-                  <Input label="Email (Opcional)" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="ejemplo@gmail.com" />
-                  {!formData.email && (
-                    <p className="text-[10px] text-amber-600 font-medium px-1 italic">
-                      * El sistema generará un acceso interno basado en el DNI.
-                    </p>
-                  )}
+                  <Input label="Email *" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="ejemplo@gmail.com" required />
+                  <p className="text-[10px] text-primary font-medium px-1 italic">
+                    * Se usará para el inicio de sesión del atleta.
+                  </p>
                 </div>
 
-                <Input label="DNI (Solo números)" name="dni" value={formData.dni} onChange={handleChange} required placeholder="12345678" />
+                <Input label="DNI (Solo números) *" name="dni" value={formData.dni} onChange={handleChange} required placeholder="12345678" />
                 <Input label="Teléfono" name="phone" value={formData.phone} onChange={handleChange} placeholder="+54 9..." />
               </div>
             </section>
@@ -257,7 +228,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                 </div>
                 <Input label="Fecha de Inicio" name="joinDate" type="date" value={formData.joinDate} onChange={handleChange} />
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold">Monto Inicial (Deuda)</label>
+                  <label className="text-sm font-semibold">Monto Inicial (Deuda Automática)</label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">$</span>
                     <input type="number" value={formData.amount} disabled className="w-full h-11 pl-8 pr-4 rounded-xl border-2 border-border bg-muted/30 text-sm font-bold cursor-not-allowed" />
@@ -276,7 +247,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
             <div className="flex gap-3">
               <Button type="button" variant="ghost" size="lg" onClick={onClose} className="min-w-[120px]">Cancelar</Button>
               <Button type="submit" variant="default" size="lg" iconName="Check" loading={loading} className="min-w-[180px]">
-                {loading ? 'Registrando...' : 'Registrar Atleta'}
+                {loading ? 'Procesando alta...' : 'Registrar Atleta'}
               </Button>
             </div>
           </div>

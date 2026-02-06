@@ -10,7 +10,8 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
   const [deleting, setDeleting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
-  const isOffline = athlete?.email?.includes('@dmg.internal');
+  // Mantenemos la detección de dominio corregida para que el botón sea visible
+  const isOffline = athlete?.email?.includes('@digitalmatch.internal') || athlete?.email?.includes('@dmg.internal');
 
   const quickActions = [
     { id: 'schedule', label: 'Programar Sesión', icon: 'Calendar', action: 'schedule' },
@@ -67,28 +68,48 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
 
     setLinking(true);
     try {
+      // 1. Crear el usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password: athlete.dni || '12345678',
         options: {
-          data: { full_name: athlete.name, role: 'atleta' }
+          data: { 
+            full_name: athlete.name, 
+            role: 'atleta' 
+          }
         }
       });
 
       if (authError) throw authError;
+      const newAuthId = authData.user?.id;
+      const oldProfileId = athlete.profile_id; // Ajustado según requerimiento
 
+      // 2. ACTUALIZAR o Insertar el perfil real usando UPSERT
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: newAuthId,
+          full_name: athlete.name,
+          email: email.trim(),
+          role: 'atleta'
+        });
+
+      if (profileError) throw profileError;
+
+      // 3. Vincular atleta al nuevo ID de Auth
       const { error: updateError } = await supabase
         .from('athletes')
-        .update({ profile_id: authData.user?.id })
+        .update({ profile_id: newAuthId })
         .eq('id', athlete.id);
 
       if (updateError) throw updateError;
 
-      if (athlete.profile_id || athlete.profileId) {
-        await supabase.from('profiles').delete().eq('id', athlete.profile_id || athlete.profileId);
+      // 4. Limpieza del perfil temporal
+      if (oldProfileId && oldProfileId !== newAuthId) {
+        await supabase.from('profiles').delete().eq('id', oldProfileId);
       }
 
-      alert("¡Acceso Web habilitado con éxito!");
+      alert("¡Acceso Web habilitado con éxito! El atleta ya puede iniciar sesión con su email real.");
       window.location.reload();
 
     } catch (error) {
@@ -117,10 +138,8 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden mb-4 shadow-sm">
-      {/* Header Principal - Compacto */}
       <div className="p-4">
         <div className="flex items-center gap-4">
-          {/* Avatar - Más pequeño */}
           <div className="relative flex-shrink-0">
             <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-primary/10 bg-muted/20">
               {athlete.photo || athlete.profileImage ? (
@@ -135,19 +154,16 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
                 </div>
               )}
             </div>
-            {/* Status badge - Mini */}
             <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white ${
               athlete.status === 'active' ? 'bg-success' : 'bg-muted'
             }`}></div>
           </div>
 
-          {/* Info Principal */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-xl font-heading font-bold text-foreground truncate">
                 {athlete.name}
               </h1>
-              {/* Badges inline */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase ${
                   athlete.membershipType === 'premium' 
@@ -167,7 +183,6 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
               </div>
             </div>
 
-            {/* Subtítulo compacto */}
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <div className={`flex items-center gap-1 ${athlete.status === 'active' ? '' : 'opacity-50'}`}>
                 <div className={`w-1.5 h-1.5 rounded-full ${athlete.status === 'active' ? 'bg-success' : 'bg-muted'}`}></div>
@@ -176,20 +191,19 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
             </div>
           </div>
 
-          {/* Botones de acción - Compactos */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Botón toggle detalles */}
-            <button
-              onClick={() => setShowDetails(!showDetails)}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
-              title="Ver detalles"
-            >
-              <Icon 
-                name={showDetails ? 'ChevronUp' : 'ChevronDown'} 
-                size={20} 
-                className="text-muted-foreground"
-              />
-            </button>
+            {isOffline && (
+              <Button
+                variant="default"
+                size="sm"
+                iconName="Smartphone"
+                onClick={handleEnableAccess}
+                loading={linking}
+                className="bg-amber-500 hover:bg-amber-600 text-white border-none shadow-sm"
+              >
+                Habilitar Acceso
+              </Button>
+            )}
 
             <Button
               variant="outline"
@@ -200,6 +214,17 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
               Agendar
             </Button>
 
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+            >
+              <Icon 
+                name={showDetails ? 'ChevronUp' : 'ChevronDown'} 
+                size={20} 
+                className="text-muted-foreground"
+              />
+            </button>
+
             <QuickActionMenu
               entityId={athlete.id}
               entityType="athlete"
@@ -209,84 +234,39 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
         </div>
       </div>
 
-      {/* Panel de Detalles - Desplegable */}
       {showDetails && (
         <div className="border-t border-border bg-muted/20 p-4 animate-in slide-in-from-top duration-200">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            {/* Card DNI */}
             <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Icon name="Fingerprint" size={16} className="text-primary" />
-              </div>
+              <Icon name="Fingerprint" size={16} className="text-primary" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground uppercase font-medium">Documento</p>
                 <p className="text-sm font-bold text-foreground truncate">{athlete.dni || 'N/A'}</p>
               </div>
             </div>
 
-            {/* Card Email */}
             <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                isOffline ? 'bg-warning/10' : 'bg-primary/10'
-              }`}>
-                <Icon name={isOffline ? 'MailX' : 'Mail'} size={16} className={isOffline ? 'text-warning' : 'text-primary'} />
-              </div>
+              <Icon name={isOffline ? 'MailX' : 'Mail'} size={16} className={isOffline ? 'text-warning' : 'text-primary'} />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground uppercase font-medium">Email</p>
                 <p className={`text-sm font-bold truncate ${isOffline ? 'text-warning italic' : 'text-foreground'}`}>
-                  {isOffline ? 'Sin configurar' : athlete.email}
+                  {athlete.email}
                 </p>
               </div>
             </div>
 
-            {/* Card Fecha */}
             <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
-              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                <Icon name="Calendar" size={16} className="text-accent" />
-              </div>
+              <Icon name="Calendar" size={16} className="text-accent" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground uppercase font-medium">Miembro desde</p>
-                <p className="text-sm font-bold text-foreground truncate">
-                  {new Date(athlete.join_date || athlete.joinDate).toLocaleDateString('es-ES', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
-                  })}
+                <p className="text-sm font-bold text-foreground">
+                  {new Date(athlete.join_date || athlete.joinDate).toLocaleDateString('es-ES')}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Alert si es offline */}
-          {isOffline && (
-            <div className="p-3 bg-warning/5 border border-warning/20 rounded-lg flex items-start gap-3 mb-4">
-              <Icon name="AlertTriangle" size={18} className="text-warning flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground mb-1">Acceso Web No Configurado</p>
-                <p className="text-xs text-muted-foreground">
-                  Habilita su acceso para que pueda usar la aplicación móvil.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Acciones secundarias */}
-          <div className="flex items-center gap-2">
-            {isOffline && (
-              <Button
-                variant="default"
-                size="sm"
-                iconName="Smartphone"
-                onClick={handleEnableAccess}
-                loading={linking}
-                className="bg-warning hover:bg-warning/90"
-              >
-                Habilitar Acceso Web
-              </Button>
-            )}
-
-            <div className="flex-1"></div>
-
+          <div className="flex items-center justify-end">
             <Button
               variant="outline"
               size="sm"
@@ -295,7 +275,7 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
               loading={deleting}
               className="border-error/30 text-error hover:bg-error/5"
             >
-              Eliminar
+              Eliminar Atleta
             </Button>
           </div>
         </div>
