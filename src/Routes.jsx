@@ -24,6 +24,7 @@ import CoachesManagement from "./pages/coaches-management";
 import AccessControl from "./pages/access-control";
 import AccessHistory from "./pages/access-history";
 import ClassSchedule from "./pages/class-schedule";
+import Unauthorized from "./pages/Unauthorized";
 
 const Routes = () => {
   return (
@@ -42,14 +43,14 @@ const Routes = () => {
           />
 
           {/* 2. Modo Kiosco - SIN sidebar (PANTALLA COMPLETA) */}
-  <Route
-    path="/access-control"
-    element={
-      <ProtectedRoute allowedRoles={["admin"]}>
-        <AccessControl />
-      </ProtectedRoute>
-    }
-  />
+          <Route
+            path="/access-control"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AccessControl />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Protected Routes - Con AppLayout (Sidebar) */}
           <Route element={<AppLayout />}>
@@ -172,6 +173,16 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
+
+
+
+            <Route path="/unauthorized" element={<Unauthorized />} />
+
+
+
+
+
+
           </Route>
 
           {/* 404 - Sin Layout */}

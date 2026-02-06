@@ -7,4 +7,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables.');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase = createClient(
+  supabaseUrl || '', 
+  supabaseAnonKey || '',
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      // Desactivamos el bloqueo del navegador para evitar el error DOMException 
+      // al recargar la página o navegar rápido tras el login.
+      navigatorLock: false 
+    }
+  }
+);

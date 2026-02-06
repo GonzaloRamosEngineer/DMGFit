@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
 import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
 
 const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentReminder, onExport, loading = false }) => {
+  const [linking, setLinking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+
+  const isOffline = athlete?.email?.includes('@dmg.internal');
+
   const quickActions = [
     { id: 'schedule', label: 'Programar Sesión', icon: 'Calendar', action: 'schedule' },
     { id: 'message', label: 'Enviar Mensaje', icon: 'MessageSquare', action: 'message' },
@@ -12,114 +19,287 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
     { id: 'export', label: 'Exportar Informe PDF', icon: 'Download', action: 'export' }
   ];
 
+  const handleDeleteAthlete = async () => {
+    const confirmFirst = window.confirm(`¿Estás COMPLETAMENTE seguro de eliminar a ${athlete.name}?`);
+    if (!confirmFirst) return;
+
+    const confirmSecond = window.confirm("Esta acción eliminará permanentemente todos sus pagos, asistencias, resultados de entrenamientos y el perfil de usuario. No se puede deshacer. ¿Continuar?");
+    if (!confirmSecond) return;
+
+    setDeleting(true);
+    try {
+      const athleteId = athlete.id;
+      const profileId = athlete.profile_id || athlete.profileId;
+
+      await supabase.from('access_logs').delete().eq('athlete_id', athleteId);
+      await supabase.from('attendance').delete().eq('athlete_id', athleteId);
+      await supabase.from('payments').delete().eq('athlete_id', athleteId);
+      await supabase.from('performance_metrics').delete().eq('athlete_id', athleteId);
+      await supabase.from('workout_results').delete().eq('athlete_id', athleteId);
+      await supabase.from('athlete_routines').delete().eq('athlete_id', athleteId);
+      await supabase.from('enrollments').delete().eq('athlete_id', athleteId);
+      await supabase.from('session_attendees').delete().eq('athlete_id', athleteId);
+      await supabase.from('workout_sessions').delete().eq('athlete_id', athleteId);
+      await supabase.from('notes').delete().eq('athlete_id', athleteId);
+
+      const { error: athleteError } = await supabase.from('athletes').delete().eq('id', athleteId);
+      if (athleteError) throw athleteError;
+
+      if (profileId) {
+        const { error: profileError } = await supabase.from('profiles').delete().eq('id', profileId);
+        if (profileError) throw profileError;
+      }
+
+      alert("Atleta eliminado correctamente.");
+      window.location.href = '/athletes-management'; 
+
+    } catch (error) {
+      console.error("Error en la eliminación completa:", error);
+      alert("Error al intentar eliminar: " + (error.message || "Error desconocido"));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleEnableAccess = async () => {
+    const email = prompt(`Ingrese el correo electrónico real para habilitar el acceso de ${athlete.name}:`);
+    if (!email) return;
+
+    setLinking(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password: athlete.dni || '12345678',
+        options: {
+          data: { full_name: athlete.name, role: 'atleta' }
+        }
+      });
+
+      if (authError) throw authError;
+
+      const { error: updateError } = await supabase
+        .from('athletes')
+        .update({ profile_id: authData.user?.id })
+        .eq('id', athlete.id);
+
+      if (updateError) throw updateError;
+
+      if (athlete.profile_id || athlete.profileId) {
+        await supabase.from('profiles').delete().eq('id', athlete.profile_id || athlete.profileId);
+      }
+
+      alert("¡Acceso Web habilitado con éxito!");
+      window.location.reload();
+
+    } catch (error) {
+      console.error("Error al habilitar acceso:", error);
+      alert("Error: " + (error.message || "No se pudo habilitar el acceso."));
+    } finally {
+      setLinking(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="bg-card border border-border rounded-lg p-6 mb-6 animate-pulse flex flex-col lg:flex-row gap-6">
-        <div className="w-24 h-24 bg-muted/50 rounded-full flex-shrink-0"></div>
-        <div className="flex-1 space-y-3">
-          <div className="h-8 bg-muted/50 rounded w-1/2"></div>
-          <div className="h-4 bg-muted/50 rounded w-1/3"></div>
-          <div className="flex gap-4 mt-4">
-            <div className="h-4 bg-muted/50 rounded w-20"></div>
-            <div className="h-4 bg-muted/50 rounded w-20"></div>
+      <div className="bg-card border border-border rounded-xl p-4 mb-4 animate-pulse">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-muted/50 rounded-xl"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-6 bg-muted/50 rounded w-1/3"></div>
+            <div className="h-4 bg-muted/50 rounded w-1/4"></div>
           </div>
         </div>
       </div>
     );
   }
 
-  // Protección si athlete es null aunque loading sea false
   if (!athlete) return null;
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 md:p-6 lg:p-8 mb-4 md:mb-6">
-      <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4 md:gap-6">
-        <div className="relative flex-shrink-0">
-          <div className="w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-full overflow-hidden border-4 border-primary/20 bg-background flex items-center justify-center">
-            {athlete.photo || athlete.profileImage ? (
-              <Image
-                src={athlete.photo || athlete.profileImage}
-                alt={athlete.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <Icon name="User" size={48} className="text-primary/50" />
-            )}
-          </div>
-          <div className={`absolute bottom-0 right-0 w-6 h-6 md:w-7 md:h-7 rounded-full border-4 border-card ${
-            athlete.status === 'active' ? 'bg-success' : 'bg-muted'
-          }`} title={athlete.status === 'active' ? 'Activo' : 'Inactivo'} />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-semibold text-foreground truncate">
-              {athlete.name}
-            </h1>
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs md:text-sm font-medium ${
-              athlete.membershipType === 'premium' ? 'bg-secondary/20 text-secondary' : 'bg-muted text-muted-foreground'
-            }`}>
-              <Icon 
-                name={athlete.membershipType === 'premium' ? 'Crown' : 'User'} 
-                size={14} 
-                className="mr-1.5"
-              />
-              {athlete.membershipType === 'premium' ? 'Premium' : 'Estándar'}
-            </span>
+    <div className="bg-card border border-border rounded-xl overflow-hidden mb-4 shadow-sm">
+      {/* Header Principal - Compacto */}
+      <div className="p-4">
+        <div className="flex items-center gap-4">
+          {/* Avatar - Más pequeño */}
+          <div className="relative flex-shrink-0">
+            <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-primary/10 bg-muted/20">
+              {athlete.photo || athlete.profileImage ? (
+                <Image
+                  src={athlete.photo || athlete.profileImage}
+                  alt={athlete.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Icon name="User" size={24} className="text-muted-foreground/40" />
+                </div>
+              )}
+            </div>
+            {/* Status badge - Mini */}
+            <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white ${
+              athlete.status === 'active' ? 'bg-success' : 'bg-muted'
+            }`}></div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 text-sm md:text-base">
-            <div className="flex items-center text-muted-foreground">
-              <Icon name="Hash" size={16} className="mr-2 flex-shrink-0" color="var(--color-primary)" />
-              <span className="truncate">ID: {athlete.id?.slice(0, 8)}</span>
-            </div>
-            <div className="flex items-center text-muted-foreground">
-              <Icon name="Mail" size={16} className="mr-2 flex-shrink-0" color="var(--color-primary)" />
-              <span className="truncate">{athlete.email}</span>
-            </div>
-            {athlete.phone && (
-              <div className="flex items-center text-muted-foreground">
-                <Icon name="Phone" size={16} className="mr-2 flex-shrink-0" color="var(--color-primary)" />
-                <span className="truncate">{athlete.phone}</span>
+          {/* Info Principal */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-xl font-heading font-bold text-foreground truncate">
+                {athlete.name}
+              </h1>
+              {/* Badges inline */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase ${
+                  athlete.membershipType === 'premium' 
+                    ? 'bg-secondary/10 text-secondary' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  <Icon name={athlete.membershipType === 'premium' ? 'Crown' : 'Shield'} size={12} />
+                  {athlete.membershipType === 'premium' ? 'Premium' : 'Estándar'}
+                </span>
+                
+                {isOffline && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase bg-warning/10 text-warning">
+                    <Icon name="CloudOff" size={12} />
+                    Offline
+                  </span>
+                )}
               </div>
-            )}
-            <div className="flex items-center text-muted-foreground">
-              <Icon name="Calendar" size={16} className="mr-2 flex-shrink-0" color="var(--color-primary)" />
-              <span className="truncate">Desde: {new Date(athlete.join_date || athlete.joinDate).toLocaleDateString()}</span>
+            </div>
+
+            {/* Subtítulo compacto */}
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <div className={`flex items-center gap-1 ${athlete.status === 'active' ? '' : 'opacity-50'}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${athlete.status === 'active' ? 'bg-success' : 'bg-muted'}`}></div>
+                <span className="capitalize">{athlete.status === 'active' ? 'Activo' : 'Inactivo'}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 w-full lg:w-auto mt-4 lg:mt-0">
-          <Button
-            variant="default"
-            size="default"
-            iconName="Calendar"
-            iconPosition="left"
-            onClick={onScheduleSession}
-            className="flex-1 lg:flex-initial"
-          >
-            <span className="hidden sm:inline">Programar</span>
-            <span className="sm:hidden">Sesión</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="default"
-            iconName="MessageSquare"
-            iconPosition="left"
-            onClick={onSendMessage}
-            className="flex-1 lg:flex-initial"
-          >
-            <span className="hidden sm:inline">Mensaje</span>
-            <span className="sm:hidden">Chat</span>
-          </Button>
-          <QuickActionMenu
-            entityId={athlete.id}
-            entityType="athlete"
-            availableActions={quickActions}
-          />
+          {/* Botones de acción - Compactos */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Botón toggle detalles */}
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              title="Ver detalles"
+            >
+              <Icon 
+                name={showDetails ? 'ChevronUp' : 'ChevronDown'} 
+                size={20} 
+                className="text-muted-foreground"
+              />
+            </button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              iconName="Calendar"
+              onClick={onScheduleSession}
+            >
+              Agendar
+            </Button>
+
+            <QuickActionMenu
+              entityId={athlete.id}
+              entityType="athlete"
+              availableActions={quickActions}
+            />
+          </div>
         </div>
       </div>
+
+      {/* Panel de Detalles - Desplegable */}
+      {showDetails && (
+        <div className="border-t border-border bg-muted/20 p-4 animate-in slide-in-from-top duration-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            {/* Card DNI */}
+            <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Icon name="Fingerprint" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground uppercase font-medium">Documento</p>
+                <p className="text-sm font-bold text-foreground truncate">{athlete.dni || 'N/A'}</p>
+              </div>
+            </div>
+
+            {/* Card Email */}
+            <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                isOffline ? 'bg-warning/10' : 'bg-primary/10'
+              }`}>
+                <Icon name={isOffline ? 'MailX' : 'Mail'} size={16} className={isOffline ? 'text-warning' : 'text-primary'} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground uppercase font-medium">Email</p>
+                <p className={`text-sm font-bold truncate ${isOffline ? 'text-warning italic' : 'text-foreground'}`}>
+                  {isOffline ? 'Sin configurar' : athlete.email}
+                </p>
+              </div>
+            </div>
+
+            {/* Card Fecha */}
+            <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
+              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                <Icon name="Calendar" size={16} className="text-accent" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground uppercase font-medium">Miembro desde</p>
+                <p className="text-sm font-bold text-foreground truncate">
+                  {new Date(athlete.join_date || athlete.joinDate).toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Alert si es offline */}
+          {isOffline && (
+            <div className="p-3 bg-warning/5 border border-warning/20 rounded-lg flex items-start gap-3 mb-4">
+              <Icon name="AlertTriangle" size={18} className="text-warning flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground mb-1">Acceso Web No Configurado</p>
+                <p className="text-xs text-muted-foreground">
+                  Habilita su acceso para que pueda usar la aplicación móvil.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Acciones secundarias */}
+          <div className="flex items-center gap-2">
+            {isOffline && (
+              <Button
+                variant="default"
+                size="sm"
+                iconName="Smartphone"
+                onClick={handleEnableAccess}
+                loading={linking}
+                className="bg-warning hover:bg-warning/90"
+              >
+                Habilitar Acceso Web
+              </Button>
+            )}
+
+            <div className="flex-1"></div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              iconName="Trash2"
+              onClick={handleDeleteAthlete}
+              loading={deleting}
+              className="border-error/30 text-error hover:bg-error/5"
+            >
+              Eliminar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

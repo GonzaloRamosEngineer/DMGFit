@@ -95,11 +95,18 @@ const IndividualAthleteProfile = () => {
       setLoading(true);
 
       try {
-        // 1. Datos del Atleta
+        // 1. Datos del Atleta - Ajuste: Se añaden dni y profile_id
         const { data: athlete, error: athleteError } = await supabase
           .from("athletes")
           .select(`
-            id, join_date, status, membership_type, phone, plan_id,
+            id, 
+            dni, 
+            join_date, 
+            status, 
+            membership_type, 
+            phone, 
+            plan_id,
+            profile_id,
             profiles:profile_id ( full_name, email, avatar_url )
           `)
           .eq("id", athleteId)
@@ -118,7 +125,7 @@ const IndividualAthleteProfile = () => {
             supabase.from("payments").select("*").eq("athlete_id", athleteId).order("payment_date", { ascending: false }),
             // Notas
             supabase.from("notes").select("*").eq("athlete_id", athleteId).order("date", { ascending: false }),
-            // Próximas Sesiones (Simplificado para MVP)
+            // Próximas Sesiones
             supabase.from("session_attendees")
               .select(`session:session_id (id, session_date, time, type, location)`)
               .eq("athlete_id", athleteId),
@@ -165,6 +172,8 @@ const IndividualAthleteProfile = () => {
             name: athlete.profiles?.full_name || 'Atleta Sin Nombre',
             email: athlete.profiles?.email,
             photo: athlete.profiles?.avatar_url,
+            dni: athlete.dni,
+            profile_id: athlete.profile_id
           },
           metrics: metricsList,
           latestMetrics: latestValues,
@@ -257,7 +266,6 @@ const IndividualAthleteProfile = () => {
         </title>
       </Helmet>
 
-      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
       <div className="p-4 md:p-6 lg:p-8 w-full">
         <div className="max-w-7xl mx-auto">
           <BreadcrumbTrail
@@ -285,7 +293,6 @@ const IndividualAthleteProfile = () => {
 
           {/* MAIN CONTENT GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* LEFT COLUMN (2/3) */}
             <div className="lg:col-span-2 space-y-6">
               {/* TABS DE NAVEGACIÓN */}
               <div className="bg-card border border-border rounded-xl p-1 overflow-x-auto">
@@ -320,11 +327,9 @@ const IndividualAthleteProfile = () => {
               </div>
             </div>
 
-            {/* RIGHT COLUMN (1/3) */}
             <div className="space-y-6">
               <HealthMetrics metrics={profileData.latestMetrics} loading={loading} />
               
-              {/* COMPONENTE DE ACCESOS */}
               <AthleteAccessLog logs={profileData.accessLogs} />
 
               <UpcomingSessions sessions={profileData.sessions} loading={loading} />

@@ -148,10 +148,14 @@ const AthletesManagement = () => {
             (a, b) => new Date(b.date) - new Date(a.date)
           )[0];
 
+          // Ajuste Quirúrgico: Lógica de Email y Acceso
+          const isInternalEmail = athlete.profiles?.email?.includes('@dmg.internal');
+
           return {
             id: athlete.id,
             name: athlete.profiles?.full_name || "Sin Nombre",
-            email: athlete.profiles?.email || "",
+            email: isInternalEmail ? "Sin acceso a App" : (athlete.profiles?.email || ""),
+            hasAppAccess: !isInternalEmail,
             profileImage: athlete.profiles?.avatar_url,
             coach: athlete.coaches?.profiles?.full_name || "Sin Asignar",
             isActive: athlete.status === "active",
@@ -270,7 +274,6 @@ const AthletesManagement = () => {
         <title>Gestión de Atletas - DigitalMatch</title>
       </Helmet>
 
-      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
       <div className="p-4 md:p-6 lg:p-8 w-full">
         <div className="max-w-7xl mx-auto">
           <BreadcrumbTrail currentPath="/athletes-management" />
@@ -282,9 +285,7 @@ const AthletesManagement = () => {
                 Gestión de Atletas
               </h1>
               <p className="text-sm md:text-base text-muted-foreground">
-             Supervisa y gestiona todos tus atletas en un solo lugar
-
-
+                Supervisa y gestiona todos tus atletas en un solo lugar
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -365,7 +366,6 @@ const AthletesManagement = () => {
                 {/* Renderizado de Lista */}
                 <div className="space-y-4">
                   {isLoading ? (
-                    // Skeleton Loading
                     [1, 2, 3].map((i) => (
                       <AthleteCard key={i} loading={true} />
                     ))
@@ -398,7 +398,7 @@ const AthletesManagement = () => {
               </div>
             </div>
 
-            {/* Sidebar Derecha (Segmentación y Actividad) */}
+            {/* Sidebar Derecha */}
             <div className="lg:col-span-4 space-y-6">
               <AthleteSegmentation
                 segmentationData={segmentation}
