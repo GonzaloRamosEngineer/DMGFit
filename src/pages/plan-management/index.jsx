@@ -216,7 +216,7 @@ const PlanManagement = () => {
   return (
     <>
       <Helmet>
-        <title>Gestión de Planes - DigitalMatch</title>
+        <title>Gestión de Planes - VC Fit</title>
       </Helmet>
       
       {/* REMOVED NavigationSidebar - ya está en AppLayout */}

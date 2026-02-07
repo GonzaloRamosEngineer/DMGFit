@@ -185,7 +185,7 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
             </div>
             {!isCollapsed && (
               <span className="text-lg font-heading font-bold text-foreground whitespace-nowrap">
-                DigitalMatch
+                VC Fit
               </span>
             )}
           </div>

@@ -160,7 +160,7 @@ const PDFExportCenter = () => {
   return (
     <>
       <Helmet>
-        <title>Centro de Exportación PDF - DigitalMatch</title>
+        <title>Centro de Exportación PDF - VC Fit</title>
       </Helmet>
       
       {/* REMOVED NavigationSidebar - ya está en AppLayout */}
@@ -234,7 +234,7 @@ const PDFExportCenter = () => {
                       <span className="font-medium text-foreground">Tema</span>
                     </div>
                     <select className="w-full h-10 px-4 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth">
-                      <option value="dark">Oscuro (DigitalMatch)</option>
+                      <option value="dark">Oscuro (VC Fit)</option>
                       <option value="light">Claro</option>
                     </select>
                   </div>

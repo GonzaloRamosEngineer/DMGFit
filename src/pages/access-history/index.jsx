@@ -43,7 +43,7 @@ const AccessHistory = () => {
   return (
     <>
       <Helmet>
-        <title>Historial de Accesos - DigitalMatch</title>
+        <title>Historial de Accesos - VC Fit</title>
       </Helmet>
       
       {/* REMOVED NavigationSidebar - ya está en AppLayout */}

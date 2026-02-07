@@ -80,7 +80,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       // 2. Preparar email (si no hay, generamos uno interno para Auth)
       const finalEmail = formData.email 
         ? formData.email.trim() 
-        : `dni_${cleanDni}@digitalmatch.internal`;
+        : `dni_${cleanDni}@vcfit.internal`;
 
       // 3. Llamada al servicio integral
       // Esta función ahora maneja Auth + Profile + Athlete + Enrollment + Payment

@@ -11,7 +11,7 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
   const [showDetails, setShowDetails] = useState(false);
 
   // Mantenemos la detección de dominio corregida para que el botón sea visible
-  const isOffline = athlete?.email?.includes('@digitalmatch.internal') || athlete?.email?.includes('@dmg.internal');
+  const isOffline = athlete?.email?.includes('@vcfit.internal') || athlete?.email?.includes('@dmg.internal');
 
   const quickActions = [
     { id: 'schedule', label: 'Programar Sesión', icon: 'Calendar', action: 'schedule' },

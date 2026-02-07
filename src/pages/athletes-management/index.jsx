@@ -271,7 +271,7 @@ const AthletesManagement = () => {
   return (
     <>
       <Helmet>
-        <title>Gestión de Atletas - DigitalMatch</title>
+        <title>Gestión de Atletas - VC Fit</title>
       </Helmet>
 
       <div className="p-4 md:p-6 lg:p-8 w-full">

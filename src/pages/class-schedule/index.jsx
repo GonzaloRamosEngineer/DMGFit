@@ -224,7 +224,7 @@ const ClassSchedule = () => {
   return (
     <>
       <Helmet>
-        <title>Agenda Maestra - DigitalMatch</title>
+        <title>Agenda Maestra - VC Fit</title>
       </Helmet>
       
       {/* REMOVED NavigationSidebar - ya está en AppLayout */}

@@ -107,7 +107,7 @@ const AthletePortal = () => {
   return (
     <>
       <Helmet>
-        <title>Mi Portal - DigitalMatch</title>
+        <title>Mi Portal - VC Fit</title>
       </Helmet>
       
       <div className="p-4 md:p-6 lg:p-8 w-full">

@@ -144,7 +144,7 @@ const ProfessorDashboard = () => {
   return (
     <>
       <Helmet>
-        <title>Dashboard Profesor - DigitalMatch</title>
+        <title>Dashboard Profesor - VC Fit</title>
       </Helmet>
       
       <div className="p-4 md:p-6 lg:p-8 w-full">

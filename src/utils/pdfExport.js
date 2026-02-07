@@ -13,7 +13,7 @@ export const generateAthletePDF = async (athleteData, performanceData, attendanc
   pdf?.setTextColor(255, 255, 255);
   pdf?.setFontSize(24);
   pdf?.setFont('helvetica', 'bold');
-  pdf?.text('DigitalMatch', 15, 15);
+  pdf?.text('VC_Fit', 15, 15);
   pdf?.setFontSize(12);
   pdf?.text('Perfil del Atleta', 15, 22);
 
@@ -124,7 +124,7 @@ export const generateAthletePDF = async (athleteData, performanceData, attendanc
   pdf?.setFontSize(8);
   pdf?.setTextColor(128, 128, 128);
   pdf?.text(`Generado el ${new Date()?.toLocaleDateString('es-ES')}`, 15, pageHeight - 10);
-  pdf?.text('DigitalMatch - Plataforma de Gestión Deportiva', pageWidth - 80, pageHeight - 10);
+  pdf?.text('VC Fit - Plataforma de Gestión Deportiva', pageWidth - 80, pageHeight - 10);
 
   pdf?.save(`Atleta_${athleteData?.name?.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
 };
@@ -141,7 +141,7 @@ export const generatePaymentReportPDF = async (overduePayments, metrics, revenue
   pdf?.setTextColor(255, 255, 255);
   pdf?.setFontSize(24);
   pdf?.setFont('helvetica', 'bold');
-  pdf?.text('DigitalMatch', 15, 15);
+  pdf?.text('VC_Fit', 15, 15);
   pdf?.setFontSize(12);
   pdf?.text('Reporte de Pagos', 15, 22);
 
@@ -207,7 +207,7 @@ export const generatePaymentReportPDF = async (overduePayments, metrics, revenue
   pdf?.setFontSize(8);
   pdf?.setTextColor(128, 128, 128);
   pdf?.text(`Generado el ${new Date()?.toLocaleDateString('es-ES')}`, 15, pageHeight - 10);
-  pdf?.text('DigitalMatch - Plataforma de Gestión Deportiva', pageWidth - 80, pageHeight - 10);
+  pdf?.text('VC Fit - Plataforma de Gestión Deportiva', pageWidth - 80, pageHeight - 10);
 
   pdf?.save(`Reporte_Pagos_${Date.now()}.pdf`);
 };
@@ -224,7 +224,7 @@ export const generateDashboardSummaryPDF = async (kpiData, alertsData, chartData
   pdf?.setTextColor(255, 255, 255);
   pdf?.setFontSize(24);
   pdf?.setFont('helvetica', 'bold');
-  pdf?.text('DigitalMatch', 15, 15);
+  pdf?.text('VC_Fit', 15, 15);
   pdf?.setFontSize(12);
   pdf?.text('Resumen Mensual del Dashboard', 15, 22);
 
@@ -283,7 +283,7 @@ export const generateDashboardSummaryPDF = async (kpiData, alertsData, chartData
   pdf?.setFontSize(8);
   pdf?.setTextColor(128, 128, 128);
   pdf?.text(`Generado el ${new Date()?.toLocaleDateString('es-ES')}`, 15, pageHeight - 10);
-  pdf?.text('DigitalMatch - Plataforma de Gestión Deportiva', pageWidth - 80, pageHeight - 10);
+  pdf?.text('VC Fit - Plataforma de Gestión Deportiva', pageWidth - 80, pageHeight - 10);
 
   pdf?.save(`Dashboard_Resumen_${Date.now()}.pdf`);
 };

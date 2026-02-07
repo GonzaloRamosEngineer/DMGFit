@@ -190,7 +190,7 @@ const PaymentManagement = () => {
   return (
     <>
       <Helmet>
-        <title>Gestión de Pagos - DigitalMatch</title>
+        <title>Gestión de Pagos - VC Fit</title>
       </Helmet>
       
       {/* REMOVED NavigationSidebar - ya está en AppLayout */}

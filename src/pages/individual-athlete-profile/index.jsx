@@ -262,7 +262,7 @@ const IndividualAthleteProfile = () => {
     <>
       <Helmet>
         <title>
-          {profileData.athlete ? `${profileData.athlete.name} - Perfil` : "Cargando..."} - DigitalMatch
+          {profileData.athlete ? `${profileData.athlete.name} - Perfil` : "Cargando..."} - VC Fit
         </title>
       </Helmet>
 

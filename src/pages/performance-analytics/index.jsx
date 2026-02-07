@@ -174,7 +174,7 @@ const PerformanceAnalytics = () => {
   return (
     <>
       <Helmet>
-        <title>Analítica de Rendimiento - DigitalMatch</title>
+        <title>Analítica de Rendimiento - VC Fit</title>
       </Helmet>
 
       {/* REMOVED NavigationSidebar - ya está en AppLayout */}
