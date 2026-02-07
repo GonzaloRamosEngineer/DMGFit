@@ -34,12 +34,12 @@ const Routes = () => {
         <RouterRoutes>
           {/* Public Routes - Sin Layout */}
           <Route
-            path="/login-role-selection"
+            path="/login"
             element={<LoginRoleSelection />}
           />
           <Route
             path="/"
-            element={<Navigate to="/login-role-selection" replace />}
+            element={<Navigate to="/login" replace />}
           />
 
           {/* 2. Modo Kiosco - SIN sidebar (PANTALLA COMPLETA) */}
