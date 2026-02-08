@@ -22,7 +22,7 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
       setFormData({
         fullName: coachToEdit.name || '',
         email: coachToEdit.email || '',
-        dni: coachToEdit.dni || '', // Ojo: a veces no traemos el DNI en la lista, asumimos que sí o lo dejamos vacío
+        dni: coachToEdit.dni || '',
         specialization: coachToEdit.specialization || '',
         phone: coachToEdit.phone || '',
         bio: coachToEdit.bio || ''
@@ -41,25 +41,24 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
 
     try {
       const normalizedEmail = formData.email.trim();
+      // Determinamos si es un email real o si debemos usar el fallback interno
+      const isInternal = !normalizedEmail || normalizedEmail.includes('.internal');
+      const finalEmail = isInternal 
+        ? `sin_email_${formData.dni.trim().replace(/\D/g, '')}@dmg.internal`
+        : normalizedEmail;
 
       if (coachToEdit) {
-        if (!normalizedEmail) {
-          throw new Error("El email es obligatorio para editar un profesor.");
-        }
-        // --- MODO EDICIÓN ---
-        // 1. Actualizar Perfil (Nombre, Email)
-        // Nota: Cambiar el email aquí solo cambia el registro visual, no el login de Auth (eso es más complejo)
+        // --- LÓGICA DE EDICIÓN ---
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ 
-            full_name: formData.fullName,
+            full_name: formData.fullName, 
             email: normalizedEmail 
           })
-          .eq('email', coachToEdit.email); // Usamos el email original para buscar (o idealmente profile_id si lo tenemos)
+          .eq('id', coachToEdit.profile_id); // Usar ID es más seguro que email
 
         if (profileError) throw profileError;
 
-        // 2. Actualizar Datos Coach
         const { error: coachError } = await supabase
           .from('coaches')
           .update({
@@ -70,40 +69,62 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
           .eq('id', coachToEdit.id);
 
         if (coachError) throw coachError;
-        
-        alert("Datos actualizados correctamente.");
+        alert("Profesor actualizado.");
 
       } else {
-        // --- MODO CREACIÓN (El código que ya tenías) ---
-        const newProfileId = crypto.randomUUID();
-        const fallbackEmail = `sin_email_${formData.dni.trim().replace(/\D/g, '')}@dmg.internal`;
-        const finalEmail = normalizedEmail || fallbackEmail;
+        // --- LÓGICA DE CREACIÓN (FLUJO UNIFICADO) ---
+        let newProfileId;
 
-        const { error: profileError } = await supabase.from('profiles').insert({
-          id: newProfileId,
-          full_name: formData.fullName,
-          email: finalEmail,
-          role: 'profesor'
-        });
-        if (profileError) throw profileError;
+        if (!isInternal) {
+          // 1. Si hay email real, creamos directamente en Auth
+          // Esto dispara el trigger 'handle_new_user' que creará el perfil oficial en la BD
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: finalEmail,
+            password: `tmp_${formData.dni.trim()}`, // Password temporal basada en DNI
+            options: {
+              data: {
+                full_name: formData.fullName,
+                role: 'profesor'
+              }
+            }
+          });
 
+          if (authError) throw authError;
+          newProfileId = authData.user.id;
+        } else {
+          // 2. Si NO hay email, creamos el perfil "fantasma" manualmente
+          newProfileId = crypto.randomUUID();
+          const { error: profileError } = await supabase.from('profiles').insert({
+            id: newProfileId,
+            full_name: formData.fullName,
+            email: finalEmail,
+            role: 'profesor'
+          });
+          if (profileError) throw profileError;
+        }
+
+        // 3. Crear la ficha técnica de Coach vinculada al ID (sea Auth o Fantasma)
         const { error: coachError } = await supabase.from('coaches').insert({
           profile_id: newProfileId,
           specialization: formData.specialization || 'General',
           bio: formData.bio || '',
           phone: formData.phone
         });
+
         if (coachError) throw coachError;
 
-        alert(`¡Profesor registrado!\nUsuario: ${finalEmail}`);
+        const msg = isInternal 
+          ? "Registrado. Deberás habilitar su acceso con un correo real más adelante."
+          : "Registrado y correo de confirmación enviado al profesor.";
+        alert(msg);
       }
 
       onSuccess(); // Refrescar lista
       onClose();
 
     } catch (error) {
-      console.error("Error:", error);
-      alert("Error: " + error.message);
+      console.error("Error en operación:", error);
+      alert(error.message);
     } finally {
       setLoading(false);
     }
@@ -145,7 +166,6 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
                 </p>
               )}
             </div>
-            {/* El DNI suele ser fijo, lo deshabilitamos en edición para no romper logins */}
             <Input label="DNI / ID" name="dni" value={formData.dni} onChange={handleChange} required disabled={!!coachToEdit} />
             <Input label="Teléfono" name="phone" value={formData.phone} onChange={handleChange} />
           </div>
