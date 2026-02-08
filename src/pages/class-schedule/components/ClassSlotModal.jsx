@@ -12,14 +12,13 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
 
   const [formData, setFormData] = useState({
     classTypeId: slotInfo.classTypeId || '',
-    selectedCoachIds: slotInfo.coachIds || [], // Ahora es un Array
+    selectedCoachIds: slotInfo.coachIds || [],
     capacity: slotInfo.capacity || 20,
     startTime: slotInfo.startTime || '10:00',
     endTime: slotInfo.endTime || '11:00',
     dayOfWeek: slotInfo.dayOfWeek
   });
 
-  // Cargar datos
   useEffect(() => {
     const fetchData = async () => {
       const [typesRes, coachesRes] = await Promise.all([
@@ -36,7 +35,6 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
     fetchData();
   }, []);
 
-  // Manejo de checkboxes de profes
   const toggleCoach = (coachId) => {
     setFormData(prev => {
       const exists = prev.selectedCoachIds.includes(coachId);
@@ -48,9 +46,7 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      // 1. Guardar/Actualizar el Horario Base
       const schedulePayload = {
         class_type_id: formData.classTypeId,
         day_of_week: formData.dayOfWeek,
@@ -63,7 +59,6 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
 
       if (isEditing) {
         await supabase.from('weekly_schedule').update(schedulePayload).eq('id', scheduleId);
-        // Borramos relaciones viejas de profes para re-crearlas
         await supabase.from('schedule_coaches').delete().eq('schedule_id', scheduleId);
       } else {
         const { data, error } = await supabase.from('weekly_schedule').insert(schedulePayload).select().single();
@@ -71,7 +66,6 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
         scheduleId = data.id;
       }
 
-      // 2. Insertar las relaciones con los Profes seleccionados
       if (formData.selectedCoachIds.length > 0) {
         const coachRelations = formData.selectedCoachIds.map(coachId => ({
           schedule_id: scheduleId,
@@ -100,64 +94,91 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
   const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-modal flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="flex justify-between items-center p-4 border-b border-border">
-          <h3 className="font-bold text-lg">
-            {isEditing ? 'Editar' : 'Nuevo'} Horario - {days[formData.dayOfWeek]}
-          </h3>
-          <button onClick={onClose}><Icon name="X" size={20} /></button>
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-modal flex items-end md:items-center justify-center p-0 md:p-4 transition-all">
+      {/* Container: Full width en mobile, centrado en desktop */}
+      <div className="bg-card border-t md:border border-border rounded-t-2xl md:rounded-xl w-full max-w-md shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-200">
+        
+        {/* Indicador visual de "arrastre" solo en mobile */}
+        <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mt-3 mb-1 md:hidden" />
+
+        <div className="flex justify-between items-center p-4 md:p-5 border-b border-border">
+          <div>
+            <h3 className="font-bold text-lg md:text-xl text-foreground">
+              {isEditing ? 'Editar Clase' : 'Programar Clase'}
+            </h3>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+              {days[formData.dayOfWeek]}
+            </p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
+          >
+            <Icon name="X" size={24} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+        <form onSubmit={handleSubmit} className="p-5 md:p-6 space-y-6 overflow-y-auto custom-scrollbar pb-10 md:pb-6">
           
-          <div className="space-y-1">
-            <label className="text-sm font-medium">Actividad</label>
+          {/* Actividad con selector visual mejorado */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Actividad</label>
             <select 
-              className="w-full p-2 rounded-md bg-input border border-border"
+              className="w-full h-11 px-3 rounded-lg bg-muted/20 border border-border text-sm focus:ring-2 focus:ring-primary outline-none transition-all appearance-none"
               value={formData.classTypeId}
               onChange={e => setFormData({...formData, classTypeId: e.target.value})}
               required
             >
-              <option value="">Seleccionar...</option>
+              <option value="">Seleccionar actividad...</option>
               {classTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
 
+          {/* Profesores con diseño de chips/lista compacta */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Profesores a Cargo</label>
-            <div className="border border-border rounded-md p-2 max-h-32 overflow-y-auto bg-input/20">
-              {coaches.map(c => (
-                <label key={c.id} className="flex items-center gap-2 p-1.5 hover:bg-muted/50 rounded cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.selectedCoachIds.includes(c.id)}
-                    onChange={() => toggleCoach(c.id)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">{c.name}</span>
-                </label>
-              ))}
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Profesores a Cargo</label>
+            <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1 rounded-lg">
+              {coaches.map(c => {
+                const isSelected = formData.selectedCoachIds.includes(c.id);
+                return (
+                  <label 
+                    key={c.id} 
+                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                      isSelected 
+                        ? 'bg-primary/10 border-primary text-primary shadow-sm' 
+                        : 'bg-muted/10 border-border text-foreground hover:bg-muted/20'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold">{c.name}</span>
+                    <input 
+                      type="checkbox" 
+                      className="w-5 h-5 rounded-full border-2 border-primary text-primary focus:ring-primary accent-primary"
+                      checked={isSelected}
+                      onChange={() => toggleCoach(c.id)}
+                    />
+                  </label>
+                );
+              })}
             </div>
-            {formData.selectedCoachIds.length === 0 && <p className="text-xs text-warning">Advertencia: Sin profesor asignado</p>}
           </div>
 
+          {/* Horarios en una sola fila */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Inicio</label>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Inicia</label>
               <input 
                 type="time" 
-                className="w-full p-2 rounded-md bg-input border border-border"
+                className="w-full h-11 px-3 rounded-lg bg-muted/20 border border-border text-sm font-mono focus:ring-2 focus:ring-primary outline-none"
                 value={formData.startTime}
                 onChange={e => setFormData({...formData, startTime: e.target.value})}
                 required 
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Fin</label>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Finaliza</label>
               <input 
                 type="time" 
-                className="w-full p-2 rounded-md bg-input border border-border"
+                className="w-full h-11 px-3 rounded-lg bg-muted/20 border border-border text-sm font-mono focus:ring-2 focus:ring-primary outline-none"
                 value={formData.endTime}
                 onChange={e => setFormData({...formData, endTime: e.target.value})}
                 required 
@@ -165,23 +186,47 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium">Cupo Máximo</label>
-            <input 
-              type="number" 
-              className="w-full p-2 rounded-md bg-input border border-border"
-              value={formData.capacity}
-              onChange={e => setFormData({...formData, capacity: e.target.value})}
-            />
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Cupo de Atletas</label>
+            <div className="flex items-center gap-4">
+               <input 
+                type="number" 
+                className="flex-1 h-11 px-3 rounded-lg bg-muted/20 border border-border text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                value={formData.capacity}
+                onChange={e => setFormData({...formData, capacity: e.target.value})}
+              />
+              <span className="text-xs text-muted-foreground font-medium italic">Atletas máx.</span>
+            </div>
           </div>
 
-          <div className="flex justify-between pt-4">
-            {isEditing ? (
-              <Button type="button" variant="ghost" className="text-error hover:bg-error/10" onClick={handleDelete}>Eliminar</Button>
-            ) : <div></div>}
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-              <Button type="submit" loading={loading}>{isEditing ? 'Guardar' : 'Crear'}</Button>
+          {/* Acciones principales fijas al fondo en mobile */}
+          <div className="flex flex-col-reverse md:flex-row justify-between gap-3 pt-4 border-t border-border mt-4">
+            {isEditing && (
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="text-error hover:bg-error/10 h-11 font-bold" 
+                onClick={handleDelete}
+              >
+                Eliminar Clase
+              </Button>
+            )}
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto md:ml-auto">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="h-11 md:px-6"
+                onClick={onClose}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                loading={loading}
+                className="h-11 md:px-8 shadow-lg shadow-primary/20"
+              >
+                {isEditing ? 'Guardar Cambios' : 'Crear Horario'}
+              </Button>
             </div>
           </div>
         </form>
