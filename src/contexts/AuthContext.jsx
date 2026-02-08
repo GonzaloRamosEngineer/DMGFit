@@ -28,8 +28,6 @@ export const AuthProvider = ({ children }) => {
         .eq('id', authUser.id)
         .maybeSingle();
 
-      // AJUSTE: Si hay error o no existe el perfil, no permitimos el acceso
-      // En un sistema cerrado, el perfil DEBE existir antes del login.
       if (error || !data) {
         console.warn("⚠️ [Auth] Usuario autenticado pero sin perfil en la tabla 'profiles'.");
         return null;
@@ -85,7 +83,7 @@ export const AuthProvider = ({ children }) => {
           setCurrentUser(profile);
           setIsAuthenticated(true);
         } else {
-          // Si hay sesión pero no hay perfil, forzamos el cierre de sesión
+          // Si hay sesión pero no hay perfil, forzamos el cierre de sesión (seguridad estricta)
           await supabase.auth.signOut();
           setCurrentUser(null);
           setIsAuthenticated(false);
@@ -103,9 +101,28 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(false);
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         if (session?.user && isMounted) {
+          
+          // 🛡️ VÁLVULA DE SEGURIDAD: 
+          // Si ya tenemos un usuario y es el mismo del evento, ignoramos para evitar bucles.
+          // Esto evita que el Admin sea expulsado al registrar nuevos atletas/profesores.
+          if (currentUser && currentUser.id === session.user.id) {
+            return; 
+          }
+
           const profile = await resolveUserProfile(session.user);
-          setCurrentUser(profile);
-          setIsAuthenticated(!!profile);
+          
+          if (profile) {
+            setCurrentUser(profile);
+            setIsAuthenticated(true);
+          } else {
+            // 🛡️ Solo forzamos el signOut si NO había un usuario previo.
+            // Esto protege la sesión activa (ej. del Admin) ante errores de latencia del nuevo perfil.
+            if (!currentUser) {
+              await supabase.auth.signOut();
+              setCurrentUser(null);
+              setIsAuthenticated(false);
+            }
+          }
         }
       }
     });
@@ -114,17 +131,14 @@ export const AuthProvider = ({ children }) => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [currentUser]); // Agregamos currentUser como dependencia para la válvula de seguridad
 
   const login = async ({ email, password }) => {
-    // 1. Intentar login en Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error };
 
-    // 2. Resolver el perfil vinculado
     const profile = await resolveUserProfile(data.user);
     
-    // 3. Si no hay perfil vinculado, impedimos el acceso aunque la contraseña sea correcta
     if (!profile) {
       await supabase.auth.signOut();
       return { 
