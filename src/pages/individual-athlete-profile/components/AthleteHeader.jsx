@@ -3,6 +3,11 @@ import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
+// PASO 1: Importar el cliente de Supabase
+import { supabase } from '../../../lib/supabaseClient';
+
+// MEJORA: Centralizar dominios internos para consistencia
+const INTERNAL_DOMAINS = ["@dmg.internal", "@vcfit.internal"];
 
 const AthleteHeader = ({
   athlete,
@@ -17,8 +22,8 @@ const AthleteHeader = ({
   const [deleting, setDeleting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
-  // Mantenemos la detección de dominio corregida para que el botón sea visible
-  const isOffline = athlete?.email?.includes('@vcfit.internal') || athlete?.email?.includes('@dmg.internal');
+  // Mantenemos la detección de dominio corregida
+  const isOffline = athlete?.email && INTERNAL_DOMAINS.some(domain => athlete.email.endsWith(domain));
 
   const quickActions = [
     { id: 'schedule', label: 'Programar Sesión', icon: 'Calendar', action: 'schedule' },
@@ -31,7 +36,7 @@ const AthleteHeader = ({
     const confirmFirst = window.confirm(`¿Estás COMPLETAMENTE seguro de eliminar a ${athlete.name}?`);
     if (!confirmFirst) return;
 
-    const confirmSecond = window.confirm("Esta acción eliminará permanentemente todos sus pagos, asistencias, resultados de entrenamientos y el perfil de usuario. No se puede deshacer. ¿Continuar?");
+    const confirmSecond = window.confirm("Esta acción eliminará permanentemente todos sus registros (pagos, asistencias, métricas) y su perfil de acceso. No se puede deshacer. ¿Continuar?");
     if (!confirmSecond) return;
 
     setDeleting(true);
@@ -39,26 +44,24 @@ const AthleteHeader = ({
       const athleteId = athlete.id;
       const profileId = athlete.profile_id || athlete.profileId;
 
-      await supabase.from('access_logs').delete().eq('athlete_id', athleteId);
-      await supabase.from('attendance').delete().eq('athlete_id', athleteId);
-      await supabase.from('payments').delete().eq('athlete_id', athleteId);
-      await supabase.from('performance_metrics').delete().eq('athlete_id', athleteId);
-      await supabase.from('workout_results').delete().eq('athlete_id', athleteId);
-      await supabase.from('athlete_routines').delete().eq('athlete_id', athleteId);
-      await supabase.from('enrollments').delete().eq('athlete_id', athleteId);
-      await supabase.from('session_attendees').delete().eq('athlete_id', athleteId);
-      await supabase.from('workout_sessions').delete().eq('athlete_id', athleteId);
-      await supabase.from('notes').delete().eq('athlete_id', athleteId);
-
-      const { error: athleteError } = await supabase.from('athletes').delete().eq('id', athleteId);
-      if (athleteError) throw athleteError;
-
+      /**
+       * PASO 2: Optimización mediante CASCADE
+       * Si configuramos correctamente las FK con ON DELETE CASCADE, 
+       * al borrar el PROFILE se borra el ATHLETE y todas sus tablas hijas automáticamente.
+       * Si el profileId no existe (atleta huérfano), borramos solo el atleta.
+       */
+      
       if (profileId) {
+        // Al borrar el perfil, el CASCADE se encarga de 'athletes', 'payments', 'attendance', etc.
         const { error: profileError } = await supabase.from('profiles').delete().eq('id', profileId);
         if (profileError) throw profileError;
+      } else {
+        // Fallback: Si por alguna razón no tiene perfil, borramos el atleta
+        const { error: athleteError } = await supabase.from('athletes').delete().eq('id', athleteId);
+        if (athleteError) throw athleteError;
       }
 
-      alert("Atleta eliminado correctamente.");
+      alert("Atleta y todos sus registros eliminados correctamente.");
       window.location.href = '/athletes-management'; 
 
     } catch (error) {
