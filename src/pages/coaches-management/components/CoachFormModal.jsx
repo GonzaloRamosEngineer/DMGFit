@@ -47,15 +47,19 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
         ? `sin_email_${formData.dni.trim().replace(/\D/g, '')}@dmg.internal`
         : normalizedEmail;
 
+      let profileId;
+
       if (coachToEdit) {
         // --- LÓGICA DE EDICIÓN ---
+        profileId = coachToEdit.profile_id;
+        
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ 
             full_name: formData.fullName, 
             email: normalizedEmail 
           })
-          .eq('id', coachToEdit.profile_id); // Usar ID es más seguro que email
+          .eq('id', profileId);
 
         if (profileError) throw profileError;
 
@@ -73,11 +77,8 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
 
       } else {
         // --- MODO CREACIÓN (FLUJO SINCRONIZADO) ---
-        let profileId;
-
         if (!isInternal) {
-          // 1. Registramos en Auth PRIMERO. 
-          // Esto dispara el trigger SQL que crea el perfil automáticamente.
+          // 1. Llamamos a Auth (dispara el Trigger de la base de datos)
           const { data: authData, error: authError } = await supabase.auth.signUp({
             email: finalEmail,
             password: `tmp_${formData.dni.trim()}`,
@@ -92,12 +93,12 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
           if (authError) throw authError;
           profileId = authData.user.id;
 
-          // 2. PAUSA DE ESTABILIDAD: Esperamos 500ms para que el trigger termine 
-          // de crear el perfil antes de intentar insertar en 'coaches'.
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // 2. PAUSA DE SEGURIDAD (Crítico para evitar el error 500)
+          // Damos tiempo a que el DELETE y el INSERT del Trigger terminen en el servidor
+          await new Promise(resolve => setTimeout(resolve, 800));
 
         } else {
-          // 3. Si NO hay email, creamos el perfil "fantasma" manualmente
+          // Lógica para perfil "fantasma" sin email real
           profileId = crypto.randomUUID();
           const { error: profileError } = await supabase.from('profiles').insert({
             id: profileId,
@@ -108,7 +109,7 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
           if (profileError) throw profileError;
         }
 
-        // 4. Insertamos la ficha técnica usando UPSERT (más seguro que insert)
+        // 3. Ficha técnica con UPSERT (para no fallar si el trigger ya creó el registro)
         const { error: coachError } = await supabase.from('coaches').upsert({
           profile_id: profileId,
           specialization: formData.specialization || 'General',
