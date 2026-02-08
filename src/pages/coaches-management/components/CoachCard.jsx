@@ -3,8 +3,13 @@ import Icon from '../../../components/AppIcon';
 import Image from '../../../components/AppImage';
 import Button from '../../../components/ui/Button';
 
-// Recibimos nuevas props: onEdit y onViewAthletes
-const CoachCard = ({ coach, onDelete, onEdit, onViewAthletes }) => {
+const CoachCard = ({ 
+  coach, 
+  onDelete, 
+  onEdit, 
+  onViewAthletes, 
+  onEnableAccount // Nueva prop para habilitación
+}) => {
   return (
     <div className="bg-card border border-border rounded-xl p-6 hover:shadow-lg transition-smooth flex flex-col items-center text-center group">
       <div className="relative">
@@ -39,11 +44,38 @@ const CoachCard = ({ coach, onDelete, onEdit, onViewAthletes }) => {
         </button>
       </div>
 
-      <div className="flex gap-2 w-full">
-        <Button variant="outline" size="sm" fullWidth iconName="Edit" onClick={() => onEdit(coach)}>
+      {/* Ajuste: Contenedor de botones flexible para admitir el botón Habilitar */}
+      <div className="flex flex-wrap gap-2 w-full mt-auto">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          fullWidth 
+          iconName="Edit" 
+          onClick={() => onEdit(coach)}
+        >
           Editar
         </Button>
-        <Button variant="ghost" size="sm" iconName="Trash2" onClick={() => onDelete(coach.id)} className="text-error hover:bg-error/10 hover:text-error" />
+
+        {/* AJUSTE: Botón Habilitar Condicional */}
+        {coach.needsActivation && (
+          <Button
+            variant="default"
+            size="sm"
+            fullWidth
+            iconName="UserCheck"
+            onClick={() => onEnableAccount?.(coach)}
+          >
+            Habilitar
+          </Button>
+        )}
+
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          iconName="Trash2" 
+          onClick={() => onDelete(coach.id)} 
+          className="text-error hover:bg-error/10 hover:text-error w-full mt-1" 
+        />
       </div>
     </div>
   );

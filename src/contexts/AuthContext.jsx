@@ -11,8 +11,6 @@ export const useAuth = () => {
   return context;
 };
 
-// ... (mismos imports y useAuth)
-
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,20 +21,18 @@ export const AuthProvider = ({ children }) => {
     console.log("🔍 [Auth] Resolviendo perfil:", authUser.email);
 
     try {
+      // 1. Buscamos el perfil en la tabla 'profiles' por ID de Auth
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, avatar_url')
         .eq('id', authUser.id)
         .maybeSingle();
 
+      // AJUSTE: Si hay error o no existe el perfil, no permitimos el acceso
+      // En un sistema cerrado, el perfil DEBE existir antes del login.
       if (error || !data) {
-        return {
-          id: authUser.id,
-          name: authUser.user_metadata?.full_name || authUser.email,
-          email: authUser.email,
-          role: 'atleta',
-          avatar: authUser.user_metadata?.avatar_url || null
-        };
+        console.warn("⚠️ [Auth] Usuario autenticado pero sin perfil en la tabla 'profiles'.");
+        return null;
       }
 
       const baseProfile = {
@@ -49,12 +45,20 @@ export const AuthProvider = ({ children }) => {
         athleteId: null
       };
 
-      // Carga de datos extra simplificada
+      // 2. Carga de datos extra según el rol
       if (baseProfile.role === 'profesor') {
-        const { data: c } = await supabase.from('coaches').select('id').eq('profile_id', baseProfile.id).maybeSingle();
+        const { data: c } = await supabase
+          .from('coaches')
+          .select('id')
+          .eq('profile_id', baseProfile.id)
+          .maybeSingle();
         if (c) baseProfile.coachId = c.id;
       } else if (baseProfile.role === 'atleta') {
-        const { data: a } = await supabase.from('athletes').select('id, coach_id').eq('profile_id', baseProfile.id).maybeSingle();
+        const { data: a } = await supabase
+          .from('athletes')
+          .select('id, coach_id')
+          .eq('profile_id', baseProfile.id)
+          .maybeSingle();
         if (a) {
           baseProfile.athleteId = a.id;
           baseProfile.coachId = a.coach_id;
@@ -63,7 +67,7 @@ export const AuthProvider = ({ children }) => {
 
       return baseProfile;
     } catch (err) {
-      console.error("❌ [Auth] Error critico:", err);
+      console.error("❌ [Auth] Error critico en resolución de perfil:", err);
       return null;
     }
   };
@@ -73,11 +77,21 @@ export const AuthProvider = ({ children }) => {
 
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (session?.user && isMounted) {
         const profile = await resolveUserProfile(session.user);
-        setCurrentUser(profile);
-        setIsAuthenticated(!!profile);
+        
+        if (profile) {
+          setCurrentUser(profile);
+          setIsAuthenticated(true);
+        } else {
+          // Si hay sesión pero no hay perfil, forzamos el cierre de sesión
+          await supabase.auth.signOut();
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+        }
       }
+      
       if (isMounted) setIsLoading(false);
     };
 
@@ -87,10 +101,13 @@ export const AuthProvider = ({ children }) => {
       if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setIsAuthenticated(false);
-      } else if (event === 'PASSWORD_RECOVERY') {
-        // Manejar recuperación si fuera necesario
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user && isMounted) {
+          const profile = await resolveUserProfile(session.user);
+          setCurrentUser(profile);
+          setIsAuthenticated(!!profile);
+        }
       }
-      // No re-buscamos perfil en SIGNED_IN porque la función login() ya lo hace
     });
 
     return () => {
@@ -99,15 +116,20 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const login = async ({ email, password, expectedRole }) => {
+  const login = async ({ email, password }) => {
+    // 1. Intentar login en Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error };
 
+    // 2. Resolver el perfil vinculado
     const profile = await resolveUserProfile(data.user);
     
-    if (expectedRole && profile?.role !== expectedRole) {
+    // 3. Si no hay perfil vinculado, impedimos el acceso aunque la contraseña sea correcta
+    if (!profile) {
       await supabase.auth.signOut();
-      return { error: { message: "No tienes permisos para este acceso." } };
+      return { 
+        error: { message: "No se encontró un perfil vinculado a esta cuenta. Contacta al administrador." } 
+      };
     }
 
     setCurrentUser(profile);
@@ -117,6 +139,8 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    setCurrentUser(null);
+    setIsAuthenticated(false);
   };
 
   return (

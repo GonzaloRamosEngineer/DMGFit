@@ -11,13 +11,12 @@ const LoginRoleSelection = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  // Estado para alternar entre Login y Registro
-  const [isLoginMode, setIsLoginMode] = useState(true);
+  // Ahora el modo siempre es login, eliminamos la posibilidad de cambiarlo
+  const isLoginMode = true;
 
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    fullName: ''
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -26,13 +25,13 @@ const LoginRoleSelection = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // --- UI: Tilt + Glow (sin dependencias) ---
+  // --- UI: Tilt + Glow ---
   const cardRef = useRef(null);
   const rafRef = useRef(null);
   const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
   const [glow, setGlow] = useState({ x: 50, y: 40 });
 
-  const title = useMemo(() => (isLoginMode ? 'Iniciar Sesión' : 'Activar Cuenta'), [isLoginMode]);
+  const title = "Iniciar Sesión";
 
   useEffect(() => {
     return () => {
@@ -45,15 +44,13 @@ const LoginRoleSelection = () => {
     if (!el) return;
 
     const rect = el.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width;  // 0..1
-    const py = (e.clientY - rect.top) / rect.height;  // 0..1
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
 
-    // Glow follows mouse, clamp
     const gx = Math.max(0, Math.min(100, px * 100));
     const gy = Math.max(0, Math.min(100, py * 100));
 
-    // Tilt effect
-    const max = 6; // degrees
+    const max = 6;
     const ry = (px - 0.5) * (max * 2);
     const rx = (0.5 - py) * (max * 2);
 
@@ -88,8 +85,6 @@ const LoginRoleSelection = () => {
   const friendlyError = (err) => {
     const msg = err?.message || 'Ocurrió un error inesperado.';
     if (msg.includes('Invalid login credentials')) return 'Usuario o contraseña incorrectos.';
-    if (msg.includes('User already registered')) return 'Este email ya está registrado. Intenta iniciar sesión.';
-    if (msg.toLowerCase().includes('password')) return 'Revisá la contraseña (mínimo 6 caracteres).';
     return msg;
   };
 
@@ -129,51 +124,21 @@ const LoginRoleSelection = () => {
     setSuccessMessage('');
 
     try {
-      if (isLoginMode) {
-        // --- MODO LOGIN ---
-        const { error: loginError, user } = await login({
-          email: formData.email,
-          password: formData.password
-        });
+      // --- SOLO MODO LOGIN PERMITIDO ---
+      const { error: loginError, user } = await login({
+        email: formData.email,
+        password: formData.password
+      });
 
-        if (loginError) throw loginError;
+      if (loginError) throw loginError;
 
-        setUiStatus('success');
+      setUiStatus('success');
 
-        // Redirección inteligente
-        const targetPath = redirectByRole(user?.role);
-        setTimeout(() => {
-          navigate(targetPath, { replace: true });
-        }, 450);
+      const targetPath = redirectByRole(user?.role);
+      setTimeout(() => {
+        navigate(targetPath, { replace: true });
+      }, 450);
 
-      } else {
-        // --- MODO REGISTRO (Activación controlada / por defecto atleta) ---
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.fullName,
-              role: 'atleta'
-            }
-          }
-        });
-
-        if (signUpError) throw signUpError;
-
-        if (data?.user) {
-          setUiStatus('success');
-          setSuccessMessage('¡Cuenta activada con éxito! Ya podés iniciar sesión.');
-          setIsLoginMode(true);
-          setFormData((prev) => ({ ...prev, password: '' }));
-        } else {
-          // Algunos setups requieren confirmación por correo
-          setUiStatus('success');
-          setSuccessMessage('Te enviamos un correo para confirmar tu cuenta. Luego podrás iniciar sesión.');
-          setIsLoginMode(true);
-          setFormData((prev) => ({ ...prev, password: '' }));
-        }
-      }
     } catch (err) {
       console.error('Operation failed:', err);
       setUiStatus('error');
@@ -186,16 +151,9 @@ const LoginRoleSelection = () => {
   };
 
   const BrandIcon = () => {
-    // Estado visual sutil según uiStatus
-    if (uiStatus === 'success') {
-      return <Icon name="CheckCircle" size={34} color="#22C55E" />;
-    }
-    if (uiStatus === 'checking') {
-      return <Icon name="ScanFace" size={34} color="var(--color-primary)" />;
-    }
-    if (uiStatus === 'error') {
-      return <Icon name="AlertTriangle" size={34} color="var(--color-error)" />;
-    }
+    if (uiStatus === 'success') return <Icon name="CheckCircle" size={34} color="#22C55E" />;
+    if (uiStatus === 'checking') return <Icon name="ScanFace" size={34} color="var(--color-primary)" />;
+    if (uiStatus === 'error') return <Icon name="AlertTriangle" size={34} color="var(--color-error)" />;
     return <Icon name="Dumbbell" size={34} color="#FFFFFF" />;
   };
 
@@ -206,10 +164,8 @@ const LoginRoleSelection = () => {
       </Helmet>
 
       <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-50">
-        {/* Dot grid fondo */}
         <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:32px_32px]" />
 
-        {/* Glow ambiental */}
         <div
           className="absolute w-[900px] h-[900px] rounded-full blur-3xl pointer-events-none"
           style={{
@@ -220,9 +176,7 @@ const LoginRoleSelection = () => {
           }}
         />
 
-        {/* Contenedor */}
         <div className="w-full max-w-md relative z-10">
-          {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg border border-white/60 bg-stone-900">
               <BrandIcon />
@@ -236,7 +190,6 @@ const LoginRoleSelection = () => {
             </p>
           </div>
 
-          {/* Card */}
           <div
             ref={cardRef}
             onMouseMove={handleMouseMove}
@@ -248,7 +201,6 @@ const LoginRoleSelection = () => {
               transition: 'transform 120ms ease-out'
             }}
           >
-            {/* Scan line */}
             <div
               className="absolute left-0 right-0 h-24 pointer-events-none"
               style={{
@@ -259,62 +211,18 @@ const LoginRoleSelection = () => {
             />
 
             <div className="p-8">
-              {/* Tabs */}
-              <div className="flex p-1 rounded-xl bg-stone-100/70 border border-stone-200 mb-6">
-                <button
-                  type="button"
-                  onClick={() => { setIsLoginMode(true); setError(''); setSuccessMessage(''); }}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all tracking-widest uppercase ${
-                    isLoginMode
-                      ? 'bg-white text-stone-900 shadow-sm border border-stone-200'
-                      : 'text-stone-500 hover:text-stone-900'
-                  }`}
-                >
-                  Ingresar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setIsLoginMode(false); setError(''); setSuccessMessage(''); }}
-                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all tracking-widest uppercase ${
-                    !isLoginMode
-                      ? 'bg-white text-stone-900 shadow-sm border border-stone-200'
-                      : 'text-stone-500 hover:text-stone-900'
-                  }`}
-                >
-                  Activar cuenta
-                </button>
-              </div>
-
-              {/* Title inside */}
+              {/* Se eliminó la sección de Tabs (Navegación entre Login y Registro) */}
+              
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-stone-900 tracking-tight">
-                  {isLoginMode ? 'Acceso' : 'Activación'}
+                  Acceso
                 </h2>
                 <p className="text-stone-500 text-sm mt-1">
-                  {isLoginMode
-                    ? 'Ingresá con tu email y contraseña.'
-                    : 'Activá tu cuenta para acceder al portal.'}
+                  Ingresá con tu email y contraseña.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {!isLoginMode && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                    <label htmlFor="fullName" className="block text-xs font-bold text-stone-700 mb-2 tracking-widest uppercase">
-                      Nombre completo
-                    </label>
-                    <Input
-                      id="fullName"
-                      name="fullName"
-                      value={formData.fullName}
-                      onChange={handleInputChange}
-                      placeholder="Tu nombre"
-                      required={!isLoginMode}
-                      className="w-full"
-                    />
-                  </div>
-                )}
-
                 <div>
                   <label htmlFor="email" className="block text-xs font-bold text-stone-700 mb-2 tracking-widest uppercase">
                     Email
@@ -336,12 +244,6 @@ const LoginRoleSelection = () => {
                     <label htmlFor="password" className="block text-xs font-bold text-stone-700 tracking-widest uppercase">
                       Contraseña
                     </label>
-
-                    {!isLoginMode && (
-                      <span className="text-[10px] text-stone-400 font-semibold uppercase tracking-widest">
-                        (mín. 6 caracteres)
-                      </span>
-                    )}
                   </div>
 
                   <div className="relative">
@@ -367,7 +269,6 @@ const LoginRoleSelection = () => {
                   </div>
                 </div>
 
-                {/* Alerts */}
                 {error && (
                   <div className="rounded-xl p-3 flex items-start gap-2 bg-red-50 border border-red-100 animate-in fade-in">
                     <Icon name="AlertCircle" size={18} color="var(--color-error)" className="flex-shrink-0 mt-0.5" />
@@ -382,40 +283,33 @@ const LoginRoleSelection = () => {
                   </div>
                 )}
 
-                {/* Main CTA */}
                 <Button
                   type="submit"
                   variant="default"
                   size="lg"
                   fullWidth
                   loading={isLoading}
-                  iconName={isLoginMode ? "LogIn" : "UserPlus"}
+                  iconName="LogIn"
                 >
-                  {uiStatus === 'checking'
-                    ? (isLoginMode ? 'Verificando...' : 'Activando...')
-                    : (isLoginMode ? 'Ingresar' : 'Activar')}
+                  {uiStatus === 'checking' ? 'Verificando...' : 'Ingresar'}
                 </Button>
 
-                {/* Secondary actions */}
-                {isLoginMode && (
-                  <div className="flex items-center justify-between pt-1">
-                    <button
-                      type="button"
-                      onClick={handleResetPassword}
-                      className="text-[10px] text-stone-400 hover:text-stone-700 transition-colors uppercase tracking-widest font-semibold"
-                    >
-                      ¿Olvidaste tu contraseña?
-                    </button>
-                    <span className="text-[10px] text-stone-300 uppercase tracking-widest font-semibold">
-                      Acceso controlado
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    className="text-[10px] text-stone-400 hover:text-stone-700 transition-colors uppercase tracking-widest font-semibold"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                  <span className="text-[10px] text-stone-300 uppercase tracking-widest font-semibold">
+                    Acceso controlado
+                  </span>
+                </div>
               </form>
             </div>
           </div>
 
-          {/* Firma DigitalMatch */}
           <div className="mt-8 flex flex-col items-center gap-2">
             <span className="text-[10px] text-stone-400 uppercase tracking-widest">Engineered by</span>
             <a
@@ -434,9 +328,8 @@ const LoginRoleSelection = () => {
             </a>
           </div>
 
-          {/* Microcopy */}
           <div className="mt-5 text-center text-[10px] text-stone-400 uppercase tracking-widest">
-            {isLoginMode ? 'Acceso a plataforma' : 'Activación de cuenta'}
+            Acceso a plataforma
           </div>
         </div>
       </div>

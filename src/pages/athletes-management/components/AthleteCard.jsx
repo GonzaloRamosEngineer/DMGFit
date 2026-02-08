@@ -5,7 +5,13 @@ import Image from '../../../components/AppImage';
 import Button from '../../../components/ui/Button';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
 
-const AthleteCard = ({ athlete, onSelect, isSelected, loading = false }) => {
+const AthleteCard = ({
+  athlete,
+  onSelect,
+  isSelected,
+  loading = false,
+  onEnableAccount, // Nueva prop para manejar la habilitación
+}) => {
   const navigate = useNavigate();
 
   if (loading) {
@@ -58,12 +64,13 @@ const AthleteCard = ({ athlete, onSelect, isSelected, loading = false }) => {
   return (
     <div className={`bg-card border rounded-lg p-4 md:p-6 transition-smooth hover:shadow-glow-primary ${isSelected ? 'border-primary shadow-glow-primary' : 'border-border'}`}>
       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+        
         {/* Info Principal */}
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <input
             type="checkbox"
             checked={isSelected}
-            onChange={() => onSelect(athlete.id)}
+            onChange={() => onSelect?.(athlete.id)}
             className="w-5 h-5 rounded border-border bg-input text-primary focus:ring-2 focus:ring-primary flex-shrink-0"
           />
           <div className="relative flex-shrink-0">
@@ -105,19 +112,36 @@ const AthleteCard = ({ athlete, onSelect, isSelected, loading = false }) => {
           </div>
         </div>
 
-        {/* Botones */}
-        <div className="flex items-center gap-2 flex-shrink-0 justify-end w-full lg:w-auto mt-2 lg:mt-0">
+        {/* Botones de Acción */}
+        <div className="flex flex-wrap items-center gap-2 flex-shrink-0 justify-end w-full lg:w-auto mt-2 lg:mt-0">
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => navigate(`/individual-athlete-profile/${athlete.id}`)} // CORRECCIÓN AQUÍ
+            onClick={() => navigate(`/individual-athlete-profile/${athlete.id}`)}
             iconName="Eye"
           >
             Perfil
           </Button>
-          <QuickActionMenu entityId={athlete.id} entityType="athlete" availableActions={[
-            { id: 'msg', label: 'Mensaje', icon: 'MessageSquare' }
-          ]} />
+
+          {/* AJUSTE: Botón Habilitar Condicional */}
+          {athlete.needsActivation && (
+            <Button
+              variant="default"
+              size="sm"
+              iconName="UserCheck"
+              onClick={() => onEnableAccount?.(athlete)}
+            >
+              Habilitar
+            </Button>
+          )}
+
+          <QuickActionMenu 
+            entityId={athlete.id} 
+            entityType="athlete" 
+            availableActions={[
+              { id: 'msg', label: 'Mensaje', icon: 'MessageSquare' }
+            ]} 
+          />
         </div>
       </div>
     </div>

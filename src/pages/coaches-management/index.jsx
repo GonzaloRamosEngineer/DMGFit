@@ -9,6 +9,7 @@ import Icon from '../../components/AppIcon';
 import CoachCard from './components/CoachCard';
 import CoachFormModal from './components/CoachFormModal';
 import CoachAthletesModal from './components/CoachAthletesModal';
+import EnableAccountModal from '../../components/EnableAccountModal'; // Importar el modal
 
 const CoachesManagement = () => {
   const { currentUser } = useAuth();
@@ -17,10 +18,14 @@ const CoachesManagement = () => {
 
   // Estados de Modales
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [coachToEdit, setCoachToEdit] = useState(null); // Si es null = Crear, si tiene obj = Editar
+  const [coachToEdit, setCoachToEdit] = useState(null);
   
   const [isAthletesModalOpen, setIsAthletesModalOpen] = useState(false);
   const [coachForAthletes, setCoachForAthletes] = useState(null);
+
+  // --- NUEVOS ESTADOS PARA HABILITACIÓN ---
+  const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
+  const [enableTarget, setEnableTarget] = useState(null);
 
   const fetchCoaches = async () => {
     setLoading(true);
@@ -28,23 +33,31 @@ const CoachesManagement = () => {
       const { data, error } = await supabase
         .from('coaches')
         .select(`
-          id, specialization, bio, phone,
+          id, specialization, bio, phone, profile_id,
           profiles:profile_id (full_name, email, avatar_url),
           athletes:athletes(count)
         `);
 
       if (error) throw error;
 
-      setCoaches(data.map(c => ({
-        id: c.id,
-        name: c.profiles?.full_name || 'Sin Nombre',
-        email: c.profiles?.email,
-        avatar: c.profiles?.avatar_url,
-        specialization: c.specialization,
-        bio: c.bio,
-        phone: c.phone,
-        totalAthletes: c.athletes?.[0]?.count || 0
-      })));
+      setCoaches(data.map(c => {
+        const rawEmail = c.profiles?.email || "";
+        const isInternalEmail = rawEmail.includes('@dmg.internal');
+
+        return {
+          id: c.id,
+          profileId: c.profile_id, // Guardamos el profile_id para el modal
+          name: c.profiles?.full_name || 'Sin Nombre',
+          email: isInternalEmail ? "Sin acceso a App" : rawEmail,
+          rawEmail: rawEmail, // Guardamos el original para procesar
+          avatar: c.profiles?.avatar_url,
+          specialization: c.specialization,
+          bio: c.bio,
+          phone: c.phone,
+          totalAthletes: c.athletes?.[0]?.count || 0,
+          needsActivation: isInternalEmail || rawEmail === "" // Lógica de activación
+        };
+      }));
 
     } catch (error) {
       console.error('Error cargando profesores:', error);
@@ -87,10 +100,9 @@ const CoachesManagement = () => {
   return (
     <>
       <Helmet>
-        <title>Gestión de Profesores - Plataforma de Gestión Deportiva</title>
+        <title>Gestión de Profesores - VC Fit</title>
       </Helmet>
       
-      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
       <div className="p-4 md:p-6 lg:p-8 w-full">
         <div className="max-w-7xl mx-auto">
           <BreadcrumbTrail 
@@ -108,7 +120,7 @@ const CoachesManagement = () => {
                 Gestiona a los entrenadores y sus asignaciones
               </p>
             </div>
-            <Button variant="default" iconName="UserPlus" onClick={handleCreate}>
+            <Button variant="default" iconName="UserPlus" iconPosition="left" onClick={handleCreate}>
               Nuevo Profesor
             </Button>
           </div>
@@ -128,6 +140,16 @@ const CoachesManagement = () => {
                   onDelete={handleDelete}
                   onEdit={handleEdit}
                   onViewAthletes={handleViewAthletes}
+                  // --- PASAR LA FUNCIÓN DE HABILITACIÓN ---
+                  onEnableAccount={(target) => {
+                    setEnableTarget({
+                      profileId: target.profileId,
+                      email: target.rawEmail?.includes("@dmg.internal") ? "" : target.rawEmail,
+                      name: target.name,
+                      role: 'profesor'
+                    });
+                    setIsEnableModalOpen(true);
+                  }}
                 />
               ))}
             </div>
@@ -143,7 +165,7 @@ const CoachesManagement = () => {
         </div>
       </div>
 
-      {/* Modal de Formulario (Crear / Editar) */}
+      {/* Modales */}
       {isFormModalOpen && (
         <CoachFormModal 
           onClose={() => setIsFormModalOpen(false)} 
@@ -152,13 +174,23 @@ const CoachesManagement = () => {
         />
       )}
 
-      {/* Modal de Ver Atletas */}
       {isAthletesModalOpen && (
         <CoachAthletesModal 
           coach={coachForAthletes}
           onClose={() => setIsAthletesModalOpen(false)}
         />
       )}
+
+      {/* Modal de Habilitación de Cuenta */}
+      <EnableAccountModal
+        isOpen={isEnableModalOpen}
+        target={enableTarget}
+        onClose={() => {
+          setIsEnableModalOpen(false);
+          setEnableTarget(null);
+        }}
+        onSuccess={fetchCoaches}
+      />
     </>
   );
 };
