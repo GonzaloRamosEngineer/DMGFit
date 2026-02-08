@@ -73,55 +73,50 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let isMounted = true;
 
+    // 1. Carga inicial de la sesión
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user && isMounted) {
-        const profile = await resolveUserProfile(session.user);
-        
-        if (profile) {
-          setCurrentUser(profile);
-          setIsAuthenticated(true);
-        } else {
-          // Si hay sesión pero no hay perfil, forzamos el cierre de sesión (seguridad estricta)
-          await supabase.auth.signOut();
-          setCurrentUser(null);
-          setIsAuthenticated(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && isMounted) {
+          const profile = await resolveUserProfile(session.user);
+          if (profile && isMounted) {
+            setCurrentUser(profile);
+            setIsAuthenticated(true);
+          } else if (isMounted) {
+            // Si hay sesión pero no hay perfil, cerramos sesión por seguridad
+            await supabase.auth.signOut();
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+          }
         }
+      } catch (err) {
+        console.error("Error inicializando auth:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-      
-      if (isMounted) setIsLoading(false);
     };
 
     init();
 
+    // 2. Escuchar cambios de estado de Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
       if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setIsAuthenticated(false);
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        if (session?.user && isMounted) {
-          
-          // 🛡️ VÁLVULA DE SEGURIDAD: 
-          // Si ya tenemos un usuario y es el mismo del evento, ignoramos para evitar bucles.
-          // Esto evita que el Admin sea expulsado al registrar nuevos atletas/profesores.
-          if (currentUser && currentUser.id === session.user.id) {
-            return; 
-          }
+        return;
+      }
 
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          // RESOLUCIÓN DE BUCLE: Solo actualizamos si realmente es un cambio de usuario
+          // El listener de Supabase se encarga de disparar esto solo cuando es necesario.
           const profile = await resolveUserProfile(session.user);
           
-          if (profile) {
+          if (isMounted) {
             setCurrentUser(profile);
-            setIsAuthenticated(true);
-          } else {
-            // 🛡️ Solo forzamos el signOut si NO había un usuario previo.
-            // Esto protege la sesión activa (ej. del Admin) ante errores de latencia del nuevo perfil.
-            if (!currentUser) {
-              await supabase.auth.signOut();
-              setCurrentUser(null);
-              setIsAuthenticated(false);
-            }
+            setIsAuthenticated(!!profile);
           }
         }
       }
@@ -131,7 +126,8 @@ export const AuthProvider = ({ children }) => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [currentUser]); // Agregamos currentUser como dependencia para la válvula de seguridad
+    // Array de dependencias vacío para evitar re-suscripciones innecesarias
+  }, []); 
 
   const login = async ({ email, password }) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
