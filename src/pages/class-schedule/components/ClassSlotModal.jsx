@@ -19,18 +19,28 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
     dayOfWeek: slotInfo.dayOfWeek
   });
 
+  // CARGA DE DATOS: Con manejo de errores silenciosos
   useEffect(() => {
     const fetchData = async () => {
-      const [typesRes, coachesRes] = await Promise.all([
-        supabase.from('class_types').select('*').order('name'),
-        supabase.from('coaches').select('id, profiles:profile_id(full_name)')
-      ]);
-      
-      if (typesRes.data) setClassTypes(typesRes.data);
-      if (coachesRes.data) setCoaches(coachesRes.data.map(c => ({
-        id: c.id, 
-        name: c.profiles?.full_name || 'Sin Nombre'
-      })));
+      try {
+        const [typesRes, coachesRes] = await Promise.all([
+          supabase.from('class_types').select('*').order('name'),
+          supabase.from('coaches').select('id, profiles:profile_id(full_name)')
+        ]);
+        
+        if (typesRes.data) {
+          setClassTypes(typesRes.data);
+        }
+        
+        if (coachesRes.data) {
+          setCoaches(coachesRes.data.map(c => ({
+            id: c.id, 
+            name: c.profiles?.full_name || 'Sin Nombre'
+          })));
+        }
+      } catch (err) {
+        console.error("Error en fetchData:", err);
+      }
     };
     fetchData();
   }, []);
@@ -45,6 +55,11 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.classTypeId) {
+      alert("Por favor selecciona una actividad");
+      return;
+    }
+
     setLoading(true);
     try {
       const schedulePayload = {
@@ -77,7 +92,7 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
       onSuccess();
       onClose();
     } catch (error) {
-      alert("Error: " + error.message);
+      alert("Error al guardar: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -86,19 +101,23 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
   const handleDelete = async () => {
     if (!window.confirm("¿Borrar este horario?")) return;
     setLoading(true);
-    await supabase.from('weekly_schedule').delete().eq('id', slotInfo.id);
-    onSuccess();
-    onClose();
+    try {
+      await supabase.from('weekly_schedule').delete().eq('id', slotInfo.id);
+      onSuccess();
+      onClose();
+    } catch (error) {
+      alert("Error al eliminar: " + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-modal flex items-end md:items-center justify-center p-0 md:p-4 transition-all">
-      {/* Container: Full width en mobile, centrado en desktop */}
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-modal flex items-end md:items-center justify-center p-0 md:p-4">
       <div className="bg-card border-t md:border border-border rounded-t-2xl md:rounded-xl w-full max-w-md shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-200">
         
-        {/* Indicador visual de "arrastre" solo en mobile */}
         <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mt-3 mb-1 md:hidden" />
 
         <div className="flex justify-between items-center p-4 md:p-5 border-b border-border">
@@ -110,34 +129,42 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
               {days[formData.dayOfWeek]}
             </p>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
             <Icon name="X" size={24} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 md:p-6 space-y-6 overflow-y-auto custom-scrollbar pb-10 md:pb-6">
           
-          {/* Actividad con selector visual mejorado */}
+          {/* ACTIVIDAD - Se ha quitado appearance-none para evitar fallos de renderizado en navegadores */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Actividad</label>
-            <select 
-              className="w-full h-11 px-3 rounded-lg bg-muted/20 border border-border text-sm focus:ring-2 focus:ring-primary outline-none transition-all appearance-none"
-              value={formData.classTypeId}
-              onChange={e => setFormData({...formData, classTypeId: e.target.value})}
-              required
-            >
-              <option value="">Seleccionar actividad...</option>
-              {classTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+            <div className="relative">
+              <select 
+                className="w-full h-11 px-3 rounded-lg bg-muted/30 border border-border text-sm focus:ring-2 focus:ring-primary outline-none transition-all text-foreground"
+                value={formData.classTypeId}
+                onChange={e => setFormData({...formData, classTypeId: e.target.value})}
+                required
+              >
+                <option value="" className="bg-card">Seleccionar actividad...</option>
+                {classTypes.map(t => (
+                  <option key={t.id} value={t.id} className="bg-card">
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Profesores con diseño de chips/lista compacta */}
+          {/* PROFESORES */}
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Profesores a Cargo</label>
-            <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1 rounded-lg">
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex justify-between">
+              Profesores a Cargo
+              {formData.selectedCoachIds.length === 0 && (
+                <span className="text-[10px] text-error lowercase font-normal italic">Sin asignar</span>
+              )}
+            </label>
+            <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1">
               {coaches.map(c => {
                 const isSelected = formData.selectedCoachIds.includes(c.id);
                 return (
@@ -145,7 +172,7 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
                     key={c.id} 
                     className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
                       isSelected 
-                        ? 'bg-primary/10 border-primary text-primary shadow-sm' 
+                        ? 'bg-primary/10 border-primary text-primary' 
                         : 'bg-muted/10 border-border text-foreground hover:bg-muted/20'
                     }`}
                   >
@@ -162,7 +189,7 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Horarios en una sola fila */}
+          {/* HORARIOS */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Inicia</label>
@@ -186,8 +213,9 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
             </div>
           </div>
 
+          {/* CUPO */}
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Cupo de Atletas</label>
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Cupo Máximo</label>
             <div className="flex items-center gap-4">
                <input 
                 type="number" 
@@ -195,11 +223,11 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
                 value={formData.capacity}
                 onChange={e => setFormData({...formData, capacity: e.target.value})}
               />
-              <span className="text-xs text-muted-foreground font-medium italic">Atletas máx.</span>
+              <span className="text-xs text-muted-foreground">Atletas</span>
             </div>
           </div>
 
-          {/* Acciones principales fijas al fondo en mobile */}
+          {/* BOTONES */}
           <div className="flex flex-col-reverse md:flex-row justify-between gap-3 pt-4 border-t border-border mt-4">
             {isEditing && (
               <Button 
@@ -208,7 +236,7 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
                 className="text-error hover:bg-error/10 h-11 font-bold" 
                 onClick={handleDelete}
               >
-                Eliminar Clase
+                Eliminar
               </Button>
             )}
             <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto md:ml-auto">
@@ -225,7 +253,7 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
                 loading={loading}
                 className="h-11 md:px-8 shadow-lg shadow-primary/20"
               >
-                {isEditing ? 'Guardar Cambios' : 'Crear Horario'}
+                {isEditing ? 'Guardar Cambios' : 'Crear Clase'}
               </Button>
             </div>
           </div>
