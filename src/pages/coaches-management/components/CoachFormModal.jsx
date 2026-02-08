@@ -72,15 +72,15 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
         alert("Profesor actualizado.");
 
       } else {
-        // --- LÓGICA DE CREACIÓN (FLUJO UNIFICADO) ---
-        let newProfileId;
+        // --- MODO CREACIÓN (FLUJO SINCRONIZADO) ---
+        let profileId;
 
         if (!isInternal) {
-          // 1. Si hay email real, creamos directamente en Auth
-          // Esto dispara el trigger 'handle_new_user' que creará el perfil oficial en la BD
+          // 1. Registramos en Auth PRIMERO. 
+          // Esto dispara el trigger SQL que crea el perfil automáticamente.
           const { data: authData, error: authError } = await supabase.auth.signUp({
             email: finalEmail,
-            password: `tmp_${formData.dni.trim()}`, // Password temporal basada en DNI
+            password: `tmp_${formData.dni.trim()}`,
             options: {
               data: {
                 full_name: formData.fullName,
@@ -90,12 +90,17 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
           });
 
           if (authError) throw authError;
-          newProfileId = authData.user.id;
+          profileId = authData.user.id;
+
+          // 2. PAUSA DE ESTABILIDAD: Esperamos 500ms para que el trigger termine 
+          // de crear el perfil antes de intentar insertar en 'coaches'.
+          await new Promise(resolve => setTimeout(resolve, 500));
+
         } else {
-          // 2. Si NO hay email, creamos el perfil "fantasma" manualmente
-          newProfileId = crypto.randomUUID();
+          // 3. Si NO hay email, creamos el perfil "fantasma" manualmente
+          profileId = crypto.randomUUID();
           const { error: profileError } = await supabase.from('profiles').insert({
-            id: newProfileId,
+            id: profileId,
             full_name: formData.fullName,
             email: finalEmail,
             role: 'profesor'
@@ -103,9 +108,9 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
           if (profileError) throw profileError;
         }
 
-        // 3. Crear la ficha técnica de Coach vinculada al ID (sea Auth o Fantasma)
-        const { error: coachError } = await supabase.from('coaches').insert({
-          profile_id: newProfileId,
+        // 4. Insertamos la ficha técnica usando UPSERT (más seguro que insert)
+        const { error: coachError } = await supabase.from('coaches').upsert({
+          profile_id: profileId,
           specialization: formData.specialization || 'General',
           bio: formData.bio || '',
           phone: formData.phone
