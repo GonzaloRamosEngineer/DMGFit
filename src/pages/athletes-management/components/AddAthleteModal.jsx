@@ -77,16 +77,11 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       const cleanDni = formData.dni.trim().replace(/\D/g, '');
       if (!cleanDni) throw new Error("El DNI es obligatorio.");
 
-      // 2. Preparar email (si no hay, generamos uno interno para Auth)
-      const finalEmail = formData.email 
-        ? formData.email.trim() 
-        : `dni_${cleanDni}@vcfit.internal`;
-
       // 3. Llamada al servicio integral
       // Esta función ahora maneja Auth + Profile + Athlete + Enrollment + Payment
       const result = await createFullAthlete({
         full_name: formData.fullName,
-        email: finalEmail,
+        email: formData.email.trim(),
         dni: cleanDni,
         phone: formData.phone,
         plan_id: formData.planId,
@@ -153,9 +148,9 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                 <Input label="Nombre Completo *" name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="Ej: Juan Pérez" />
                 
                 <div className="flex flex-col gap-1">
-                  <Input label="Email *" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="ejemplo@gmail.com" required />
+                  <Input label="Email (opcional)" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="ejemplo@gmail.com" />
                   <p className="text-[10px] text-primary font-medium px-1 italic">
-                    * Se usará para el inicio de sesión del atleta.
+                    Si no se ingresa, se asigna un email interno y la cuenta queda pendiente de habilitación.
                   </p>
                 </div>
 

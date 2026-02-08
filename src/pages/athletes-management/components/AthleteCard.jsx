@@ -10,6 +10,7 @@ const AthleteCard = ({
   onSelect,
   isSelected,
   loading = false,
+  canEnable = false,
   onEnableAccount, // Nueva prop para manejar la habilitación
 }) => {
   const navigate = useNavigate();
@@ -124,7 +125,7 @@ const AthleteCard = ({
           </Button>
 
           {/* AJUSTE: Botón Habilitar Condicional */}
-          {athlete.needsActivation && (
+          {athlete.needsActivation && canEnable && (
             <Button
               variant="default"
               size="sm"

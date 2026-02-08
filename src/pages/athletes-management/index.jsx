@@ -104,7 +104,7 @@ const AthletesManagement = () => {
           const latestPayment = payRecords.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
           const rawEmail = athlete.profiles?.email || "";
-          const isInternalEmail = rawEmail.includes('@dmg.internal');
+          const isInternalEmail = rawEmail.includes('@dmg.internal') || rawEmail.includes('@vcfit.internal');
 
           return {
             id: athlete.id,
@@ -247,11 +247,14 @@ const AthletesManagement = () => {
                         key={athlete.id}
                         athlete={athlete}
                         isSelected={selectedAthletes.includes(athlete.id)}
+                        canEnable={currentUser?.role === "admin"}
                         onSelect={(id) => setSelectedAthletes(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])}
                         onEnableAccount={(target) => {
                           setEnableTarget({
                             profileId: target.profileId,
-                            email: target.rawEmail?.includes("@dmg.internal") ? "" : target.rawEmail,
+                            email: target.rawEmail?.includes("@dmg.internal") || target.rawEmail?.includes("@vcfit.internal")
+                              ? ""
+                              : target.rawEmail,
                             name: target.name,
                             role: "atleta",
                           });

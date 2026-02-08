@@ -4,7 +4,7 @@ import Button from "./ui/Button";
 import Input from "./ui/Input";
 import Icon from "./AppIcon";
 
-const INTERNAL_DOMAIN = "@dmg.internal";
+const INTERNAL_DOMAINS = ["@dmg.internal", "@vcfit.internal"];
 
 const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
   const [email, setEmail] = useState("");
@@ -20,7 +20,7 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
   useEffect(() => {
     if (!isOpen) return;
     // Si el email que viene del target es real (no interno), lo precargamos
-    const hasRealEmail = target?.email && !target.email.endsWith(INTERNAL_DOMAIN);
+    const hasRealEmail = target?.email && !INTERNAL_DOMAINS.some((domain) => target.email.endsWith(domain));
     setEmail(hasRealEmail ? target.email : "");
     setPassword("");
     setErrorMessage("");
