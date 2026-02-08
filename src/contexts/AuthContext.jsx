@@ -160,4 +160,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default AuthContext;
+export default AuthProvider; // O mantén el export individual si así lo tienes en tu App.jsx
