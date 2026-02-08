@@ -36,7 +36,7 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
     setErrorMessage("");
 
     try {
-      // 1. Intentar crear el usuario en Auth
+      // 1. Crear el usuario en Auth (Supabase disparará la creación automática de un perfil)
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -50,19 +50,19 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
 
       if (signUpError) {
         if (signUpError.message.includes("already registered")) {
-          throw new Error("Este correo ya tiene una cuenta activa en el sistema.");
+          throw new Error("Este correo ya tiene una cuenta activa.");
         }
         throw signUpError;
       }
 
-      if (!authData?.user?.id) throw new Error("No se pudo obtener el ID de autenticación.");
-      const newAuthId = authData.user.id;
+      const newAuthId = authData?.user?.id;
+      if (!newAuthId) throw new Error("No se pudo obtener el ID de autenticación.");
 
       /**
-       * 2. VINCULACIÓN Y CORRECCIÓN DE ROL (Solución definitiva)
-       * Verificamos si ya existe un perfil con el nuevo ID (autocreado por Supabase)
+       * 2. SOLUCIÓN AL CONFLICTO DE DUPLICADOS (Paso Crítico)
+       * Buscamos si Supabase ya creó un perfil automático con el nuevo ID.
        */
-      const { data: existingProfile } = await supabase
+      const { data: autoProfile } = await supabase
         .from("profiles")
         .select("id")
         .eq("id", newAuthId)
@@ -70,12 +70,12 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
 
       const table = target.role === "profesor" ? "coaches" : "athletes";
 
-      if (existingProfile) {
+      if (autoProfile) {
         /**
-         * CASO A: El perfil nuevo ya existe (pero suele tener rol "atleta" por defecto).
-         * 1. Actualizamos ese perfil nuevo con el ROL CORRECTO y el EMAIL real.
-         * 2. Movemos la ficha técnica (atleta/coach) al nuevo ID.
-         * 3. Borramos el perfil "fantasma" original.
+         * CASO A: El perfil real ya existe (creado por el Trigger de Supabase).
+         * 1. Forzamos el ROL correcto (evita que entre como atleta).
+         * 2. Re-vinculamos la ficha técnica (coach/atleta) del ID viejo al nuevo.
+         * 3. Borramos el perfil "fantasma" (@dmg.internal).
          */
         await supabase.from("profiles")
           .update({ 
@@ -92,11 +92,13 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
 
         if (moveError) throw moveError;
 
+        // ELIMINACIÓN DEL FANTASMA: Limpiamos la tabla de perfiles
         await supabase.from("profiles").delete().eq("id", target.profileId);
+        
       } else {
         /**
-         * CASO B: No se creó perfil automático.
-         * Actualizamos el perfil temporal original con el nuevo ID, Email y ROL.
+         * CASO B: No se creó perfil automático. 
+         * Actualizamos el perfil fantasma transformándolo en el real.
          */
         const { error: updateError } = await supabase
           .from("profiles")
