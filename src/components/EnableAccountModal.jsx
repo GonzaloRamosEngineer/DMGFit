@@ -19,7 +19,6 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
 
   useEffect(() => {
     if (!isOpen) return;
-    // Si el email que viene del target es real (no interno), lo precargamos
     const hasRealEmail = target?.email && !INTERNAL_DOMAINS.some((domain) => target.email.endsWith(domain));
     setEmail(hasRealEmail ? target.email : "");
     setPassword("");
@@ -37,8 +36,7 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
     setErrorMessage("");
 
     try {
-      // 1. Crear el usuario en Supabase Auth
-      // Esto genera un nuevo UUID en auth.users y dispara el email de confirmación
+      // 1. Intentar crear el usuario en Auth
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -46,38 +44,72 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
           data: {
             full_name: target?.name || "",
             role: target?.role || "atleta",
-            origin: "admin_enable" // Metadato útil para auditoría
           },
         },
       });
 
-      if (signUpError) throw signUpError;
-      
-      // Verificación de seguridad: Supabase a veces devuelve éxito pero el usuario ya existe
-      if (!authData?.user?.id) {
-        throw new Error("La cuenta ya podría estar registrada o el servicio no respondió.");
+      if (signUpError) {
+        if (signUpError.message.includes("already registered")) {
+          throw new Error("Este correo ya tiene una cuenta activa en el sistema.");
+        }
+        throw signUpError;
       }
 
+      if (!authData?.user?.id) throw new Error("No se pudo obtener el ID de autenticación.");
       const newAuthId = authData.user.id;
 
-      // 2. ACTUALIZACIÓN CRÍTICA: Sincronización de IDs
-      // Actualizamos la tabla 'profiles' cambiando el ID temporal por el de Auth.
-      // El 'ON UPDATE CASCADE' en la DB actualizará 'athletes' o 'coaches' automáticamente.
-      const { error: updateError } = await supabase
+      /**
+       * 2. VINCULACIÓN Y CORRECCIÓN DE ROL (Solución definitiva)
+       * Verificamos si ya existe un perfil con el nuevo ID (autocreado por Supabase)
+       */
+      const { data: existingProfile } = await supabase
         .from("profiles")
-        .update({ 
-          id: newAuthId,           // Sincronizamos con el ID de Auth
-          email: email.trim()      // Guardamos el email real definitivo
-        })
-        .eq("id", target.profileId); // Usamos el ID temporal que traía el perfil
+        .select("id")
+        .eq("id", newAuthId)
+        .maybeSingle();
 
-      if (updateError) {
-        // En este punto el usuario Auth ya se creó. El error aquí es de DB.
-        console.error("Error crítico de vinculación:", updateError);
-        throw new Error("El acceso se creó, pero no se pudo vincular con los datos deportivos. Contacta a soporte.");
+      const table = target.role === "profesor" ? "coaches" : "athletes";
+
+      if (existingProfile) {
+        /**
+         * CASO A: El perfil nuevo ya existe (pero suele tener rol "atleta" por defecto).
+         * 1. Actualizamos ese perfil nuevo con el ROL CORRECTO y el EMAIL real.
+         * 2. Movemos la ficha técnica (atleta/coach) al nuevo ID.
+         * 3. Borramos el perfil "fantasma" original.
+         */
+        await supabase.from("profiles")
+          .update({ 
+            role: target.role, 
+            email: email.trim(),
+            full_name: target.name 
+          })
+          .eq("id", newAuthId);
+
+        const { error: moveError } = await supabase
+          .from(table)
+          .update({ profile_id: newAuthId })
+          .eq("profile_id", target.profileId);
+
+        if (moveError) throw moveError;
+
+        await supabase.from("profiles").delete().eq("id", target.profileId);
+      } else {
+        /**
+         * CASO B: No se creó perfil automático.
+         * Actualizamos el perfil temporal original con el nuevo ID, Email y ROL.
+         */
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ 
+            id: newAuthId,
+            email: email.trim(),
+            role: target.role
+          })
+          .eq("id", target.profileId);
+
+        if (updateError) throw updateError;
       }
 
-      // Éxito total
       onSuccess?.();
       onClose();
     } catch (error) {
@@ -95,74 +127,52 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
       <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div>
-            <h2 className="text-xl font-heading font-bold text-foreground">
-              Habilitar cuenta
-            </h2>
+            <h2 className="text-xl font-heading font-bold text-foreground">Habilitar cuenta</h2>
             <p className="text-sm text-muted-foreground">
               Activá el acceso de <strong>{target?.name}</strong> ({roleLabel}).
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors">
             <Icon name="X" size={20} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div>
-            <Input
-              label="Email real del usuario"
-              name="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="ejemplo@correo.com"
-              required
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Este será el email definitivo para iniciar sesión.
-            </p>
-          </div>
-
-          <div>
-            <Input
-              label="Contraseña temporal"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              minLength={6}
-              required
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Comunícale esta contraseña al usuario para su primer ingreso.
-            </p>
-          </div>
+          <Input
+            label="Email real"
+            name="email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+          <Input
+            label="Contraseña temporal"
+            name="password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            minLength={6}
+            required
+          />
 
           {errorMessage && (
-            <div className="text-sm text-error bg-error/10 border border-error/20 rounded-lg p-3 flex items-center gap-2">
+            <div className="text-sm text-error bg-error/10 border border-error/20 rounded-lg p-3 flex items-center gap-2 font-medium">
               <Icon name="AlertCircle" size={16} />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 flex gap-3">
-            <Icon name="Mail" size={20} className="text-primary shrink-0" />
-            <p className="text-xs text-muted-foreground">
-              Al confirmar, el sistema creará la credencial de acceso y enviará un correo de verificación al usuario.
+          <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 flex gap-3 italic text-primary">
+            <Icon name="Mail" size={20} className="shrink-0" />
+            <p className="text-xs">
+              Se enviará un correo de confirmación para que el usuario active su acceso.
             </p>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-              Cancelar
-            </Button>
-            <Button type="submit" variant="default" loading={isSubmitting} iconName="UserCheck">
-              Habilitar ahora
-            </Button>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+            <Button type="submit" variant="default" loading={isSubmitting} iconName="UserCheck">Habilitar ahora</Button>
           </div>
         </form>
       </div>
