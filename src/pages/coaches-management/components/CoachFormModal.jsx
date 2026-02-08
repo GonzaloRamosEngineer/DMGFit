@@ -41,25 +41,21 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
 
     try {
       const normalizedEmail = formData.email.trim();
-      // Determinamos si es un email real o si debemos usar el fallback interno
+      // Generamos el email interno basado en DNI para consistencia
       const isInternal = !normalizedEmail || normalizedEmail.includes('.internal');
       const finalEmail = isInternal 
         ? `sin_email_${formData.dni.trim().replace(/\D/g, '')}@dmg.internal`
         : normalizedEmail;
 
-      let profileId;
-
       if (coachToEdit) {
         // --- LÓGICA DE EDICIÓN ---
-        profileId = coachToEdit.profile_id;
-        
         const { error: profileError } = await supabase
           .from('profiles')
           .update({ 
             full_name: formData.fullName, 
             email: normalizedEmail 
           })
-          .eq('id', profileId);
+          .eq('id', coachToEdit.profile_id);
 
         if (profileError) throw profileError;
 
@@ -73,60 +69,33 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
           .eq('id', coachToEdit.id);
 
         if (coachError) throw coachError;
-        alert("Profesor actualizado.");
-
+        
       } else {
-        // --- MODO CREACIÓN (FLUJO SINCRONIZADO) ---
-        if (!isInternal) {
-          // 1. Llamamos a Auth (dispara el Trigger de la base de datos)
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: finalEmail,
-            password: `tmp_${formData.dni.trim()}`,
-            options: {
-              data: {
-                full_name: formData.fullName,
-                role: 'profesor'
-              }
-            }
-          });
+        // --- CREACIÓN SIEMPRE COMO FANTASMA (Camino Seguro) ---
+        // Generamos un ID manual para el perfil
+        const profileId = crypto.randomUUID();
+        
+        // 1. Insertamos en profiles (sin pasar por Auth/SignUp)
+        const { error: pErr } = await supabase.from('profiles').insert({
+          id: profileId, 
+          full_name: formData.fullName, 
+          email: finalEmail, 
+          role: 'profesor'
+        });
+        if (pErr) throw pErr;
 
-          if (authError) throw authError;
-          profileId = authData.user.id;
-
-          // 2. PAUSA DE SEGURIDAD (Crítico para evitar el error 500)
-          // Damos tiempo a que el DELETE y el INSERT del Trigger terminen en el servidor
-          await new Promise(resolve => setTimeout(resolve, 800));
-
-        } else {
-          // Lógica para perfil "fantasma" sin email real
-          profileId = crypto.randomUUID();
-          const { error: profileError } = await supabase.from('profiles').insert({
-            id: profileId,
-            full_name: formData.fullName,
-            email: finalEmail,
-            role: 'profesor'
-          });
-          if (profileError) throw profileError;
-        }
-
-        // 3. Ficha técnica con UPSERT (para no fallar si el trigger ya creó el registro)
-        const { error: coachError } = await supabase.from('coaches').upsert({
-          profile_id: profileId,
+        // 2. Insertamos la ficha técnica del profesor
+        const { error: cErr } = await supabase.from('coaches').insert({
+          profile_id: profileId, 
           specialization: formData.specialization || 'General',
-          bio: formData.bio || '',
+          bio: formData.bio || '', 
           phone: formData.phone
         });
-
-        if (coachError) throw coachError;
-
-        const msg = isInternal 
-          ? "Registrado. Deberás habilitar su acceso con un correo real más adelante."
-          : "Registrado y correo de confirmación enviado al profesor.";
-        alert(msg);
+        if (cErr) throw cErr;
       }
 
-      onSuccess(); // Refrescar lista
-      onClose();
+      onSuccess(); // Refrescar lista de profesores
+      onClose();   // Cerrar modal
 
     } catch (error) {
       console.error("Error en operación:", error);

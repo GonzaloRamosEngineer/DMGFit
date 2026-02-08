@@ -36,8 +36,15 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
     setErrorMessage("");
 
     try {
-      // 1. Crear el usuario en Auth (Supabase disparará la creación automática de un perfil)
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      /**
+       * ÚNICO PUNTO DE SIGNUP:
+       * Al ejecutar signUp, el Trigger 'handle_new_user' de la base de datos:
+       * 1. Detecta que ya existe un perfil con este email (el fantasma).
+       * 2. Migra las relaciones de 'coaches' o 'athletes' al nuevo ID de Auth.
+       * 3. Borra el perfil fantasma anterior.
+       * 4. Inserta el nuevo perfil real.
+       */
+      const { error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -55,62 +62,10 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
         throw signUpError;
       }
 
-      const newAuthId = authData?.user?.id;
-      if (!newAuthId) throw new Error("No se pudo obtener el ID de autenticación.");
-
-      /**
-       * 2. SOLUCIÓN AL CONFLICTO DE DUPLICADOS (Paso Crítico)
-       * Buscamos si Supabase ya creó un perfil automático con el nuevo ID.
-       */
-      const { data: autoProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", newAuthId)
-        .maybeSingle();
-
-      const table = target.role === "profesor" ? "coaches" : "athletes";
-
-      if (autoProfile) {
-        /**
-         * CASO A: El perfil real ya existe (creado por el Trigger de Supabase).
-         * 1. Forzamos el ROL correcto (evita que entre como atleta).
-         * 2. Re-vinculamos la ficha técnica (coach/atleta) del ID viejo al nuevo.
-         * 3. Borramos el perfil "fantasma" (@dmg.internal).
-         */
-        await supabase.from("profiles")
-          .update({ 
-            role: target.role, 
-            email: email.trim(),
-            full_name: target.name 
-          })
-          .eq("id", newAuthId);
-
-        const { error: moveError } = await supabase
-          .from(table)
-          .update({ profile_id: newAuthId })
-          .eq("profile_id", target.profileId);
-
-        if (moveError) throw moveError;
-
-        // ELIMINACIÓN DEL FANTASMA: Limpiamos la tabla de perfiles
-        await supabase.from("profiles").delete().eq("id", target.profileId);
-        
-      } else {
-        /**
-         * CASO B: No se creó perfil automático. 
-         * Actualizamos el perfil fantasma transformándolo en el real.
-         */
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({ 
-            id: newAuthId,
-            email: email.trim(),
-            role: target.role
-          })
-          .eq("id", target.profileId);
-
-        if (updateError) throw updateError;
-      }
+      // 2. PAUSA DE SEGURIDAD: 
+      // Esperamos 800ms para asegurar que el Trigger de la DB terminó su ciclo de 
+      // borrado y re-vinculación antes de cerrar el modal y refrescar la lista.
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       onSuccess?.();
       onClose();
