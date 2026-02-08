@@ -23,8 +23,8 @@ const AppLayout = () => {
         alertData={alertData}
       />
       
-      {/* Main Content Area - Ahora con margen dinámico basado en el estado del sidebar */}
-      <main className={`flex-1 min-w-0 overflow-x-hidden transition-all duration-300 ${
+      {/* Main Content Area - Ajustado con padding superior en mobile para evitar solapamiento */}
+      <main className={`flex-1 min-w-0 overflow-x-hidden transition-all duration-300 pt-20 lg:pt-0 ${
         isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'
       }`}>
         {/* Toggle button para desktop */}
