@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { supabase } from '../../../lib/supabaseClient';
 import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
 
-const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentReminder, onExport, loading = false }) => {
-  const [linking, setLinking] = useState(false);
+const AthleteHeader = ({
+  athlete,
+  onScheduleSession,
+  onSendMessage,
+  onPaymentReminder,
+  onExport,
+  loading = false,
+  onEnableAccess,
+  canEnable = false,
+}) => {
   const [deleting, setDeleting] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -62,62 +69,8 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
     }
   };
 
-  const handleEnableAccess = async () => {
-    const email = prompt(`Ingrese el correo electrónico real para habilitar el acceso de ${athlete.name}:`);
-    if (!email) return;
-
-    setLinking(true);
-    try {
-      // 1. Crear el usuario en Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: `gym${String(athlete.dni).replace(/\D/g, '')}`,
-        options: {
-          data: { 
-            full_name: athlete.name, 
-            role: 'atleta' 
-          }
-        }
-      });
-
-      if (authError) throw authError;
-      const newAuthId = authData.user?.id;
-      const oldProfileId = athlete.profile_id; // Ajustado según requerimiento
-
-      // 2. ACTUALIZAR o Insertar el perfil real usando UPSERT
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: newAuthId,
-          full_name: athlete.name,
-          email: email.trim(),
-          role: 'atleta'
-        });
-
-      if (profileError) throw profileError;
-
-      // 3. Vincular atleta al nuevo ID de Auth
-      const { error: updateError } = await supabase
-        .from('athletes')
-        .update({ profile_id: newAuthId })
-        .eq('id', athlete.id);
-
-      if (updateError) throw updateError;
-
-      // 4. Limpieza del perfil temporal
-      if (oldProfileId && oldProfileId !== newAuthId) {
-        await supabase.from('profiles').delete().eq('id', oldProfileId);
-      }
-
-      alert("¡Acceso Web habilitado con éxito! El atleta ya puede iniciar sesión con su email real.");
-      window.location.reload();
-
-    } catch (error) {
-      console.error("Error al habilitar acceso:", error);
-      alert("Error: " + (error.message || "No se pudo habilitar el acceso."));
-    } finally {
-      setLinking(false);
-    }
+  const handleEnableAccess = () => {
+    onEnableAccess?.(athlete);
   };
 
   if (loading) {
@@ -192,13 +145,12 @@ const AthleteHeader = ({ athlete, onScheduleSession, onSendMessage, onPaymentRem
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {isOffline && (
+            {isOffline && canEnable && (
               <Button
                 variant="default"
                 size="sm"
                 iconName="Smartphone"
                 onClick={handleEnableAccess}
-                loading={linking}
                 className="bg-amber-500 hover:bg-amber-600 text-white border-none shadow-sm"
               >
                 Habilitar Acceso

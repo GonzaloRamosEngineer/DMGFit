@@ -42,7 +42,7 @@ const CoachesManagement = () => {
 
       setCoaches(data.map(c => {
         const rawEmail = c.profiles?.email || "";
-        const isInternalEmail = rawEmail.includes('@dmg.internal');
+        const isInternalEmail = rawEmail.includes('@dmg.internal') || rawEmail.includes('@vcfit.internal');
 
         return {
           id: c.id,
@@ -144,7 +144,9 @@ const CoachesManagement = () => {
                   onEnableAccount={(target) => {
                     setEnableTarget({
                       profileId: target.profileId,
-                      email: target.rawEmail?.includes("@dmg.internal") ? "" : target.rawEmail,
+                      email: target.rawEmail?.includes("@dmg.internal") || target.rawEmail?.includes("@vcfit.internal")
+                        ? ""
+                        : target.rawEmail,
                       name: target.name,
                       role: 'profesor'
                     });

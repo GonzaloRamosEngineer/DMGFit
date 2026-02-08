@@ -40,7 +40,12 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
     setLoading(true);
 
     try {
+      const normalizedEmail = formData.email.trim();
+
       if (coachToEdit) {
+        if (!normalizedEmail) {
+          throw new Error("El email es obligatorio para editar un profesor.");
+        }
         // --- MODO EDICIÓN ---
         // 1. Actualizar Perfil (Nombre, Email)
         // Nota: Cambiar el email aquí solo cambia el registro visual, no el login de Auth (eso es más complejo)
@@ -48,7 +53,7 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
           .from('profiles')
           .update({ 
             full_name: formData.fullName,
-            email: formData.email 
+            email: normalizedEmail 
           })
           .eq('email', coachToEdit.email); // Usamos el email original para buscar (o idealmente profile_id si lo tenemos)
 
@@ -71,11 +76,13 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
       } else {
         // --- MODO CREACIÓN (El código que ya tenías) ---
         const newProfileId = crypto.randomUUID();
+        const fallbackEmail = `sin_email_${formData.dni.trim().replace(/\D/g, '')}@dmg.internal`;
+        const finalEmail = normalizedEmail || fallbackEmail;
 
         const { error: profileError } = await supabase.from('profiles').insert({
           id: newProfileId,
           full_name: formData.fullName,
-          email: formData.email,
+          email: finalEmail,
           role: 'profesor'
         });
         if (profileError) throw profileError;
@@ -88,7 +95,7 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
         });
         if (coachError) throw coachError;
 
-        alert(`¡Profesor registrado!\nUsuario: ${formData.email}`);
+        alert(`¡Profesor registrado!\nUsuario: ${finalEmail}`);
       }
 
       onSuccess(); // Refrescar lista
@@ -123,7 +130,21 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Nombre Completo *" name="fullName" value={formData.fullName} onChange={handleChange} required />
-            <Input label="Email *" name="email" type="email" value={formData.email} onChange={handleChange} required />
+            <div className="flex flex-col gap-1">
+              <Input
+                label="Email (opcional)"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                required={!!coachToEdit}
+              />
+              {!coachToEdit && (
+                <p className="text-[10px] text-primary font-medium px-1 italic">
+                  Si no se ingresa, se asigna un email interno y la cuenta queda pendiente de habilitación.
+                </p>
+              )}
+            </div>
             {/* El DNI suele ser fijo, lo deshabilitamos en edición para no romper logins */}
             <Input label="DNI / ID" name="dni" value={formData.dni} onChange={handleChange} required disabled={!!coachToEdit} />
             <Input label="Teléfono" name="phone" value={formData.phone} onChange={handleChange} />

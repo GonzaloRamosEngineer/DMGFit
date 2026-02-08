@@ -20,6 +20,7 @@ import CoachNotes from "./components/CoachNotes";
 import UpcomingSessions from "./components/UpcomingSessions";
 import HealthMetrics from "./components/HealthMetrics";
 import { generateAthletePDF } from "../../utils/pdfExport";
+import EnableAccountModal from "../../components/EnableAccountModal";
 
 // --- SUB-COMPONENTE INTERNO: HISTORIAL DE ACCESOS (MOLINETE) ---
 const AthleteAccessLog = ({ logs }) => {
@@ -75,6 +76,10 @@ const IndividualAthleteProfile = () => {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState("performance");
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
+  const [enableTarget, setEnableTarget] = useState(null);
 
   // Estado unificado de datos
   const [profileData, setProfileData] = useState({
@@ -191,7 +196,7 @@ const IndividualAthleteProfile = () => {
     };
 
     fetchProfileData();
-  }, [athleteId]);
+  }, [athleteId, refreshKey]);
 
   // --- KPIs CALCULADOS ---
   const kpiStats = useMemo(() => {
@@ -223,6 +228,21 @@ const IndividualAthleteProfile = () => {
       },
     ];
   }, [profileData.attendance, profileData.accessLogs]);
+
+  const isInternalEmail = (email = "") =>
+    email.includes("@dmg.internal") || email.includes("@vcfit.internal");
+
+  const handleEnableAccess = (target) => {
+    if (!target?.profile_id) return;
+
+    setEnableTarget({
+      profileId: target.profile_id,
+      email: isInternalEmail(target.email) ? "" : target.email,
+      name: target.name,
+      role: "atleta",
+    });
+    setIsEnableModalOpen(true);
+  };
 
   // --- HANDLERS ---
   const handleAddNote = async (content) => {
@@ -280,6 +300,8 @@ const IndividualAthleteProfile = () => {
             athlete={profileData.athlete}
             loading={loading}
             onExport={handleExportPDF}
+            canEnable={currentUser?.role === "admin"}
+            onEnableAccess={handleEnableAccess}
           />
 
           {/* KPI STRIP */}
@@ -342,6 +364,16 @@ const IndividualAthleteProfile = () => {
             </div>
           </div>
         </div>
+
+        <EnableAccountModal
+          isOpen={isEnableModalOpen}
+          target={enableTarget}
+          onClose={() => {
+            setIsEnableModalOpen(false);
+            setEnableTarget(null);
+          }}
+          onSuccess={() => setRefreshKey((prev) => prev + 1)}
+        />
       </div>
     </>
   );
