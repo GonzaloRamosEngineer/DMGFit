@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 
-// UI Global (Rutas confirmadas según estructura del proyecto)
+// UI Global
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 
@@ -15,15 +15,18 @@ import { fetchPaymentsByAthlete } from '../../services/payments';
 import { fetchPlanByAthlete } from '../../services/plans';
 import { fetchUpcomingSessionsByAthlete } from '../../services/sessions';
 
-// COMPONENTES ELITE (Dashboard de Alto Rendimiento)
-// import StatsOverview from './components/StatsOverview';      // KPIs Superiores
-import AchievementsHub from './components/AchievementsHub'; // AGREGAR ESTE
-import PerformanceChart from './components/PerformanceChart'; // Gráfico de Evolución
-import AthleteRadar from './components/AthleteRadar';         // Gráfico de Araña
-import MetricEntryForm from './components/MetricEntryForm';   // Carga de Datos
-import UpcomingSessionsCard from './components/UpcomingSessionsCard';
-import MyPlanCard from './components/MyPlanCard';
-import CoachNotesCard from './components/CoachNotesCard';
+// COMPONENTES PREMIUM (Nivel Ingeniería Minimalista)
+import StatsOverview from './components/StatsOverview';      // HUD Superior
+import AchievementsHub from './components/AchievementsHub';  // Gamificación
+import PerformanceChart from './components/PerformanceChart';// Gráfico Lineal Principal
+import MetricsCard from './components/MetricsCard';          // Grid de Métricas Vivas
+import AthleteRadar from './components/AthleteRadar';        // Perfil Radar
+import MetricEntryForm from './components/MetricEntryForm';  // Input Avanzado
+import UpcomingSessionsCard from './components/UpcomingSessionsCard'; // Agenda Boarding Pass
+import MyPlanCard from './components/MyPlanCard';            // Membership Black Card
+import PaymentsCard from './components/PaymentsCard';        // Wallet Financiera
+import AttendanceCard from './components/AttendanceCard';    // Monitor de Hábito
+import CoachNotesCard from './components/CoachNotesCard';    // Feed de Feedback
 
 const AthletePortal = () => {
   const { currentUser } = useAuth();
@@ -34,14 +37,13 @@ const AthletePortal = () => {
   const [metrics, setMetrics] = useState([]);
   const [notes, setNotes] = useState([]);
   const [sessions, setSessions] = useState([]);
-  // (Opcional) Payments si decidimos mostrarlo
-  // const [payments, setPayments] = useState([]); 
+  const [payments, setPayments] = useState([]);
   
   // --- Lógica de Identificación ---
   const [calculatedAthleteId, setCalculatedAthleteId] = useState(null);
   const initialAthleteId = currentUser?.athleteId || currentUser?.athlete_id || currentUser?.id;
 
-  // --- Función para recargar solo métricas tras una nueva entrada ---
+  // --- Recarga Inteligente (Optimistic Updates) ---
   const refreshMetrics = async () => {
     if (calculatedAthleteId) {
       try {
@@ -51,12 +53,11 @@ const AthletePortal = () => {
     }
   };
 
-  // --- Carga Inicial de Datos ---
+  // --- Carga Inicial ---
   useEffect(() => {
     let isMounted = true;
     const loadData = async () => {
       try {
-        // 1. Resolver ID real del atleta
         let realId = initialAthleteId;
         if (currentUser?.role === 'atleta') {
              const { data } = await supabase.from('athletes').select('id').eq('profile_id', currentUser.id).single();
@@ -66,13 +67,13 @@ const AthletePortal = () => {
         if (!realId) return;
         if (isMounted) setCalculatedAthleteId(realId);
 
-        // 2. Fetch Paralelo de todos los servicios
-        const [planD, attD, metD, noteD, sessD] = await Promise.all([
+        const [planD, attD, metD, noteD, sessD, payD] = await Promise.all([
           fetchPlanByAthlete(realId),
           fetchAttendanceByAthlete(realId),
           fetchMetricsByAthlete(realId),
           fetchAthleteNotes(realId),
-          fetchUpcomingSessionsByAthlete(realId, 5) // Traemos las próximas 5
+          fetchUpcomingSessionsByAthlete(realId, 5),
+          fetchPaymentsByAthlete(realId)
         ]);
 
         if (isMounted) {
@@ -81,6 +82,7 @@ const AthletePortal = () => {
           setMetrics(metD ?? []);
           setNotes(noteD ?? []);
           setSessions(sessD ?? []);
+          setPayments(payD ?? []);
         }
       } catch (e) { 
         console.error("Error cargando dashboard:", e); 
@@ -91,88 +93,104 @@ const AthletePortal = () => {
     return () => { isMounted = false; };
   }, [currentUser, initialAthleteId]);
 
-  // --- Cálculo de KPIs Derivados ---
+  // KPI Derivado: Tasa de Asistencia
   const attendanceRate = useMemo(() => {
     if (!attendance?.length) return 0;
     const present = attendance.filter(a => a?.status === 'present')?.length || 0;
     return Math.round((present / attendance.length) * 100);
   }, [attendance]);
 
+  // Fecha actual para el saludo
+  const today = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
   return (
     <>
-      <Helmet><title>Panel Atleta | Elite Performance</title></Helmet>
+      <Helmet><title>Portal del Atleta | DMG Fitness</title></Helmet>
       
-      <div className="p-4 md:p-8 w-full max-w-[1600px] mx-auto bg-[#F8FAFC] min-h-screen">
-        <BreadcrumbTrail items={[{ label: 'Mi Portal', path: '/athlete-portal', active: true }]} />
-        
-        {/* HEADER: Identidad y Estado */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 mt-2">
-          <div>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-              Hola, {currentUser?.name?.split(' ')[0]}
-            </h1>
-            <p className="text-gray-500 font-medium">Resumen de Alto Rendimiento</p>
-          </div>
+      <div className="min-h-screen bg-slate-50/50 pb-20">
+        <div className="max-w-[1600px] mx-auto p-6 md:p-10 space-y-8">
           
-          {/* Badge de Estado del Plan (Visual) */}
-          {plan && (
-            <div className="hidden md:block text-right">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Membresía Activa</p>
-                <div className="inline-flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-bold text-gray-800">{plan.name}</span>
-                </div>
+          <BreadcrumbTrail items={[{ label: 'Portal', path: '/athlete-portal', active: true }]} />
+          
+          {/* HEADER: Saludo Personalizado */}
+          <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 first-letter:uppercase">
+                {today}
+              </p>
+              <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+                Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{currentUser?.name?.split(' ')[0]}</span>
+              </h1>
             </div>
-          )}
-        </div>
+            {/* Status Badge */}
+            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">
+                <div className={`w-2 h-2 rounded-full ${plan ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                    {plan ? 'Atleta Activo' : 'Cuenta Invitado'}
+                </span>
+            </div>
+          </header>
 
-        {/* 1. SECCIÓN SUPERIOR: KPIs Críticos (HUD)
-        {/* Reemplaza las tarjetas simples antiguas por un panel consolidado */}
-        {/* <StatsOverview metrics={metrics} attendanceRate={attendanceRate} /> */}
+          {/* NIVEL 1: HUD & GAMIFICACIÓN (Impacto Visual Inmediato) */}
+          <section className="space-y-6">
+             <StatsOverview metrics={metrics} attendanceRate={attendanceRate} />
+             <AchievementsHub metrics={metrics} attendanceRate={attendanceRate} />
+          </section>
 
+          {/* NIVEL 2: BENTO GRID PRINCIPAL */}
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            {/* COLUMNA IZQUIERDA (Principal - 8/12) */}
+            <div className="lg:col-span-8 space-y-6">
+              
+              {/* Gráfico de Rendimiento (Grande) */}
+              <PerformanceChart metrics={metrics} />
 
-        {/* 1. SECCIÓN SUPERIOR: Gamificación y Nivel */}
-<AchievementsHub metrics={metrics} attendanceRate={attendanceRate} />
+              {/* Grid de 2 Columnas para Métricas y Formulario */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {/* Input de Datos */}
+                 <div className="md:col-span-2">
+                    <MetricEntryForm athleteId={calculatedAthleteId} onSuccess={refreshMetrics} />
+                 </div>
+                 
+                 {/* Lista Detallada de Métricas */}
+                 <div className="md:col-span-2">
+                    <MetricsCard metrics={metrics} />
+                 </div>
+              </div>
 
-        {/* 2. GRID PRINCIPAL ASIMÉTRICO */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-          
-          {/* COLUMNA IZQUIERDA (2/3): Análisis y Evolución (El foco principal) */}
-          <div className="lg:col-span-2 space-y-6">
-             
-             {/* Gráfico de Evolución Avanzado */}
-             <PerformanceChart metrics={metrics} />
+              {/* Notas del Coach (Feed Largo) */}
+              <CoachNotesCard notes={notes} />
+            </div>
 
-             {/* Carga de Datos (Diseño integrado) */}
-             {calculatedAthleteId && (
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Icon name="PlusCircle" className="text-blue-600" size={20} />
-                        <h3 className="font-bold text-gray-900">Registrar Nuevo Progreso</h3>
-                    </div>
-                    <MetricEntryForm 
-                        athleteId={calculatedAthleteId} 
-                        onSuccess={refreshMetrics} 
-                    />
-                </div>
-             )}
-          </div>
+            {/* COLUMNA DERECHA (Sidebar - 4/12) */}
+            <div className="lg:col-span-4 space-y-6 sticky top-6">
+              
+              {/* Agenda (Próxima Clase) */}
+              <div className="h-[400px]">
+                 <UpcomingSessionsCard sessions={sessions} />
+              </div>
 
-          {/* COLUMNA DERECHA (1/3): Perfil, Agenda y Feedback */}
-          <div className="space-y-6">
-             
-             {/* Gráfico de Radar (Perfil Atlético) */}
-             <AthleteRadar metrics={metrics} />
+              {/* Radar de Perfil */}
+              <div className="h-[420px]">
+                 <AthleteRadar metrics={metrics} />
+              </div>
 
-             {/* Tarjeta de Plan (Estilo Credencial) */}
-             <MyPlanCard plan={plan} />
-             
-             {/* Línea de Tiempo de Sesiones */}
-             <UpcomingSessionsCard sessions={sessions} />
-             
-             {/* Feedback del Entrenador */}
-             <CoachNotesCard notes={notes} />
-          </div>
+              {/* Monitor de Asistencia (Circular) */}
+              <div className="h-[380px]">
+                 <AttendanceCard attendance={attendance} attendanceRate={attendanceRate} />
+              </div>
+
+              {/* Membresía (Black Card) */}
+              <MyPlanCard plan={plan} />
+
+              {/* Wallet Financiera */}
+              <div className="h-[400px]">
+                 <PaymentsCard payments={payments} />
+              </div>
+
+            </div>
+          </section>
 
         </div>
       </div>
