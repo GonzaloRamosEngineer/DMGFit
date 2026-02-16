@@ -5,9 +5,7 @@ const AuthContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
 
@@ -18,45 +16,33 @@ export const AuthProvider = ({ children }) => {
 
   const resolveUserProfile = async (authUser) => {
     if (!authUser) return null;
-    console.log("🔍 [Auth] Resolviendo perfil:", authUser.email);
-
+    
     try {
-      // 1. Buscamos el perfil en la tabla 'profiles' por ID de Auth
-      const { data, error } = await supabase
+      // Optimizamos: Pedimos el perfil
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, avatar_url')
         .eq('id', authUser.id)
         .maybeSingle();
 
-      if (error || !data) {
-        console.warn("⚠️ [Auth] Usuario autenticado pero sin perfil en la tabla 'profiles'.");
-        return null;
-      }
+      if (error || !profile) return null;
 
       const baseProfile = {
-        id: data.id,
-        name: data.full_name,
-        email: data.email,
-        role: data.role,
-        avatar: data.avatar_url,
+        id: profile.id,
+        name: profile.full_name,
+        email: profile.email,
+        role: profile.role,
+        avatar: profile.avatar_url,
         coachId: null,
         athleteId: null
       };
 
-      // 2. Carga de datos extra según el rol
+      // Carga paralela de datos extra para no "trabar" la sesión
       if (baseProfile.role === 'profesor') {
-        const { data: c } = await supabase
-          .from('coaches')
-          .select('id')
-          .eq('profile_id', baseProfile.id)
-          .maybeSingle();
+        const { data: c } = await supabase.from('coaches').select('id').eq('profile_id', profile.id).maybeSingle();
         if (c) baseProfile.coachId = c.id;
       } else if (baseProfile.role === 'atleta') {
-        const { data: a } = await supabase
-          .from('athletes')
-          .select('id, coach_id')
-          .eq('profile_id', baseProfile.id)
-          .maybeSingle();
+        const { data: a } = await supabase.from('athletes').select('id, coach_id').eq('profile_id', profile.id).maybeSingle();
         if (a) {
           baseProfile.athleteId = a.id;
           baseProfile.coachId = a.coach_id;
@@ -65,7 +51,7 @@ export const AuthProvider = ({ children }) => {
 
       return baseProfile;
     } catch (err) {
-      console.error("❌ [Auth] Error critico en resolución de perfil:", err);
+      console.error("❌ [Auth] Error en resolución:", err);
       return null;
     }
   };
@@ -73,20 +59,25 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Carga inicial de la sesión
     const init = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Obtenemos la sesión actual
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // Si hay error de sesión (token corrupto), limpiamos localmente
+        if (error) {
+          console.warn("⚠️ [Auth] Sesión corrupta detectada, limpiando...");
+          await logout();
+          return;
+        }
+
         if (session?.user && isMounted) {
           const profile = await resolveUserProfile(session.user);
           if (profile && isMounted) {
             setCurrentUser(profile);
             setIsAuthenticated(true);
           } else if (isMounted) {
-            // Si hay sesión pero no hay perfil, cerramos sesión por seguridad
-            await supabase.auth.signOut();
-            setCurrentUser(null);
-            setIsAuthenticated(false);
+            await logout(); // Si no hay perfil, fuera
           }
         }
       } catch (err) {
@@ -98,22 +89,22 @@ export const AuthProvider = ({ children }) => {
 
     init();
 
-    // 2. Escuchar cambios de estado de Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
       if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setIsAuthenticated(false);
+        // Limpieza forzada de cualquier rastro en localStorage
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('sb-') && key.includes('-auth-token')) localStorage.removeItem(key);
+        });
         return;
       }
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         if (session?.user) {
-          // RESOLUCIÓN DE BUCLE: Solo actualizamos si realmente es un cambio de usuario
-          // El listener de Supabase se encarga de disparar esto solo cuando es necesario.
           const profile = await resolveUserProfile(session.user);
-          
           if (isMounted) {
             setCurrentUser(profile);
             setIsAuthenticated(!!profile);
@@ -126,20 +117,17 @@ export const AuthProvider = ({ children }) => {
       isMounted = false;
       subscription.unsubscribe();
     };
-    // Array de dependencias vacío para evitar re-suscripciones innecesarias
   }, []); 
 
   const login = async ({ email, password }) => {
+    // Intentamos login
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error };
 
     const profile = await resolveUserProfile(data.user);
-    
     if (!profile) {
-      await supabase.auth.signOut();
-      return { 
-        error: { message: "No se encontró un perfil vinculado a esta cuenta. Contacta al administrador." } 
-      };
+      await logout();
+      return { error: { message: "No se encontró un perfil vinculado." } };
     }
 
     setCurrentUser(profile);
@@ -148,9 +136,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setCurrentUser(null);
-    setIsAuthenticated(false);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Error en signOut:", err);
+    } finally {
+      // Limpieza manual definitiva para evitar el problema del Modo Incógnito
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      localStorage.clear(); // Borra todo para asegurar sesión limpia en el próximo login
+      window.location.href = '/login-role-selection'; // Redirección física para resetear estado de React
+    }
   };
 
   return (
@@ -160,4 +156,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default AuthProvider; // O mantén el export individual si así lo tienes en tu App.jsx
+export default AuthProvider;

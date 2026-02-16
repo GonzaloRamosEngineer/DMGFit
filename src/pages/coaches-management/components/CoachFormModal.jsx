@@ -126,7 +126,7 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Nombre Completo *" name="fullName" value={formData.fullName} onChange={handleChange} required />
-            <div className="flex flex-col gap-1">
+            {/* <div className="flex flex-col gap-1">
               <Input
                 label="Email (opcional)"
                 name="email"
@@ -140,7 +140,7 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
                   Si no se ingresa, se asigna un email interno y la cuenta queda pendiente de habilitación.
                 </p>
               )}
-            </div>
+            </div> */}
             <Input label="DNI / ID" name="dni" value={formData.dni} onChange={handleChange} required disabled={!!coachToEdit} />
             <Input label="Teléfono" name="phone" value={formData.phone} onChange={handleChange} />
           </div>

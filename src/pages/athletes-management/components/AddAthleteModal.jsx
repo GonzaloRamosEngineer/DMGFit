@@ -147,12 +147,12 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <Input label="Nombre Completo *" name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="Ej: Juan Pérez" />
                 
-                <div className="flex flex-col gap-1">
+                {/* <div className="flex flex-col gap-1">
                   <Input label="Email (opcional)" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="ejemplo@gmail.com" />
                   <p className="text-[10px] text-primary font-medium px-1 italic">
                     Si no se ingresa, se asigna un email interno y la cuenta queda pendiente de habilitación.
                   </p>
-                </div>
+                </div> */}
 
                 <Input label="DNI (Solo números) *" name="dni" value={formData.dni} onChange={handleChange} required placeholder="12345678" />
                 <Input label="Teléfono" name="phone" value={formData.phone} onChange={handleChange} placeholder="+54 9..." />

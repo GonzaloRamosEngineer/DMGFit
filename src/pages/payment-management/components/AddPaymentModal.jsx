@@ -19,20 +19,47 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
   // Información del atleta seleccionado (para saber su plan)
   const [selectedAthleteInfo, setSelectedAthleteInfo] = useState(null);
 
+  // Estados para el manejo del DESCUENTO (NUEVO)
+  const [applyDiscount, setApplyDiscount] = useState(false);
+  const [discountType, setDiscountType] = useState('percent'); // 'percent' | 'fixed'
+  const [discountValue, setDiscountValue] = useState('');
+
   // Formulario
   const [formData, setFormData] = useState({
     athleteId: '',
-    amount: '',         
+    amount: '',         // Este actuará como "Monto Base" si hay descuento, o Total si no hay.
     method: 'efectivo',
     concept: '',       
     paymentDate: new Date().toISOString().split('T')[0],
     isManualEntry: false 
   });
 
+  // --- LÓGICA DE CÁLCULO DE DESCUENTO ---
+  const getFinalTotal = () => {
+    const base = parseFloat(formData.amount) || 0;
+    
+    // Si no hay descuento activo o valor, el total es el monto base
+    if (!applyDiscount || !discountValue) return base;
+
+    const val = parseFloat(discountValue);
+    let final = base;
+
+    if (discountType === 'percent') {
+      // Ejemplo: 15000 - (15000 * 50 / 100) = 7500
+      final = base - (base * (val / 100));
+    } else {
+      // Ejemplo: 15000 - 2000 = 13000
+      final = base - val;
+    }
+
+    return Math.max(0, final); // Evitar negativos
+  };
+
+  const finalTotalToPay = getFinalTotal();
+
   // 1. Cargar Atletas CON SU PLAN
   useEffect(() => {
     const fetchAthletes = async () => {
-      // OJO: Aquí agregamos 'plans:plan_id(name, price)' para saber cuánto cobra su plan
       const { data } = await supabase
         .from('athletes')
         .select(`
@@ -65,7 +92,6 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
         return;
       }
 
-      // Guardamos la info del atleta seleccionado para usarla en los botones
       const athleteInfo = athletes.find(a => a.id === formData.athleteId);
       setSelectedAthleteInfo(athleteInfo);
 
@@ -81,9 +107,13 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
         if (error) throw error;
         setPendingDebts(data || []);
         
+        // Resetear descuentos al cambiar atleta
+        setApplyDiscount(false);
+        setDiscountValue('');
+
         // Si hay deuda vieja, sugerimos pagarla
         if (data && data.length > 0) {
-           handleSelectDebt(data[0].id, data[0].amount, data[0].concept);
+           handleSelectDebt(data[0].id); // Seleccionamos la primera por defecto
         } else {
            // Si NO hay deuda, preparamos para cobro manual limpio
            setFormData(prev => ({ ...prev, isManualEntry: true, concept: '', amount: '' }));
@@ -102,47 +132,51 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
 
   // Lógica para seleccionar/deseleccionar deudas existentes
   const handleSelectDebt = (debtId) => {
+    // Si se pasa un array (reinicio) o un id
+    let newSelection = [];
+    
     setSelectedDebtIds(prev => {
       const isSelected = prev.includes(debtId);
-      let newSelection = isSelected ? prev.filter(id => id !== debtId) : [...prev, debtId];
+      newSelection = isSelected ? prev.filter(id => id !== debtId) : [...prev, debtId];
       
-      recalculateTotal(newSelection);
+      // IMPORTANTE: Recalcular totales después de actualizar el estado
+      // (Aquí hacemos un pequeño truco para llamar a recalculate con el nuevo valor)
+      // Como setState es asíncrono, mejor llamamos a la función de cálculo fuera o usamos un useEffect.
+      // Para simplificar, calculamos aquí mismo:
+      const total = pendingDebts
+        .filter(d => newSelection.includes(d.id))
+        .reduce((sum, d) => sum + Number(d.amount), 0);
+      
+      const concepts = pendingDebts
+        .filter(d => newSelection.includes(d.id))
+        .map(d => d.concept)
+        .join(" + ");
+
+      setFormData(prev => ({
+        ...prev,
+        amount: total > 0 ? total : '',
+        concept: concepts || '',
+        isManualEntry: newSelection.length === 0
+      }));
+
       return newSelection;
     });
-  };
-
-  const recalculateTotal = (currentSelectionIds) => {
-    const total = pendingDebts
-      .filter(d => currentSelectionIds.includes(d.id))
-      .reduce((sum, d) => sum + Number(d.amount), 0);
-    
-    const concepts = pendingDebts
-      .filter(d => currentSelectionIds.includes(d.id))
-      .map(d => d.concept)
-      .join(" + ");
-
-    setFormData(prev => ({
-      ...prev,
-      amount: total > 0 ? total : '',
-      concept: concepts || '',
-      isManualEntry: currentSelectionIds.length === 0
-    }));
   };
 
   // --- NUEVA FUNCIÓN: CARGAR PLAN AUTOMÁTICAMENTE ---
   const handleLoadPlanCharge = () => {
     if (!selectedAthleteInfo?.planPrice) return alert("Este atleta no tiene un plan asignado con precio.");
     
-    // Deseleccionamos cualquier deuda vieja para evitar mezclas raras
     setSelectedDebtIds([]); 
+    setApplyDiscount(false); // Resetear descuento al cargar plan
+    setDiscountValue('');
     
-    // Obtenemos el mes actual en texto (Ej: "Febrero")
     const currentMonth = new Date().toLocaleString('es-ES', { month: 'long' });
     const capitalizedMonth = currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1);
 
     setFormData(prev => ({
       ...prev,
-      isManualEntry: true, // Es un cobro nuevo
+      isManualEntry: true,
       amount: selectedAthleteInfo.planPrice,
       concept: `Cuota ${selectedAthleteInfo.planName} - ${capitalizedMonth}`
     }));
@@ -153,27 +187,36 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
     setLoading(true);
 
     try {
+      // PREPARAR DATOS COMUNES PARA EL PAGO
+      // amount: Lo que realmente paga (con descuento aplicado)
+      // base_amount: El precio de lista original
+      const payload = {
+          amount: finalTotalToPay, // Usamos el cálculo final
+          method: formData.method,
+          payment_date: formData.paymentDate,
+          status: 'paid',
+          // Campos nuevos para auditoría de descuentos
+          base_amount: parseFloat(formData.amount),
+          discount_value: applyDiscount ? parseFloat(discountValue) : null,
+          discount_type: applyDiscount ? discountType : null
+      };
+
       if (formData.isManualEntry && selectedDebtIds.length === 0) {
         // CASO A: Generando Cobro Nuevo (Plan Mensual o Manual)
+        // Aquí insertamos concepto y athlete_id
         const { error } = await supabase.from('payments').insert({
+          ...payload,
           athlete_id: formData.athleteId,
-          amount: formData.amount,
-          method: formData.method,
           concept: formData.concept,
-          payment_date: formData.paymentDate,
-          status: 'paid'
         });
         if (error) throw error;
 
       } else {
         // CASO B: Pagando Deuda Vieja
+        // Actualizamos los registros existentes
         const { error } = await supabase
           .from('payments')
-          .update({
-            status: 'paid',
-            method: formData.method,
-            payment_date: formData.paymentDate
-          })
+          .update(payload) // Supabase ignorará los campos que no existen si la tabla está bien definida, pero ya verificamos que existen.
           .in('id', selectedDebtIds);
 
         if (error) throw error;
@@ -256,6 +299,8 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
                     setFormData(prev => ({ ...prev, athleteId: '', amount: '', concept: '' }));
                     setPendingDebts([]);
                     setSelectedDebtIds([]);
+                    setApplyDiscount(false);
+                    setDiscountValue('');
                   }}
                   className="text-xs text-muted-foreground hover:text-error underline"
                 >
@@ -328,6 +373,8 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
                     type="button"
                     onClick={() => {
                         setSelectedDebtIds([]);
+                        setApplyDiscount(false);
+                        setDiscountValue('');
                         setFormData(prev => ({ ...prev, isManualEntry: true, amount: '', concept: '' }));
                     }}
                     disabled={selectedDebtIds.length > 0}
@@ -341,6 +388,52 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
               </div>
             </div>
           )}
+          
+          {/* --- AQUÍ LA NUEVA SECCIÓN DE DESCUENTOS --- */}
+          {formData.amount > 0 && (
+            <div className="my-2 p-3 bg-muted/20 border border-dashed border-border rounded-lg animate-in fade-in">
+              <div className="flex items-center mb-3">
+                <input
+                  type="checkbox"
+                  id="chk-discount"
+                  checked={applyDiscount}
+                  onChange={(e) => {
+                    setApplyDiscount(e.target.checked);
+                    if (!e.target.checked) setDiscountValue('');
+                  }}
+                  className="w-4 h-4 text-primary rounded border-input focus:ring-primary cursor-pointer"
+                />
+                <label htmlFor="chk-discount" className="ml-2 text-sm font-medium text-foreground cursor-pointer select-none">
+                  Aplicar descuento
+                </label>
+              </div>
+
+              {applyDiscount && (
+                <div className="flex gap-3 animate-in slide-in-from-left-2">
+                  <div className="w-1/3">
+                    <select
+                      value={discountType}
+                      onChange={(e) => setDiscountType(e.target.value)}
+                      className="w-full h-9 px-2 bg-background border border-input rounded-md text-sm focus:ring-1 focus:ring-primary outline-none"
+                    >
+                      <option value="percent">% (Porc.)</option>
+                      <option value="fixed">$ (Fijo)</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder={discountType === 'percent' ? "Ej: 50" : "Ej: 2000"}
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                      className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:ring-1 focus:ring-primary outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 3. Resumen Final y Datos de Pago */}
           <div className="bg-muted/30 p-4 rounded-xl space-y-4 border border-border">
@@ -351,13 +444,26 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                   <input
                     type="number"
-                    value={formData.amount}
-                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value, isManualEntry: true }))}
-                    className="w-full pl-7 pr-3 py-2 rounded-md font-bold text-lg bg-card border border-border outline-none focus:ring-2 focus:ring-primary"
+                    // Si hay descuento, mostramos el cálculo final. Si no, mostramos el valor del form (editable)
+                    value={applyDiscount ? finalTotalToPay : formData.amount}
+                    onChange={(e) => {
+                        // Solo permitimos editar si NO hay descuento aplicado y es entrada manual
+                        if (!applyDiscount) {
+                            setFormData(prev => ({ ...prev, amount: e.target.value, isManualEntry: true }));
+                        }
+                    }}
+                    className={`w-full pl-7 pr-3 py-2 rounded-md font-bold text-lg bg-card border border-border outline-none focus:ring-2 focus:ring-primary ${
+                        applyDiscount ? 'text-primary bg-primary/5' : ''
+                    }`}
                     placeholder="0.00"
-                    // Solo editable si NO hay deudas seleccionadas (es manual)
-                    readOnly={selectedDebtIds.length > 0} 
+                    // ReadOnly si hay descuento (porque es calculado) o si es deuda vieja
+                    readOnly={applyDiscount || selectedDebtIds.length > 0} 
                   />
+                  {applyDiscount && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-primary font-medium">
+                          Con Desc.
+                      </span>
+                  )}
                 </div>
               </div>
 
@@ -395,7 +501,7 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
               variant="default" 
               iconName="Check" 
               loading={loading}
-              disabled={!formData.amount || Number(formData.amount) <= 0}
+              disabled={!finalTotalToPay || Number(finalTotalToPay) <= 0}
             >
               Confirmar Cobro
             </Button>

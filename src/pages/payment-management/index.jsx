@@ -31,6 +31,7 @@ const PaymentManagement = () => {
   const [customDates, setCustomDates] = useState({ start: '', end: '' });
 
   // Estados de Datos
+  const [allPayments, setAllPayments] = useState([]); // NUEVO: Copia maestra de datos
   const [financialMetrics, setFinancialMetrics] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
   const [paymentMethodData, setPaymentMethodData] = useState([]);
@@ -48,10 +49,14 @@ const PaymentManagement = () => {
   const fetchPaymentData = useCallback(async () => {
     try {
       setLoading(true);
+      
+      // 1. AJUSTE DE FECHA: Normalizamos 'hoy' a las 00:00:00
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
 
-      // 1. Obtener Pagos
+      // 2. Obtener Pagos desde Supabase
       const { data: paymentsData, error } = await supabase
         .from('payments')
         .select(`
@@ -62,13 +67,31 @@ const PaymentManagement = () => {
 
       if (error) throw error;
 
-      // 2. Procesar Métricas Financieras
+      // 3. Guardamos la copia maestra para filtros locales
+      // Mapeamos un poco los datos para facilitar su uso en la tabla
+      const processedPayments = paymentsData.map(p => ({
+        ...p,
+        athleteName: p.athletes?.profiles?.full_name || 'Desconocido',
+        athleteId: p.athletes?.id,
+        athleteImage: p.athletes?.profiles?.avatar_url,
+        amountOwed: p.amount, // Para compatibilidad con la tabla de vencidos
+        daysOverdue: p.status === 'overdue' || (p.status === 'pending' && new Date(p.payment_date) < today)
+          ? Math.floor((today - new Date(p.payment_date)) / (1000 * 60 * 60 * 24))
+          : 0
+      }));
+
+      setAllPayments(processedPayments);
+
+      // 4. Procesar Métricas Financieras
       const currentMonthPayments = paymentsData.filter(p => p.payment_date >= startOfMonth && p.status === 'paid');
       const monthlyRevenue = currentMonthPayments.reduce((sum, p) => sum + Number(p.amount), 0);
       
       const totalDue = paymentsData.filter(p => p.status === 'pending' || p.status === 'overdue');
-      const overdueAmount = totalDue.filter(p => p.status === 'overdue' || new Date(p.payment_date) < today)
-                            .reduce((sum, p) => sum + Number(p.amount), 0);
+      
+      // Cálculo preciso de monto vencido usando la fecha normalizada
+      const overdueAmount = totalDue
+        .filter(p => p.status === 'overdue' || new Date(p.payment_date) < today)
+        .reduce((sum, p) => sum + Number(p.amount), 0);
 
       const collectionRate = paymentsData.length > 0 
         ? Math.round((paymentsData.filter(p => p.status === 'paid').length / paymentsData.length) * 100) 
@@ -80,7 +103,7 @@ const PaymentManagement = () => {
           value: monthlyRevenue.toLocaleString('es-ES', { minimumFractionDigits: 2 }),
           currency: '$',
           trend: 'up', 
-          trendValue: '+5.0%',
+          trendValue: '+5.0%', // Esto idealmente vendría de comparar con mes anterior
           icon: 'TrendingUp', 
           iconColor: 'bg-success/20 text-success'
         },
@@ -111,7 +134,7 @@ const PaymentManagement = () => {
         }
       ]);
 
-      // 3. Procesar Gráficos (Métodos de Pago)
+      // 5. Procesar Gráficos (Métodos de Pago)
       const methodsCount = paymentsData.reduce((acc, p) => {
         const method = p.method || 'otros';
         acc[method] = (acc[method] || 0) + 1;
@@ -126,24 +149,17 @@ const PaymentManagement = () => {
       }));
       setPaymentMethodData(methodChartData);
 
-      // 4. Procesar Listas (Vencidos y Recientes)
-      const overdue = paymentsData
-        .filter(p => (p.status === 'overdue' || (p.status === 'pending' && new Date(p.payment_date) < today)))
-        .map(p => ({
-          id: p.id,
-          athleteName: p.athletes?.profiles?.full_name || 'Desconocido',
-          athleteId: p.athletes?.id,
-          athleteImage: p.athletes?.profiles?.avatar_url,
-          amountOwed: p.amount,
-          daysOverdue: Math.floor((today - new Date(p.payment_date)) / (1000 * 60 * 60 * 24)),
-          status: 'overdue'
-        }));
-      setOverduePayments(overdue);
+      // 6. Procesar Listas Específicas
+      // Lista explícita de vencidos para cuando el filtro es 'overdue'
+      const overdueList = processedPayments
+        .filter(p => (p.status === 'overdue' || (p.status === 'pending' && new Date(p.payment_date) < today)));
+      
+      setOverduePayments(overdueList);
 
-      const recent = paymentsData.slice(0, 5).map(p => ({
+      const recent = processedPayments.slice(0, 5).map(p => ({
         id: p.id,
-        athleteName: p.athletes?.profiles?.full_name || 'Desconocido',
-        athleteImage: p.athletes?.profiles?.avatar_url,
+        athleteName: p.athleteName,
+        athleteImage: p.athleteImage,
         description: p.concept || 'Pago registrado',
         amount: p.amount,
         method: p.method,
@@ -152,15 +168,15 @@ const PaymentManagement = () => {
       }));
       setRecentTransactions(recent);
 
-      // 5. Conteos para Filtros
+      // 7. Conteos para Filtros (Usando lógica consistente con las fechas)
       setFilterCounts({
         all: paymentsData.length,
         current: paymentsData.filter(p => p.status === 'paid').length,
-        overdue: overdue.length,
+        overdue: overdueList.length,
         pending: paymentsData.filter(p => p.status === 'pending' && new Date(p.payment_date) >= today).length
       });
 
-      // 6. Datos dummy para gráfico de Revenue
+      // 8. Datos dummy para gráfico de Revenue (Pendiente de conectar a real si deseas)
       setRevenueData([
         { month: 'Ene', efectivo: 12000, tarjeta: 15000, transferencia: 5000 },
         { month: 'Feb', efectivo: 11000, tarjeta: 16000, transferencia: 6000 },
@@ -178,9 +194,29 @@ const PaymentManagement = () => {
     fetchPaymentData();
   }, [fetchPaymentData]);
 
+  // --- LÓGICA DE FILTRADO PARA LA TABLA PRINCIPAL ---
+  const getFilteredPaymentsDisplay = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Si el filtro es 'overdue', usamos la lista ya procesada que incluye cálculos de días
+    if (activeFilter === 'overdue') return overduePayments;
+
+    // Para los otros filtros, filtramos sobre la copia maestra 'allPayments'
+    return allPayments.filter(p => {
+      if (activeFilter === 'all') return true;
+      if (activeFilter === 'current') return p.status === 'paid';
+      if (activeFilter === 'pending') return p.status === 'pending' && new Date(p.payment_date) >= today;
+      return true;
+    });
+  };
+
+  const paymentsToDisplay = getFilteredPaymentsDisplay();
+
   // --- HANDLERS ---
   const handleExportReport = async () => {
     console.log("Exportando...");
+    // Aquí podrías implementar la lógica real de exportación
   };
 
   const handlePaymentSuccess = () => {
@@ -193,7 +229,6 @@ const PaymentManagement = () => {
         <title>Gestión de Pagos - VC Fit</title>
       </Helmet>
       
-      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
       <div className="p-4 md:p-6 lg:p-8 w-full">
         <div className="max-w-7xl mx-auto">
           <BreadcrumbTrail currentPath="/payment-management" />
@@ -279,17 +314,22 @@ const PaymentManagement = () => {
           {/* Tablas Detalladas */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
             <div className="lg:col-span-8">
+              {/* TABLA UNIFICADA E INTELIGENTE */}
+              {/* Reutilizamos OverduePaymentsTable para mostrar todo, cambiando el 'mode' */}
               <OverduePaymentsTable
-                payments={overduePayments}
+                // Si el filtro es Vencidos, activamos modo 'overdue' (columnas de días, acciones masivas)
+                // Si es otro filtro, usamos modo 'all' (columnas estándar de historial)
+                mode={activeFilter === 'overdue' ? 'overdue' : 'all'}
+                payments={paymentsToDisplay}
                 loading={loading}
-                onSendReminder={() => {}}
+                onSendReminder={() => console.log("Recordatorio enviado")} // Conectar con lógica real si existe
               />
             </div>
             <div className="lg:col-span-4">
-              <RecentTransactionsFeed 
+              {/* <RecentTransactionsFeed 
                 transactions={recentTransactions} 
                 loading={loading} 
-              />
+              /> */}
             </div>
           </div>
         </div>
