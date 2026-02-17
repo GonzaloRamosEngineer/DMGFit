@@ -11,5 +11,7 @@ vite.config.*s.*
 _local/
 
 
+# Local Environment
 .env
-
+.env.local
+.env.*.local

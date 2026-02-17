@@ -1,11 +1,18 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+import { supabase } from "../lib/supabaseClient";
 
 const AuthContext = createContext(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
 
@@ -13,7 +20,9 @@ export const useAuth = () => {
 const withTimeout = (promise, ms) =>
   Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), ms)),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Auth timeout")), ms),
+    ),
   ]);
 
 export const AuthProvider = ({ children }) => {
@@ -23,7 +32,7 @@ export const AuthProvider = ({ children }) => {
 
   // Refs de estado
   const isAuthenticatedRef = useRef(false);
-  const currentUserRef = useRef(null); 
+  const currentUserRef = useRef(null);
   const isRevalidatingRef = useRef(false);
   const lastFocusCheckRef = useRef(0);
 
@@ -41,7 +50,7 @@ export const AuthProvider = ({ children }) => {
     setCurrentUser(null);
     setIsAuthenticated(false);
     Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
         localStorage.removeItem(key);
       }
     });
@@ -56,9 +65,9 @@ export const AuthProvider = ({ children }) => {
   const fetchUserProfile = async (userId) => {
     try {
       const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role, avatar_url')
-        .eq('id', userId)
+        .from("profiles")
+        .select("id, full_name, email, role, avatar_url")
+        .eq("id", userId)
         .single();
 
       if (error || !profile) return null;
@@ -70,22 +79,21 @@ export const AuthProvider = ({ children }) => {
         role: profile.role,
         avatar: profile.avatar_url,
         coachId: null,
-        athleteId: null
+        athleteId: null,
       };
 
-      if (profile.role === 'profesor') {
+      if (profile.role === "profesor") {
         const { data: coach } = await supabase
-          .from('coaches')
-          .select('id')
-          .eq('profile_id', profile.id)
+          .from("coaches")
+          .select("id")
+          .eq("profile_id", profile.id)
           .maybeSingle();
         if (coach) userProfile.coachId = coach.id;
-        
-      } else if (profile.role === 'atleta') {
+      } else if (profile.role === "atleta") {
         const { data: athlete } = await supabase
-          .from('athletes')
-          .select('id, coach_id')
-          .eq('profile_id', profile.id)
+          .from("athletes")
+          .select("id, coach_id")
+          .eq("profile_id", profile.id)
           .maybeSingle();
         if (athlete) {
           userProfile.athleteId = athlete.id;
@@ -95,7 +103,7 @@ export const AuthProvider = ({ children }) => {
 
       return userProfile;
     } catch (err) {
-      console.error('[Auth] Error fetching profile:', err);
+      console.error("[Auth] Error fetching profile:", err);
       return null;
     }
   };
@@ -106,7 +114,7 @@ export const AuthProvider = ({ children }) => {
       const profile = await fetchUserProfile(userId);
       if (profile) return profile;
       // Si falló, esperamos un poco antes de reintentar (Backoff)
-      if (i < retries) await new Promise(r => setTimeout(r, 800));
+      if (i < retries) await new Promise((r) => setTimeout(r, 800));
     }
     return null;
   }, []);
@@ -115,10 +123,10 @@ export const AuthProvider = ({ children }) => {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      console.error('Logout error:', err);
+      console.error("Logout error:", err);
     } finally {
-      clearAuthData(); 
-      window.location.href = '/login'; 
+      clearAuthData();
+      window.location.href = "/login";
     }
   }, [clearAuthData]);
 
@@ -128,7 +136,10 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       try {
         // Timeout de 15s (Relaxed Mode)
-        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), 15000);
+        const {
+          data: { session },
+          error,
+        } = await withTimeout(supabase.auth.getSession(), 15000);
 
         if (error) throw error;
 
@@ -139,7 +150,7 @@ export const AuthProvider = ({ children }) => {
 
           // Usamos Retry también en el init para ser más resilientes
           const profile = await fetchProfileWithRetry(session.user.id);
-          
+
           if (mounted) {
             if (profile) {
               setCurrentUser(profile);
@@ -148,18 +159,32 @@ export const AuthProvider = ({ children }) => {
               // Dejamos isAuthenticated=true y currentUser=null.
               // ProtectedRoute mostrará "Cargando perfil..." indefinidamente o hasta un refresh,
               // en lugar de expulsar al usuario por un fallo de red.
-              console.warn('[Auth] Session valid but profile load failed. UI will show loader.');
+              console.warn(
+                "[Auth] Session valid but profile load failed. UI will show loader.",
+              );
             }
           }
         }
       } catch (err) {
-        console.warn('[Auth] Init warning:', err.message);
-        const isTimeout = String(err?.message || '').toLowerCase().includes('timeout');
-        
-        // Si es timeout, NO tocamos nada (asumimos red lenta).
-        // Si es otro error y no tenemos sesión montada, limpiamos memoria.
-        if (mounted && !isTimeout) {
-            resetAuthState(); 
+        console.warn("[Auth] Init warning:", err.message);
+
+        const isTimeout = String(err?.message || "")
+          .toLowerCase()
+          .includes("timeout");
+
+        if (mounted) {
+          // LÓGICA MEJORADA:
+          // Si es un error normal (!isTimeout) -> Reseteamos.
+          // Si es Timeout PERO tampoco tenemos usuario cargado (!currentUserRef.current) -> Reseteamos.
+          // (Porque si pasaron 15s y no hay perfil, no tiene sentido dejarlo en el limbo).
+          if (!isTimeout || !currentUserRef.current) {
+            console.warn(
+              "[Auth] Init failed & No Profile loaded. Resetting state.",
+            );
+            resetAuthState();
+          }
+          // Si es Timeout pero YA tenemos usuario (porque el listener funcionó rápido),
+          // entonces NO hacemos nada y dejamos que siga.
         }
       } finally {
         if (mounted) setIsLoading(false);
@@ -168,106 +193,119 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      
-      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+
+      if (event === "SIGNED_OUT" || event === "USER_DELETED") {
         clearAuthData();
         setIsLoading(false);
-      } 
-      else if (['SIGNED_IN', 'TOKEN_REFRESHED', 'INITIAL_SESSION'].includes(event)) {
+      } else if (
+        ["SIGNED_IN", "TOKEN_REFRESHED", "INITIAL_SESSION"].includes(event)
+      ) {
         if (session?.user) {
-           const needsProfileReload = 
-              event === 'SIGNED_IN' || 
-              event === 'INITIAL_SESSION' || 
-              !isAuthenticatedRef.current || 
-              !currentUserRef.current;
+          const needsProfileReload =
+            event === "SIGNED_IN" ||
+            event === "INITIAL_SESSION" ||
+            !isAuthenticatedRef.current ||
+            !currentUserRef.current;
 
-           if (needsProfileReload) {
-               // Si es un evento de auth, aseguramos que el flag esté en true
-               setIsAuthenticated(true);
-               
-               const profile = await fetchProfileWithRetry(session.user.id);
-               
-               if (mounted) {
-                 if (profile) {
-                   setCurrentUser(profile);
-                 } else {
-                   // Si falló tras reintentos y no tenemos nada en memoria...
-                   if (!currentUserRef.current) {
-                      console.warn('[Auth] Critical: Profile load failed after retries. Keeping session active for retry.');
-                      // En modo Relaxed, preferimos no hacer logout automático aquí tampoco,
-                      // salvo que queramos ser estrictos. Con isAuthenticated=true, 
-                      // el usuario verá el loader y podrá refrescar la página manualmente.
-                   }
-                 }
-               }
-           }
+          if (needsProfileReload) {
+            // Si es un evento de auth, aseguramos que el flag esté en true
+            setIsAuthenticated(true);
+
+            const profile = await fetchProfileWithRetry(session.user.id);
+
+            if (mounted) {
+              if (profile) {
+                setCurrentUser(profile);
+              } else {
+                // Si falló tras reintentos y no tenemos nada en memoria...
+                if (!currentUserRef.current) {
+                  console.warn(
+                    "[Auth] Critical: Profile load failed after retries. Keeping session active for retry.",
+                  );
+                  // En modo Relaxed, preferimos no hacer logout automático aquí tampoco,
+                  // salvo que queramos ser estrictos. Con isAuthenticated=true,
+                  // el usuario verá el loader y podrá refrescar la página manualmente.
+                }
+              }
+            }
+          }
         }
         setIsLoading(false);
       }
     });
 
     const handleFocus = async () => {
-        // Cooldown 15s
-        const now = Date.now();
-        if (now - lastFocusCheckRef.current < 15000) return; 
-        lastFocusCheckRef.current = now;
+      // Cooldown 15s
+      const now = Date.now();
+      if (now - lastFocusCheckRef.current < 15000) return;
+      lastFocusCheckRef.current = now;
 
-        if (isRevalidatingRef.current || !isAuthenticatedRef.current) return;
+      if (isRevalidatingRef.current || !isAuthenticatedRef.current) return;
 
-        isRevalidatingRef.current = true;
-        try {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            
-            // MICRO-CAMBIO B: Lógica de logout precisa.
-            if (error) throw error; // Si hay error (red/timeout), va al catch y se ignora.
+      isRevalidatingRef.current = true;
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-            if (!session) {
-                // Si la respuesta es exitosa (sin error) pero NO hay sesión,
-                // significa que el token expiró o fue revocado. Logout.
-                console.warn('[Auth] Session explicitly lost on focus.');
-                await logout();
-            }
-        } catch (e) {
-            // Si es error de red, timeout o fetch failed, lo ignoramos.
-            // No expulsamos al usuario por tener mal internet al volver a la pestaña.
-            console.warn('[Auth] Revalidation check failed (network?):', e.message);
-        } finally {
-            isRevalidatingRef.current = false;
+        // MICRO-CAMBIO B: Lógica de logout precisa.
+        if (error) throw error; // Si hay error (red/timeout), va al catch y se ignora.
+
+        if (!session) {
+          // Si la respuesta es exitosa (sin error) pero NO hay sesión,
+          // significa que el token expiró o fue revocado. Logout.
+          console.warn("[Auth] Session explicitly lost on focus.");
+          await logout();
         }
+      } catch (e) {
+        // Si es error de red, timeout o fetch failed, lo ignoramos.
+        // No expulsamos al usuario por tener mal internet al volver a la pestaña.
+        console.warn("[Auth] Revalidation check failed (network?):", e.message);
+      } finally {
+        isRevalidatingRef.current = false;
+      }
     };
 
-    window.addEventListener('focus', handleFocus);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener("focus", handleFocus);
     };
   }, [clearAuthData, resetAuthState, logout, fetchProfileWithRetry]);
 
   const login = async ({ email, password }) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       if (error) throw error;
 
       // Usamos retry también en login para asegurar que entra bien
       const profile = await fetchProfileWithRetry(data.user.id);
-      
-      if (!profile) throw new Error('No se pudo cargar el perfil. Intente nuevamente.');
+
+      if (!profile)
+        throw new Error("No se pudo cargar el perfil. Intente nuevamente.");
 
       setCurrentUser(profile);
       setIsAuthenticated(true);
       return { user: profile };
-      
     } catch (err) {
       return { error: err };
     }
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{ currentUser, isAuthenticated, isLoading, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
