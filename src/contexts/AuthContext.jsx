@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
@@ -9,32 +9,60 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper: Timeout aumentado a 10s para redes lentas/móviles
+const withTimeout = (promise, ms) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), ms)),
+  ]);
+
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const clearSupabaseAuthStorage = useCallback(() => {
+  // Refs para acceder al estado actual dentro de listeners sin re-renderizar
+  const isAuthenticatedRef = useRef(false);
+  const currentUserRef = useRef(null); 
+  const isRevalidatingRef = useRef(false);
+
+  // Sincronización de Refs (Separados para claridad)
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  // A) LIMPIEZA TOTAL (Para Logout explícito o sesión corrupta confirmada)
+  const clearAuthData = useCallback(() => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
     Object.keys(localStorage).forEach((key) => {
-      if (key.includes('sb-') && key.includes('-auth-token')) {
+      if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
         localStorage.removeItem(key);
       }
     });
   }, []);
 
-  const resolveUserProfile = async (authUser) => {
-    if (!authUser) return null;
+  // B) LIMPIEZA SUAVE (Para errores de red/timeout - NO borra storage)
+  const resetAuthState = useCallback(() => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+  }, []);
 
+  const fetchUserProfile = async (userId) => {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, avatar_url')
-        .eq('id', authUser.id)
-        .maybeSingle();
+        .eq('id', userId)
+        .single();
 
       if (error || !profile) return null;
 
-      const baseProfile = {
+      const userProfile = {
         id: profile.id,
         name: profile.full_name,
         email: profile.email,
@@ -44,158 +72,160 @@ export const AuthProvider = ({ children }) => {
         athleteId: null
       };
 
-      if (baseProfile.role === 'profesor') {
-        const { data: c } = await supabase
+      if (profile.role === 'profesor') {
+        const { data: coach } = await supabase
           .from('coaches')
           .select('id')
           .eq('profile_id', profile.id)
           .maybeSingle();
-        if (c) baseProfile.coachId = c.id;
-      } else if (baseProfile.role === 'atleta') {
-        const { data: a } = await supabase
+        if (coach) userProfile.coachId = coach.id;
+        
+      } else if (profile.role === 'atleta') {
+        const { data: athlete } = await supabase
           .from('athletes')
           .select('id, coach_id')
           .eq('profile_id', profile.id)
           .maybeSingle();
-        if (a) {
-          baseProfile.athleteId = a.id;
-          baseProfile.coachId = a.coach_id;
+        if (athlete) {
+          userProfile.athleteId = athlete.id;
+          userProfile.coachId = athlete.coach_id;
         }
       }
 
-      return baseProfile;
+      return userProfile;
     } catch (err) {
-      console.error('❌ [Auth] Error en resolución:', err);
+      console.error('[Auth] Error fetching profile:', err);
       return null;
     }
   };
 
-  const forceClientLogoutState = useCallback(() => {
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    clearSupabaseAuthStorage();
-  }, [clearSupabaseAuthStorage]);
-
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      console.error('Error en signOut:', err);
+      console.error('Logout error:', err);
     } finally {
-      forceClientLogoutState();
-      window.location.href = '/login';
+      clearAuthData(); 
+      window.location.href = '/login'; 
     }
-  };
+  }, [clearAuthData]);
 
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
 
-    const init = async () => {
+    const initializeAuth = async () => {
       try {
-        const {
-          data: { session },
-          error
-        } = await supabase.auth.getSession();
+        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), 10000);
 
-        if (error) {
-          console.warn('⚠️ [Auth] Sesión corrupta detectada, limpiando...');
-          forceClientLogoutState();
-          return;
-        }
+        if (error) throw error;
 
-        if (session?.user && isMounted) {
-          const profile = await resolveUserProfile(session.user);
-          if (profile && isMounted) {
-            setCurrentUser(profile);
-            setIsAuthenticated(true);
-          } else if (isMounted) {
-            forceClientLogoutState();
+        if (session?.user) {
+          const profile = await fetchUserProfile(session.user.id);
+          
+          if (mounted) {
+            if (profile) {
+              setCurrentUser(profile);
+              setIsAuthenticated(true);
+            } else {
+              console.warn('[Auth] Session valid but no profile found.');
+              await logout();
+            }
           }
-        } else if (isMounted) {
-          setCurrentUser(null);
-          setIsAuthenticated(false);
         }
       } catch (err) {
-        console.error('Error inicializando auth:', err);
-        if (isMounted) forceClientLogoutState();
+        console.warn('[Auth] Init warning:', err.message);
+        if (mounted) {
+            resetAuthState(); // Solo limpia memoria, no storage (fail-safe)
+        }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
 
-    const revalidateOnFocus = async () => {
-      if (!isMounted) return;
+    initializeAuth();
 
-      const {
-        data: { session },
-        error
-      } = await supabase.auth.getSession();
-
-      if (error || !session?.user) {
-        // Si estaba autenticado y perdió sesión (expirada / inválida), redirigir limpio
-        if (isMounted && isAuthenticated) {
-          await logout();
-        } else {
-          forceClientLogoutState();
-        }
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        revalidateOnFocus();
-      }
-    };
-
-    init();
-
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return;
-
-      if (event === 'SIGNED_OUT') {
-        forceClientLogoutState();
-        return;
-      }
-
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        clearAuthData();
+        setIsLoading(false);
+      } 
+      else if (['SIGNED_IN', 'TOKEN_REFRESHED', 'INITIAL_SESSION'].includes(event)) {
         if (session?.user) {
-          const profile = await resolveUserProfile(session.user);
-          if (isMounted) {
-            setCurrentUser(profile);
-            setIsAuthenticated(!!profile);
-          }
-        } else {
-          forceClientLogoutState();
+           // Condiciones para forzar recarga de perfil:
+           // 1. Es un login nuevo.
+           // 2. Es la sesión inicial.
+           // 3. El contexto dice que no estamos autenticados.
+           // 4. (CRITICO) Estamos autenticados pero NO tenemos perfil cargado (Zombie).
+           const needsProfileReload = 
+              event === 'SIGNED_IN' || 
+              event === 'INITIAL_SESSION' || 
+              !isAuthenticatedRef.current || 
+              !currentUserRef.current;
+
+           if (needsProfileReload) {
+               const profile = await fetchUserProfile(session.user.id);
+               
+               if (mounted) {
+                 if (profile) {
+                   setCurrentUser(profile);
+                   setIsAuthenticated(true);
+                 } else {
+                   // CORRECCIÓN FINAL: Si intentamos recargar y fallamos (perfil null),
+                   // debemos salir para evitar el loader infinito en ProtectedRoute.
+                   console.warn('[Auth] Token refreshed but profile load failed.');
+                   await logout(); 
+                 }
+               }
+           }
         }
+        setIsLoading(false);
       }
     });
 
-    window.addEventListener('focus', revalidateOnFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const handleFocus = async () => {
+        if (isRevalidatingRef.current || !isAuthenticatedRef.current) return;
+
+        isRevalidatingRef.current = true;
+        try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error || !session?.user) {
+                console.warn('[Auth] Session lost on focus revalidation.');
+                await logout();
+            }
+        } catch (e) {
+            console.error('[Auth] Revalidation error', e);
+        } finally {
+            isRevalidatingRef.current = false;
+        }
+    };
+
+    window.addEventListener('focus', handleFocus);
 
     return () => {
-      isMounted = false;
+      mounted = false;
       subscription.unsubscribe();
-      window.removeEventListener('focus', revalidateOnFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
-  }, [forceClientLogoutState, isAuthenticated]);
+  }, [clearAuthData, resetAuthState, logout]);
 
   const login = async ({ email, password }) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error };
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
 
-    const profile = await resolveUserProfile(data.user);
-    if (!profile) {
-      await logout();
-      return { error: { message: 'No se encontró un perfil vinculado.' } };
+      const profile = await fetchUserProfile(data.user.id);
+      if (!profile) throw new Error('Perfil no encontrado.');
+
+      setCurrentUser(profile);
+      setIsAuthenticated(true);
+      return { user: profile };
+      
+    } catch (err) {
+      // Si falla login (credenciales), no tocamos estado global para no romper UX
+      return { error: err };
     }
-
-    setCurrentUser(profile);
-    setIsAuthenticated(true);
-    return { user: profile };
   };
 
   return (

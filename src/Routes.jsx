@@ -25,7 +25,8 @@ import AccessControl from "./pages/access-control";
 import AccessHistory from "./pages/access-history";
 import ClassSchedule from "./pages/class-schedule";
 import Unauthorized from "./pages/Unauthorized";
-// ... importaciones ...
+
+// Rutas de Auth
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import UpdatePassword from "./pages/auth/UpdatePassword";
 
@@ -35,11 +36,15 @@ const Routes = () => {
       <ErrorBoundary>
         <ScrollToTop />
         <RouterRoutes>
-          {/* Public Routes - Sin Layout */}
+          
+          {/* --- Rutas Públicas --- */}
           <Route path="/login" element={<LoginRoleSelection />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
+          
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/update-password" element={<UpdatePassword />} />
 
-          {/* 2. Modo Kiosco - SIN sidebar (PANTALLA COMPLETA) */}
+          {/* --- Modo Kiosco --- */}
           <Route
             path="/access-control"
             element={
@@ -49,17 +54,10 @@ const Routes = () => {
             }
           />
 
-
-
-          // ... dentro del Router ...
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/update-password" element={<UpdatePassword />} />
-
-
-
-          {/* Protected Routes - Con AppLayout (Sidebar) */}
+          {/* --- Rutas Protegidas --- */}
           <Route element={<AppLayout />}>
-            {/* Admin Routes */}
+            
+            {/* Admin & Profesor Routes */}
             <Route
               path="/main-dashboard"
               element={
@@ -68,19 +66,13 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
+            
+            {/* Solo Admin */}
             <Route
               path="/coaches-management"
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <CoachesManagement />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/athletes-management"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
-                  <AthletesManagement />
                 </ProtectedRoute>
               }
             />
@@ -100,14 +92,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-            {/* <Route
-              path="/access-control"
-              element={
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <AccessControl />
-                </ProtectedRoute>
-              }
-            /> */}
             <Route
               path="/access-history"
               element={
@@ -116,12 +100,13 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-            {/* Professor Routes */}
+
+            {/* Compartidas Admin/Profesor */}
             <Route
-              path="/professor-dashboard"
+              path="/athletes-management"
               element={
-                <ProtectedRoute allowedRoles={["profesor"]}>
-                  <ProfessorDashboard />
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                  <AthletesManagement />
                 </ProtectedRoute>
               }
             />
@@ -157,7 +142,18 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-            {/* Athlete Routes */}
+
+            {/* Solo Profesor */}
+            <Route
+              path="/professor-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={["profesor"]}>
+                  <ProfessorDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Solo Atleta */}
             <Route
               path="/athlete-portal"
               element={
@@ -166,11 +162,11 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-            <Route path="/unauthorized" element={<Unauthorized />} />
             
+            <Route path="/unauthorized" element={<Unauthorized />} />
           </Route>
 
-          {/* 404 - Sin Layout */}
+          {/* 404 */}
           <Route path="*" element={<NotFound />} />
         </RouterRoutes>
       </ErrorBoundary>
