@@ -17,7 +17,7 @@ export const supabase = createClient(
       detectSessionInUrl: true,
       // Desactivamos el bloqueo del navegador para evitar el error DOMException 
       // al recargar la página o navegar rápido tras el login.
-      navigatorLock: false 
+      // navigatorLock: false 
     }
   }
 );

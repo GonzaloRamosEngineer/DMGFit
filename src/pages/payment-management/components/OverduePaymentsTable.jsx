@@ -1,256 +1,168 @@
 import React, { useState } from 'react';
 import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
-import Button from '../../../components/ui/Button';
-import Input from '../../../components/ui/Input';
-import QuickActionMenu from '../../../components/ui/QuickActionMenu';
 
 const OverduePaymentsTable = ({ 
   payments, 
   onSendReminder, 
   loading = false, 
-  mode = 'overdue' // 'overdue' | 'all'
+  mode = 'full' // 'full' | 'compact'
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayments, setSelectedPayments] = useState([]);
 
-  // Skeleton Loader
+  // Filtrado interno
+  const filteredPayments = payments?.filter(p => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return p.athleteName?.toLowerCase().includes(term) || p.concept?.toLowerCase().includes(term);
+  });
+
+  // Selección masiva
+  const handleSelectAll = (e) => {
+    if (e.target.checked) setSelectedPayments(filteredPayments.map(p => p.id));
+    else setSelectedPayments([]);
+  };
+
+  const handleSelectRow = (id) => {
+    setSelectedPayments(prev => 
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
+  // Renderizado de Carga
   if (loading) {
     return (
-      <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
-        <div className="p-4 border-b border-border flex justify-between">
-          <div className="h-6 bg-muted/50 rounded w-1/3"></div>
-          <div className="h-8 bg-muted/50 rounded w-1/4"></div>
-        </div>
-        <div className="p-4 space-y-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="flex gap-4">
-              <div className="h-10 w-10 bg-muted/50 rounded-full"></div>
-              <div className="h-4 bg-muted/50 rounded w-full mt-3"></div>
-            </div>
-          ))}
-        </div>
+      <div className="animate-pulse space-y-4 p-4">
+        {[1,2,3].map(i => <div key={i} className="h-12 bg-slate-50 rounded-xl"></div>)}
       </div>
     );
   }
 
-  // Filtrado simple por nombre
-  const filteredPayments = payments?.filter(payment => {
-    // Intentamos buscar por nombre del atleta, o si no existe, por concepto
-    const searchString = searchTerm.toLowerCase();
-    const nameMatch = payment?.athleteName?.toLowerCase()?.includes(searchString);
-    const conceptMatch = payment?.concept?.toLowerCase()?.includes(searchString);
-    return nameMatch || conceptMatch;
-  });
-
-  const handleSelectAll = (e) => {
-    if (e?.target?.checked) {
-      setSelectedPayments(filteredPayments?.map(p => p?.id));
-    } else {
-      setSelectedPayments([]);
-    }
-  };
-
-  const handleSelectPayment = (paymentId) => {
-    setSelectedPayments(prev =>
-      prev?.includes(paymentId)
-        ? prev?.filter(id => id !== paymentId)
-        : [...prev, paymentId]
+  // Renderizado Vacío
+  if (!payments || payments.length === 0) {
+    return (
+      <div className="p-8 text-center text-slate-400">
+        <Icon name="CheckCircle" size={32} className="mx-auto mb-2 text-emerald-200" />
+        <p className="text-xs font-bold uppercase tracking-widest">Todo al día</p>
+      </div>
     );
-  };
-
-  const getSeverityColor = (days) => {
-    if (days >= 30) return 'text-error bg-error/10';
-    if (days >= 15) return 'text-warning bg-warning/10';
-    return 'text-muted-foreground bg-muted';
-  };
-
-  // Helper para renderizar estado (Badge)
-  const renderStatusBadge = (status, date) => {
-    if (status === 'paid') return <span className="px-2 py-1 rounded-full text-xs font-bold bg-success/10 text-success">Pagado</span>;
-    if (status === 'overdue') return <span className="px-2 py-1 rounded-full text-xs font-bold bg-error/10 text-error">Vencido</span>;
-    return <span className="px-2 py-1 rounded-full text-xs font-bold bg-warning/10 text-warning">Pendiente</span>;
-  };
+  }
 
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm">
-      <div className="p-4 md:p-6 border-b border-border">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          <div>
-            <h3 className="text-lg md:text-xl font-heading font-semibold text-foreground mb-1">
-              {mode === 'overdue' ? 'Pagos Vencidos' : 'Listado de Pagos'}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {filteredPayments?.length || 0} registros encontrados
-            </p>
+    <div className={`bg-white overflow-hidden ${mode === 'full' ? '' : 'bg-transparent'}`}>
+      
+      {/* HEADER (Solo en modo Full) */}
+      {mode === 'full' && (
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-50/30">
+          <div className="relative w-full sm:w-64">
+             <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+             <input 
+               type="text" 
+               placeholder="Buscar deudor..." 
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-300 transition-colors"
+             />
           </div>
           
-          {/* Solo mostramos acciones masivas si es modo Vencidos */}
-          {mode === 'overdue' && selectedPayments?.length > 0 && (
-            <Button variant="default" size="sm" onClick={() => onSendReminder(selectedPayments)}>
-              <Icon name="Bell" size={16} className="mr-2" />
-              Enviar Recordatorios ({selectedPayments?.length})
-            </Button>
+          {selectedPayments.length > 0 && (
+            <button 
+              onClick={() => onSendReminder(selectedPayments)}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider hover:bg-rose-700 transition-colors shadow-lg shadow-rose-200"
+            >
+              <Icon name="Bell" size={14} />
+              Recordar ({selectedPayments.length})
+            </button>
           )}
         </div>
+      )}
 
-        <Input
-          type="search"
-          placeholder={mode === 'overdue' ? "Buscar deudor..." : "Buscar por nombre o concepto..."}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e?.target?.value)}
-        />
-      </div>
-      
+      {/* TABLE BODY */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[800px] text-sm text-left">
-          <thead className="bg-muted/50 uppercase text-xs font-medium text-muted-foreground">
-            <tr>
-              {/* Checkbox solo en modo Vencidos para acciones masivas */}
-              {mode === 'overdue' && (
-                <th className="px-4 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedPayments?.length === filteredPayments?.length && filteredPayments?.length > 0}
-                    onChange={handleSelectAll}
-                    className="w-4 h-4 rounded border-border bg-input"
-                  />
-                </th>
-              )}
-
-              {/* COLUMNA: FECHA (Solo en modo general) */}
-              {mode === 'all' && <th className="px-4 py-3">Fecha</th>}
-
-              <th className="px-4 py-3">Atleta</th>
-              
-              {/* COLUMNA: CONCEPTO (Solo en modo general) */}
-              {mode === 'all' && <th className="px-4 py-3">Concepto</th>}
-
-              <th className="px-4 py-3">Monto</th>
-
-              {/* COLUMNAS VARIABLES */}
-              {mode === 'overdue' ? (
-                <>
-                  <th className="px-4 py-3">Días Vencido</th>
-                  <th className="px-4 py-3">Contacto</th>
-                </>
-              ) : (
-                <>
-                  <th className="px-4 py-3">Método</th>
-                  <th className="px-4 py-3 text-center">Estado</th>
-                </>
-              )}
-
-              <th className="px-4 py-3 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filteredPayments?.length > 0 ? (
-              filteredPayments.map((payment) => (
-                <tr key={payment?.id} className="hover:bg-muted/30 transition-smooth group">
-                  
-                  {/* Checkbox */}
-                  {mode === 'overdue' && (
-                    <td className="px-4 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedPayments?.includes(payment?.id)}
-                        onChange={() => handleSelectPayment(payment?.id)}
-                        className="w-4 h-4 rounded border-border bg-input"
-                      />
-                    </td>
-                  )}
-
-                  {/* Fecha (Solo All) */}
-                  {mode === 'all' && (
-                    <td className="px-4 py-4 whitespace-nowrap text-foreground">
-                      {payment.payment_date 
-                        ? new Date(payment.payment_date).toLocaleDateString() 
-                        : '-'}
-                    </td>
-                  )}
-
-                  {/* Atleta */}
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      {payment?.athleteImage ? (
-                        <Image
-                          src={payment.athleteImage}
-                          alt={payment.athleteName}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-xs font-bold text-primary">
-                             {payment?.athleteName?.charAt(0) || '?'}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-medium text-foreground">{payment?.athleteName || 'Desconocido'}</p>
-                        {mode === 'overdue' && (
-                          <p className="text-xs text-muted-foreground font-data">ID: {payment?.athleteId?.slice(0,6)}</p>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Concepto (Solo All) */}
-                  {mode === 'all' && (
-                    <td className="px-4 py-4 text-muted-foreground max-w-[200px] truncate" title={payment.concept}>
-                      {payment.concept || '-'}
-                    </td>
-                  )}
-
-                  {/* Monto */}
-                  <td className="px-4 py-4 font-mono font-medium text-foreground">
-                    ${(payment?.amountOwed || payment?.amount || 0).toLocaleString()}
-                  </td>
-
-                  {/* Variables */}
-                  {mode === 'overdue' ? (
-                    <>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(payment?.daysOverdue)}`}>
-                          <Icon name="Clock" size={12} className="mr-1" />
-                          {payment?.daysOverdue} días
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-xs text-muted-foreground">
-                        {payment?.lastContact || '-'}
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-4 capitalize text-foreground">{payment?.method || '-'}</td>
-                      <td className="px-4 py-4 text-center">
-                        {renderStatusBadge(payment?.status, payment?.payment_date)}
-                      </td>
-                    </>
-                  )}
-
-                  {/* Acciones */}
-                  <td className="px-4 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {mode === 'overdue' && (
-                        <Button variant="outline" size="sm" onClick={() => onSendReminder([payment?.id])} title="Recordar">
-                          <Icon name="Bell" size={16} />
-                        </Button>
-                      )}
-                      {/* Aquí podrías agregar un botón de ver detalle o editar */}
-                      <QuickActionMenu entityId={payment?.id} entityType="payment" />
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
+        <table className="w-full text-left border-collapse">
+          {mode === 'full' && (
+            <thead className="bg-slate-50 text-xs font-black text-slate-400 uppercase tracking-widest">
               <tr>
-                <td colSpan="8" className="py-12 text-center text-muted-foreground">
-                  <Icon name="CheckCircle" size={48} className="mx-auto mb-3 opacity-20" />
-                  <p>No se encontraron registros.</p>
+                <th className="p-4 w-10">
+                  <input type="checkbox" onChange={handleSelectAll} className="rounded border-slate-300 text-blue-600 focus:ring-0 cursor-pointer" />
+                </th>
+                <th className="p-4">Atleta</th>
+                <th className="p-4">Deuda</th>
+                <th className="p-4">Tiempo</th>
+                <th className="p-4 text-right">Acción</th>
+              </tr>
+            </thead>
+          )}
+          
+          <tbody className="divide-y divide-slate-50">
+            {filteredPayments.map((payment) => (
+              <tr key={payment.id} className="group hover:bg-rose-50/30 transition-colors">
+                
+                {/* Checkbox (Solo Full) */}
+                {mode === 'full' && (
+                  <td className="p-4">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedPayments.includes(payment.id)}
+                      onChange={() => handleSelectRow(payment.id)}
+                      className="rounded border-slate-300 text-rose-600 focus:ring-0 cursor-pointer" 
+                    />
+                  </td>
+                )}
+
+                {/* Atleta Info */}
+                <td className="p-4">
+                  <div className="flex items-center gap-3">
+                    {payment.athleteImage ? (
+                      <Image src={payment.athleteImage} alt="" className="w-8 h-8 rounded-full object-cover shadow-sm" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-500 font-bold text-xs">
+                        {payment.athleteName?.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-bold text-slate-700 leading-none">{payment.athleteName}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 truncate max-w-[150px]">{payment.concept}</p>
+                    </div>
+                  </div>
+                </td>
+
+                {/* Monto */}
+                <td className="p-4">
+                  <span className="font-mono font-bold text-rose-600">
+                    ${Number(payment.amountOwed || payment.amount).toLocaleString()}
+                  </span>
+                </td>
+
+                {/* Días Vencido */}
+                <td className="p-4">
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${
+                    payment.daysOverdue > 30 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    <Icon name="Clock" size={10} />
+                    {payment.daysOverdue} días
+                  </span>
+                </td>
+
+                {/* Acciones Rápidas */}
+                <td className="p-4 text-right">
+                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => onSendReminder([payment.id])}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Enviar WhatsApp"
+                    >
+                      <Icon name="MessageCircle" size={16} />
+                    </button>
+                    {/* Aquí iría la acción de cobrar */}
+                    <button className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Registrar Cobro">
+                      <Icon name="DollarSign" size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
-            )}
+            ))}
           </tbody>
         </table>
       </div>

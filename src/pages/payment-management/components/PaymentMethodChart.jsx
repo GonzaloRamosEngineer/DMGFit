@@ -1,99 +1,77 @@
 import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import Icon from '../../../components/AppIcon';
 
-const PaymentMethodChart = ({ data, loading = false }) => {
-  const COLORS = {
-    efectivo: '#FFD700',
-    tarjeta: '#FF4444',
-    transferencia: '#00D4FF',
-    otros: '#8884d8'
-  };
+const COLORS = ['#3B82F6', '#6366F1', '#10B981', '#F59E0B', '#EF4444'];
 
+const PaymentMethodChart = ({ data = [], loading = false }) => {
   if (loading) {
+    return <div className="h-full bg-slate-50 rounded-2xl animate-pulse"></div>;
+  }
+
+  if (!data || data.length === 0) {
     return (
-      <div className="bg-card border border-border rounded-lg p-4 md:p-6 animate-pulse">
-        <div className="h-6 bg-muted/50 rounded w-1/2 mb-6"></div>
-        <div className="h-64 bg-muted/30 rounded-full w-64 mx-auto mb-6"></div>
-        <div className="space-y-2">
-          <div className="h-8 bg-muted/50 rounded"></div>
-          <div className="h-8 bg-muted/50 rounded"></div>
-        </div>
+      <div className="h-full flex flex-col items-center justify-center opacity-50">
+        <Icon name="PieChart" className="text-slate-300 mb-2" size={32} />
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sin datos</p>
       </div>
     );
   }
 
-  const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const item = payload[0];
-      return (
-        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-          <p className="text-sm font-medium text-foreground mb-1">{item.name}</p>
-          <p className="text-xs text-muted-foreground">
-            ${Number(item.value).toLocaleString()} ({item.payload.percentage}%)
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const hasData = data && data.length > 0;
+  // Ordenar datos para que los más grandes queden primero
+  const sortedData = [...data].sort((a, b) => b.value - a.value);
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 md:p-6 h-full flex flex-col">
-      <div className="mb-6">
-        <h3 className="text-lg md:text-xl font-heading font-semibold text-foreground mb-1">
-          Métodos de Pago
-        </h3>
-        <p className="text-sm text-muted-foreground">Distribución por tipo de pago</p>
+    <div className="flex flex-col h-full">
+      {/* 1. CHART AREA (60% Height) */}
+      <div className="h-[180px] relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={sortedData}
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={75}
+              paddingAngle={4}
+              dataKey="value"
+              stroke="none"
+              cornerRadius={5}
+            >
+              {sortedData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip 
+               contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1E293B', color: '#fff' }}
+               itemStyle={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        {/* Centro del Donut */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+           <span className="text-2xl font-black text-slate-800">{sortedData.length}</span>
+           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tipos</span>
+        </div>
       </div>
 
-      {hasData ? (
-        <>
-          <div className="w-full h-64 md:h-80 flex-shrink-0" aria-label="Payment Method Chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[entry.method.toLowerCase()] || COLORS.otros} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }} />
-              </PieChart>
-            </ResponsiveContainer>
+      {/* 2. LEGEND LIST (40% Height - Scrollable) */}
+      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-2 mt-2">
+        {sortedData.map((item, index) => (
+          <div key={index} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition-colors group cursor-default">
+             <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-900">{item.name}</span>
+             </div>
+             <div className="text-right">
+                <span className="block text-xs font-black text-slate-800">{item.percentage}%</span>
+                <span className="text-[9px] font-medium text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                   ${item.value.toLocaleString()}
+                </span>
+             </div>
           </div>
-
-          <div className="mt-6 space-y-3 flex-1 overflow-auto custom-scrollbar max-h-[200px]">
-            {data.map((item) => (
-              <div key={item.method} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[item.method.toLowerCase()] || COLORS.otros }} />
-                  <span className="text-sm font-medium text-foreground">{item.name}</span>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-data font-semibold text-foreground">${item.value.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">{item.percentage}%</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="h-64 flex flex-col items-center justify-center text-muted-foreground">
-          <Icon name="PieChart" size={48} className="mb-4 opacity-50" />
-          <p>No hay datos suficientes</p>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 };

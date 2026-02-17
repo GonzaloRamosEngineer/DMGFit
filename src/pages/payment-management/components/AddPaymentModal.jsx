@@ -1,512 +1,514 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import Icon from '../../../components/AppIcon';
-import Button from '../../../components/ui/Button';
-import Input from '../../../components/ui/Input';
+
+// --- UTILS & HELPERS ---
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('es-UY', { 
+    style: 'currency', 
+    currency: 'UYU', 
+    minimumFractionDigits: 0 
+  }).format(amount);
+};
+
+const getCurrentMonthName = () => {
+  const date = new Date();
+  const month = date.toLocaleString('es-ES', { month: 'long' });
+  return month.charAt(0).toUpperCase() + month.slice(1);
+};
 
 const AddPaymentModal = ({ onClose, onSuccess }) => {
+  // --- ESTADOS GLOBALES ---
   const [loading, setLoading] = useState(false);
   const [fetchingDebts, setFetchingDebts] = useState(false);
-  
-  // Datos maestros
+
+  // --- DATOS MAESTROS ---
   const [athletes, setAthletes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Estado de Deudas del Atleta Seleccionado
+   
+  // --- SELECCIÓN Y FLUJO ---
+  const [selectedAthlete, setSelectedAthlete] = useState(null);
   const [pendingDebts, setPendingDebts] = useState([]);
   const [selectedDebtIds, setSelectedDebtIds] = useState([]);
 
-  // Información del atleta seleccionado (para saber su plan)
-  const [selectedAthleteInfo, setSelectedAthleteInfo] = useState(null);
+  // --- FORMULARIO DE PAGO ---
+  const [formData, setFormData] = useState({
+    amount: '',         // Monto Base (Precio de lista)
+    method: 'efectivo',
+    concept: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+  });
 
-  // Estados para el manejo del DESCUENTO (NUEVO)
-  const [applyDiscount, setApplyDiscount] = useState(false);
+  // --- DESCUENTOS ---
+  const [showDiscount, setShowDiscount] = useState(false);
   const [discountType, setDiscountType] = useState('percent'); // 'percent' | 'fixed'
   const [discountValue, setDiscountValue] = useState('');
 
-  // Formulario
-  const [formData, setFormData] = useState({
-    athleteId: '',
-    amount: '',         // Este actuará como "Monto Base" si hay descuento, o Total si no hay.
-    method: 'efectivo',
-    concept: '',       
-    paymentDate: new Date().toISOString().split('T')[0],
-    isManualEntry: false 
-  });
-
-  // --- LÓGICA DE CÁLCULO DE DESCUENTO ---
-  const getFinalTotal = () => {
-    const base = parseFloat(formData.amount) || 0;
-    
-    // Si no hay descuento activo o valor, el total es el monto base
-    if (!applyDiscount || !discountValue) return base;
-
-    const val = parseFloat(discountValue);
-    let final = base;
-
-    if (discountType === 'percent') {
-      // Ejemplo: 15000 - (15000 * 50 / 100) = 7500
-      final = base - (base * (val / 100));
-    } else {
-      // Ejemplo: 15000 - 2000 = 13000
-      final = base - val;
-    }
-
-    return Math.max(0, final); // Evitar negativos
-  };
-
-  const finalTotalToPay = getFinalTotal();
-
-  // 1. Cargar Atletas CON SU PLAN
+  // ----------------------------------------------------------------
+  // 1. CARGA INICIAL DE ATLETAS (CORREGIDO PARA TU ESQUEMA)
+  // ----------------------------------------------------------------
   useEffect(() => {
     const fetchAthletes = async () => {
-      const { data } = await supabase
-        .from('athletes')
-        .select(`
-          id, 
-          profiles:profile_id(full_name, email),
-          plans:plan_id(name, price) 
-        `)
-        .eq('status', 'active')
-        .order('join_date', { ascending: false });
-      
-      if (data) {
-        setAthletes(data.map(a => ({
-          id: a.id,
-          name: a.profiles?.full_name || 'Sin Nombre',
-          email: a.profiles?.email,
-          planName: a.plans?.name,
-          planPrice: a.plans?.price
-        })));
+      try {
+        // CORRECCIÓN AQUÍ: Usamos el nombre de la tabla 'profiles' y 'plans' directamente
+        // Supabase detecta la relación FK automáticamente.
+        const { data, error } = await supabase
+          .from('athletes')
+          .select(`
+            id, 
+            status, 
+            profiles ( full_name, email, avatar_url ),
+            plans ( name, price )
+          `)
+          .eq('status', 'active') // Asegúrate que en la BD es 'active' (minúscula)
+          .order('join_date', { ascending: false });
+        
+        if (error) {
+          console.error("Error cargando atletas:", error);
+          return;
+        }
+
+        if (data) {
+          const mappedAthletes = data.map(a => {
+            // Manejo defensivo por si profiles viene como array o null
+            const profileData = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles;
+            const planData = Array.isArray(a.plans) ? a.plans[0] : a.plans;
+
+            return {
+              id: a.id,
+              // Fallback en cascada para encontrar un nombre a mostrar
+              name: profileData?.full_name || profileData?.email || 'Sin Nombre Registrado',
+              avatar: profileData?.avatar_url,
+              email: profileData?.email,
+              planName: planData?.name || 'Sin Plan',
+              planPrice: planData?.price
+            };
+          });
+          setAthletes(mappedAthletes);
+        }
+      } catch (err) {
+        console.error("Error inesperado:", err);
       }
     };
     fetchAthletes();
   }, []);
 
-  // 2. Buscar Deudas y Datos cuando se selecciona un atleta
+  // ----------------------------------------------------------------
+  // 2. BUSCAR DEUDAS AL SELECCIONAR ATLETA
+  // ----------------------------------------------------------------
   useEffect(() => {
+    if (!selectedAthlete) {
+      setPendingDebts([]);
+      return;
+    }
+
     const fetchDebts = async () => {
-      if (!formData.athleteId) {
-        setPendingDebts([]);
-        setSelectedAthleteInfo(null);
-        return;
-      }
-
-      const athleteInfo = athletes.find(a => a.id === formData.athleteId);
-      setSelectedAthleteInfo(athleteInfo);
-
       setFetchingDebts(true);
-      try {
-        const { data, error } = await supabase
-          .from('payments')
-          .select('*')
-          .eq('athlete_id', formData.athleteId)
-          .in('status', ['pending', 'overdue'])
-          .order('payment_date', { ascending: true });
+      const { data } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('athlete_id', selectedAthlete.id)
+        .in('status', ['pending', 'overdue'])
+        .order('payment_date', { ascending: true }); // Las más viejas primero
+       
+      setPendingDebts(data || []);
+      setFetchingDebts(false);
 
-        if (error) throw error;
-        setPendingDebts(data || []);
-        
-        // Resetear descuentos al cambiar atleta
-        setApplyDiscount(false);
-        setDiscountValue('');
-
-        // Si hay deuda vieja, sugerimos pagarla
-        if (data && data.length > 0) {
-           handleSelectDebt(data[0].id); // Seleccionamos la primera por defecto
-        } else {
-           // Si NO hay deuda, preparamos para cobro manual limpio
-           setFormData(prev => ({ ...prev, isManualEntry: true, concept: '', amount: '' }));
-           setSelectedDebtIds([]);
-        }
-
-      } catch (err) {
-        console.error("Error buscando deudas:", err);
-      } finally {
-        setFetchingDebts(false);
+      // Lógica inteligente: Si hay deuda, seleccionar la más vieja por defecto
+      if (data && data.length > 0) {
+        handleToggleDebt(data[0].id, data);
+      } else {
+        handleResetForm(); // Preparar para cobro manual limpio
       }
     };
-
     fetchDebts();
-  }, [formData.athleteId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAthlete]);
 
-  // Lógica para seleccionar/deseleccionar deudas existentes
-  const handleSelectDebt = (debtId) => {
-    // Si se pasa un array (reinicio) o un id
-    let newSelection = [];
-    
-    setSelectedDebtIds(prev => {
-      const isSelected = prev.includes(debtId);
-      newSelection = isSelected ? prev.filter(id => id !== debtId) : [...prev, debtId];
-      
-      // IMPORTANTE: Recalcular totales después de actualizar el estado
-      // (Aquí hacemos un pequeño truco para llamar a recalculate con el nuevo valor)
-      // Como setState es asíncrono, mejor llamamos a la función de cálculo fuera o usamos un useEffect.
-      // Para simplificar, calculamos aquí mismo:
-      const total = pendingDebts
-        .filter(d => newSelection.includes(d.id))
-        .reduce((sum, d) => sum + Number(d.amount), 0);
-      
-      const concepts = pendingDebts
-        .filter(d => newSelection.includes(d.id))
-        .map(d => d.concept)
-        .join(" + ");
+  // ----------------------------------------------------------------
+  // 3. LÓGICA DE NEGOCIO
+  // ----------------------------------------------------------------
+
+  // Calcular Total Final con Descuento
+  const getFinalTotal = () => {
+    const base = parseFloat(formData.amount) || 0;
+    if (!showDiscount || !discountValue) return base;
+
+    const val = parseFloat(discountValue);
+    let final = base;
+
+    if (discountType === 'percent') {
+      final = base - (base * (val / 100));
+    } else {
+      final = base - val;
+    }
+    return Math.max(0, final); // Evitar negativos
+  };
+
+  // Seleccionar/Deseleccionar Deuda
+  const handleToggleDebt = (debtId, currentDebts = pendingDebts) => {
+    // Calcular nueva selección
+    const isSelected = selectedDebtIds.includes(debtId);
+    const newSelection = isSelected 
+      ? selectedDebtIds.filter(id => id !== debtId) 
+      : [...selectedDebtIds, debtId];
+     
+    setSelectedDebtIds(newSelection);
+
+    // Recalcular montos basados en la selección
+    if (newSelection.length > 0) {
+      const selectedItems = currentDebts.filter(d => newSelection.includes(d.id));
+      const totalAmount = selectedItems.reduce((sum, d) => sum + Number(d.amount), 0);
+      const combinedConcept = selectedItems.map(d => d.concept).join(' + ');
 
       setFormData(prev => ({
         ...prev,
-        amount: total > 0 ? total : '',
-        concept: concepts || '',
-        isManualEntry: newSelection.length === 0
+        amount: totalAmount,
+        concept: combinedConcept
       }));
-
-      return newSelection;
-    });
+      // Si seleccionamos deuda, ocultamos descuento inicialmente para evitar confusión
+      setShowDiscount(false);
+      setDiscountValue('');
+    } else {
+      handleResetForm();
+    }
   };
 
-  // --- NUEVA FUNCIÓN: CARGAR PLAN AUTOMÁTICAMENTE ---
-  const handleLoadPlanCharge = () => {
-    if (!selectedAthleteInfo?.planPrice) return alert("Este atleta no tiene un plan asignado con precio.");
-    
-    setSelectedDebtIds([]); 
-    setApplyDiscount(false); // Resetear descuento al cargar plan
+  // Carga Rápida: Cobrar Plan Actual
+  const handleLoadPlan = () => {
+    if (!selectedAthlete?.planPrice) return;
+     
+    setSelectedDebtIds([]); // Asegurar que es un pago nuevo
+    setShowDiscount(false);
     setDiscountValue('');
-    
-    const currentMonth = new Date().toLocaleString('es-ES', { month: 'long' });
-    const capitalizedMonth = currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1);
 
     setFormData(prev => ({
       ...prev,
-      isManualEntry: true,
-      amount: selectedAthleteInfo.planPrice,
-      concept: `Cuota ${selectedAthleteInfo.planName} - ${capitalizedMonth}`
+      amount: selectedAthlete.planPrice,
+      concept: `Cuota ${selectedAthlete.planName} - ${getCurrentMonthName()}`
     }));
   };
 
+  // Reiniciar formulario a manual
+  const handleResetForm = () => {
+    setFormData(prev => ({ ...prev, amount: '', concept: '' }));
+    setSelectedDebtIds([]);
+    setShowDiscount(false);
+    setDiscountValue('');
+  };
+
+  // Enviar Pago
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    const finalAmount = getFinalTotal();
 
     try {
-      // PREPARAR DATOS COMUNES PARA EL PAGO
-      // amount: Lo que realmente paga (con descuento aplicado)
-      // base_amount: El precio de lista original
+      // Payload común
       const payload = {
-          amount: finalTotalToPay, // Usamos el cálculo final
-          method: formData.method,
-          payment_date: formData.paymentDate,
-          status: 'paid',
-          // Campos nuevos para auditoría de descuentos
-          base_amount: parseFloat(formData.amount),
-          discount_value: applyDiscount ? parseFloat(discountValue) : null,
-          discount_type: applyDiscount ? discountType : null
+        amount: finalAmount, // Lo que realmente paga
+        method: formData.method,
+        payment_date: formData.paymentDate,
+        status: 'paid',
+        base_amount: parseFloat(formData.amount), // Precio original
+        discount_value: showDiscount ? parseFloat(discountValue) : null,
+        discount_type: showDiscount ? discountType : null
       };
 
-      if (formData.isManualEntry && selectedDebtIds.length === 0) {
-        // CASO A: Generando Cobro Nuevo (Plan Mensual o Manual)
-        // Aquí insertamos concepto y athlete_id
-        const { error } = await supabase.from('payments').insert({
-          ...payload,
-          athlete_id: formData.athleteId,
-          concept: formData.concept,
-        });
-        if (error) throw error;
-
-      } else {
-        // CASO B: Pagando Deuda Vieja
-        // Actualizamos los registros existentes
+      if (selectedDebtIds.length > 0) {
+        // A) PAGANDO DEUDAS EXISTENTES
         const { error } = await supabase
           .from('payments')
-          .update(payload) // Supabase ignorará los campos que no existen si la tabla está bien definida, pero ya verificamos que existen.
+          .update(payload)
           .in('id', selectedDebtIds);
-
+        if (error) throw error;
+      } else {
+        // B) CREANDO NUEVO COBRO
+        const { error } = await supabase
+          .from('payments')
+          .insert({
+            ...payload,
+            athlete_id: selectedAthlete.id,
+            concept: formData.concept
+          });
         if (error) throw error;
       }
 
-      alert("Pago registrado exitosamente");
-      onSuccess();
-      onClose();
-
+      onSuccess(); // Refrescar tabla padre
+      onClose();   // Cerrar modal
     } catch (error) {
-      console.error("Error:", error);
-      alert("Error: " + error.message);
+      console.error(error);
+      alert('Error al procesar el pago: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filtro buscador
-  const filteredAthletes = athletes.filter(a => 
-    a.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrado optimizado para la búsqueda
+  const filteredAthletes = useMemo(() => {
+    if (!searchTerm) return [];
+    return athletes.filter(a => a.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [athletes, searchTerm]);
 
+  // ----------------------------------------------------------------
+  // RENDER UI
+  // ----------------------------------------------------------------
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-modal flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-2xl rounded-[1.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         
-        <div className="flex items-center justify-between p-6 border-b border-border">
+        {/* HEADER */}
+        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <div>
-            <h2 className="text-xl font-heading font-bold text-foreground">Caja / Cobros</h2>
-            <p className="text-sm text-muted-foreground">Gestión de pagos y cuotas</p>
+            <h2 className="text-xl font-black text-slate-800 tracking-tight">Caja / Cobros</h2>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              {selectedAthlete ? 'Detalles del Pago' : 'Seleccionar Atleta'}
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg"><Icon name="X" size={20} /></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
+            <Icon name="X" size={20} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
-          
-          {/* 1. Selector de Atleta */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Atleta *</label>
-            {!formData.athleteId ? (
-              <>
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+           
+          {/* VISTA 1: BUSCADOR DE ATLETAS */}
+          {!selectedAthlete ? (
+            <div className="space-y-6">
+              <div className="relative group">
+                <Icon name="Search" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
                 <input 
                   type="text" 
-                  placeholder="🔍 Buscar por nombre..." 
+                  placeholder="Buscar atleta por nombre..." 
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none text-lg font-bold text-slate-700 transition-all placeholder:font-medium placeholder:text-slate-400"
+                  autoFocus
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm mb-2 focus:ring-2 focus:ring-primary outline-none"
-                  autoFocus
                 />
-                <div className="border border-border rounded-md max-h-40 overflow-y-auto bg-card">
-                  {filteredAthletes.map(ath => (
-                    <div 
-                      key={ath.id}
-                      onClick={() => setFormData(prev => ({ ...prev, athleteId: ath.id }))}
-                      className="px-3 py-2 text-sm cursor-pointer hover:bg-muted text-foreground flex justify-between"
+              </div>
+               
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-2">Resultados</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {filteredAthletes.map(athlete => (
+                    <button 
+                      key={athlete.id}
+                      onClick={() => setSelectedAthlete(athlete)}
+                      className="flex items-center gap-4 p-3 hover:bg-blue-50 border border-slate-100 hover:border-blue-200 rounded-xl transition-all group text-left"
                     >
-                      <span>{ath.name}</span>
-                      {ath.planName && <span className="text-xs text-muted-foreground bg-muted px-1 rounded">{ath.planName}</span>}
-                    </div>
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold group-hover:bg-blue-200 group-hover:text-blue-700 shrink-0 overflow-hidden">
+                        {athlete.avatar ? (
+                            <img src={athlete.avatar} alt={athlete.name} className="w-full h-full object-cover" />
+                        ) : (
+                            athlete.name.charAt(0)
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-700 group-hover:text-blue-800">{athlete.name}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 group-hover:text-blue-500">{athlete.planName || 'Sin Plan'}</span>
+                          {athlete.planPrice && <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono group-hover:bg-blue-100 group-hover:text-blue-600">${athlete.planPrice}</span>}
+                        </div>
+                      </div>
+                      <Icon name="ChevronRight" size={16} className="text-slate-300 group-hover:text-blue-400" />
+                    </button>
                   ))}
+                  {filteredAthletes.length === 0 && (
+                    <div className="text-center py-8 text-slate-400">
+                      <p>{searchTerm ? "No se encontraron atletas" : "Escribe para buscar..."}</p>
+                    </div>
+                  )}
                 </div>
-              </>
-            ) : (
-              <div className="flex items-center justify-between p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
-                    {selectedAthleteInfo?.name.charAt(0)}
-                  </div>
-                  <div>
-                    <span className="font-bold text-foreground block leading-tight">{selectedAthleteInfo?.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      Plan: {selectedAthleteInfo?.planName || 'Sin Plan'} 
-                      {selectedAthleteInfo?.planPrice ? ` ($${selectedAthleteInfo.planPrice})` : ''}
-                    </span>
-                  </div>
+              </div>
+            </div>
+          ) : (
+             
+            /* VISTA 2: FORMULARIO DE PAGO */
+            <form onSubmit={handleSubmit} className="space-y-6 animate-in slide-in-from-right-8 duration-300">
+               
+              {/* Tarjeta Atleta Seleccionado */}
+              <div className="flex items-center justify-between bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-200 overflow-hidden">
+                     {selectedAthlete.avatar ? (
+                        <img src={selectedAthlete.avatar} alt={selectedAthlete.name} className="w-full h-full object-cover" />
+                     ) : (
+                        selectedAthlete.name.charAt(0)
+                     )}
+                   </div>
+                   <div>
+                     <p className="font-bold text-slate-800 leading-tight">{selectedAthlete.name}</p>
+                     <p className="text-xs text-slate-500 font-medium">{selectedAthlete.planName}</p>
+                   </div>
                 </div>
                 <button 
                   type="button" 
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, athleteId: '', amount: '', concept: '' }));
-                    setPendingDebts([]);
-                    setSelectedDebtIds([]);
-                    setApplyDiscount(false);
-                    setDiscountValue('');
-                  }}
-                  className="text-xs text-muted-foreground hover:text-error underline"
+                  onClick={() => { setSelectedAthlete(null); setSearchTerm(''); }} 
+                  className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline px-2"
                 >
                   Cambiar
                 </button>
               </div>
-            )}
-          </div>
 
-          {/* 2. Área de Selección de Pagos */}
-          {formData.athleteId && (
-            <div className="space-y-4 animate-in slide-in-from-top-2">
-              
-              {/* Opción A: Deudas Pendientes */}
-              {pendingDebts.length > 0 && (
+              {/* Sección A: Deudas Pendientes */}
+              {fetchingDebts ? (
+                <div className="text-center py-4"><Icon name="Loader" className="animate-spin mx-auto text-blue-500" /></div>
+              ) : pendingDebts.length > 0 ? (
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-muted-foreground uppercase">Deudas Pendientes</label>
-                  <div className="border border-border rounded-lg overflow-hidden divide-y divide-border bg-card">
-                    {pendingDebts.map(debt => {
-                      const isSelected = selectedDebtIds.includes(debt.id);
-                      return (
-                        <div 
-                          key={debt.id}
-                          onClick={() => handleSelectDebt(debt.id)}
-                          className={`p-3 cursor-pointer flex items-center justify-between transition-colors ${
-                            isSelected ? 'bg-primary/5' : 'hover:bg-muted/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                              {isSelected && <Icon name="Check" size={12} color="white" />}
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Deudas Pendientes</label>
+                   <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 divide-y divide-slate-100">
+                     {pendingDebts.map(debt => {
+                       const isSelected = selectedDebtIds.includes(debt.id);
+                       return (
+                         <div 
+                           key={debt.id}
+                           onClick={() => handleToggleDebt(debt.id)}
+                           className={`p-4 cursor-pointer flex items-center justify-between transition-colors ${isSelected ? 'bg-blue-50/80' : 'hover:bg-slate-100'}`}
+                         >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-slate-300 bg-white'}`}>
+                                {isSelected && <Icon name="Check" size={12} className="text-white" />}
+                              </div>
+                              <div>
+                                <p className={`text-sm font-bold ${isSelected ? 'text-blue-900' : 'text-slate-700'}`}>{debt.concept}</p>
+                                <p className="text-[10px] font-bold text-rose-500">Vencimiento: {new Date(debt.payment_date).toLocaleDateString()}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium">{debt.concept}</p>
-                              <p className="text-[10px] text-error">Vencido: {new Date(debt.payment_date).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                          <span className="font-mono font-bold">${debt.amount}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                            <span className="font-mono font-bold text-slate-700">{formatCurrency(debt.amount)}</span>
+                         </div>
+                       );
+                     })}
+                   </div>
                 </div>
+              ) : null}
+
+              {/* Sección B: Acciones Rápidas (Solo si no pagamos deuda vieja) */}
+              {selectedDebtIds.length === 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                     <button 
+                       type="button"
+                       onClick={handleLoadPlan}
+                       disabled={!selectedAthlete.planPrice}
+                       className="p-3 border border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-blue-400 transition-all text-center group disabled:opacity-50"
+                     >
+                        <Icon name="Calendar" className="mx-auto mb-1 text-slate-400 group-hover:text-blue-500" size={18} />
+                        <span className="block text-xs font-bold text-slate-600">Cargar Plan Actual</span>
+                        {selectedAthlete.planPrice && <span className="text-[10px] text-slate-400">${selectedAthlete.planPrice}</span>}
+                     </button>
+                     <button 
+                       type="button"
+                       onClick={handleResetForm}
+                       className="p-3 border border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-blue-400 transition-all text-center group"
+                     >
+                        <Icon name="Edit" className="mx-auto mb-1 text-slate-400 group-hover:text-blue-500" size={18} />
+                        <span className="block text-xs font-bold text-slate-600">Entrada Manual</span>
+                        <span className="text-[10px] text-slate-400">Productos / Otros</span>
+                     </button>
+                  </div>
               )}
 
-              {/* Opción B: Generar Nuevo Cobro (Botones Rápidos) */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                   <label className="text-xs font-bold text-muted-foreground uppercase">Generar Cobro Nuevo</label>
-                   {selectedDebtIds.length > 0 && <span className="text-[10px] text-warning">(Deseleccione deudas arriba para crear nuevo)</span>}
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  {/* BOTÓN MAGICO DE PLAN */}
-                  <button
-                    type="button"
-                    onClick={handleLoadPlanCharge}
-                    disabled={selectedDebtIds.length > 0 || !selectedAthleteInfo?.planPrice}
-                    className="flex flex-col items-center justify-center p-3 border border-border rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Icon name="Calendar" size={20} className="mb-1 text-primary" />
-                    <span className="text-xs font-bold">Cobrar {selectedAthleteInfo?.planName || 'Plan'}</span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {selectedAthleteInfo?.planPrice ? `$${selectedAthleteInfo.planPrice}` : 'Sin precio'}
-                    </span>
-                  </button>
-
-                  {/* Botón Manual */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                        setSelectedDebtIds([]);
-                        setApplyDiscount(false);
-                        setDiscountValue('');
-                        setFormData(prev => ({ ...prev, isManualEntry: true, amount: '', concept: '' }));
-                    }}
-                    disabled={selectedDebtIds.length > 0}
-                    className="flex flex-col items-center justify-center p-3 border border-border rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Icon name="Edit" size={20} className="mb-1 text-secondary" />
-                    <span className="text-xs font-bold">Cobro Manual</span>
-                    <span className="text-[10px] text-muted-foreground">Varios / Otros</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* --- AQUÍ LA NUEVA SECCIÓN DE DESCUENTOS --- */}
-          {formData.amount > 0 && (
-            <div className="my-2 p-3 bg-muted/20 border border-dashed border-border rounded-lg animate-in fade-in">
-              <div className="flex items-center mb-3">
-                <input
-                  type="checkbox"
-                  id="chk-discount"
-                  checked={applyDiscount}
-                  onChange={(e) => {
-                    setApplyDiscount(e.target.checked);
-                    if (!e.target.checked) setDiscountValue('');
-                  }}
-                  className="w-4 h-4 text-primary rounded border-input focus:ring-primary cursor-pointer"
-                />
-                <label htmlFor="chk-discount" className="ml-2 text-sm font-medium text-foreground cursor-pointer select-none">
-                  Aplicar descuento
-                </label>
+              {/* Sección C: Inputs Monetarios */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Monto</label>
+                     <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                        <input 
+                          type="number"
+                          value={formData.amount}
+                          onChange={(e) => setFormData(prev => ({...prev, amount: e.target.value}))}
+                          readOnly={selectedDebtIds.length > 0}
+                          placeholder="0"
+                          className={`w-full pl-8 pr-3 py-3 rounded-xl border-2 outline-none font-bold text-lg transition-all ${selectedDebtIds.length > 0 ? 'bg-slate-100 border-transparent text-slate-500' : 'bg-slate-50 border-transparent focus:border-blue-500 text-slate-800'}`}
+                        />
+                     </div>
+                  </div>
+                  <div className="space-y-1">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Método</label>
+                     <select 
+                        value={formData.method}
+                        onChange={(e) => setFormData(prev => ({...prev, method: e.target.value}))}
+                        className="w-full px-3 py-[14px] bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-xl outline-none font-bold text-slate-700 text-sm appearance-none"
+                     >
+                        <option value="efectivo">💵 Efectivo</option>
+                        <option value="tarjeta">💳 Tarjeta</option>
+                        <option value="transferencia">🏦 Transferencia</option>
+                        <option value="mp">📱 MercadoPago</option>
+                     </select>
+                  </div>
               </div>
 
-              {applyDiscount && (
-                <div className="flex gap-3 animate-in slide-in-from-left-2">
-                  <div className="w-1/3">
-                    <select
-                      value={discountType}
-                      onChange={(e) => setDiscountType(e.target.value)}
-                      className="w-full h-9 px-2 bg-background border border-input rounded-md text-sm focus:ring-1 focus:ring-primary outline-none"
-                    >
-                      <option value="percent">% (Porc.)</option>
-                      <option value="fixed">$ (Fijo)</option>
-                    </select>
-                  </div>
-                  <div className="flex-1">
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder={discountType === 'percent' ? "Ej: 50" : "Ej: 2000"}
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(e.target.value)}
-                      className="w-full h-9 px-3 bg-background border border-input rounded-md text-sm focus:ring-1 focus:ring-primary outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 3. Resumen Final y Datos de Pago */}
-          <div className="bg-muted/30 p-4 rounded-xl space-y-4 border border-border">
-            <div className="grid grid-cols-2 gap-4">
+              {/* Input Concepto */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground uppercase">Total a Pagar</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                  <input
-                    type="number"
-                    // Si hay descuento, mostramos el cálculo final. Si no, mostramos el valor del form (editable)
-                    value={applyDiscount ? finalTotalToPay : formData.amount}
-                    onChange={(e) => {
-                        // Solo permitimos editar si NO hay descuento aplicado y es entrada manual
-                        if (!applyDiscount) {
-                            setFormData(prev => ({ ...prev, amount: e.target.value, isManualEntry: true }));
-                        }
-                    }}
-                    className={`w-full pl-7 pr-3 py-2 rounded-md font-bold text-lg bg-card border border-border outline-none focus:ring-2 focus:ring-primary ${
-                        applyDiscount ? 'text-primary bg-primary/5' : ''
-                    }`}
-                    placeholder="0.00"
-                    // ReadOnly si hay descuento (porque es calculado) o si es deuda vieja
-                    readOnly={applyDiscount || selectedDebtIds.length > 0} 
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Concepto</label>
+                  <input 
+                    type="text"
+                    value={formData.concept}
+                    onChange={(e) => setFormData(prev => ({...prev, concept: e.target.value}))}
+                    readOnly={selectedDebtIds.length > 0}
+                    placeholder="Descripción del pago..."
+                    className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-medium text-sm transition-all ${selectedDebtIds.length > 0 ? 'bg-slate-100 border-transparent text-slate-500' : 'bg-slate-50 border-transparent focus:border-blue-500 text-slate-700'}`}
                   />
-                  {applyDiscount && (
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-primary font-medium">
-                          Con Desc.
-                      </span>
+              </div>
+
+              {/* Toggle Descuento */}
+              <div>
+                  <button 
+                    type="button"
+                    onClick={() => setShowDiscount(!showDiscount)}
+                    className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                     <Icon name={showDiscount ? 'MinusCircle' : 'PlusCircle'} size={14} />
+                     {showDiscount ? 'Quitar Descuento' : 'Aplicar Descuento / Promo'}
+                  </button>
+
+                  {showDiscount && (
+                     <div className="mt-3 p-3 bg-blue-50 rounded-xl flex gap-3 animate-in slide-in-from-top-2 border border-blue-100">
+                        <select 
+                          value={discountType}
+                          onChange={(e) => setDiscountType(e.target.value)}
+                          className="bg-white border border-blue-200 rounded-lg px-2 py-2 text-xs font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-200"
+                        >
+                           <option value="percent">% (Porc.)</option>
+                           <option value="fixed">$ (Fijo)</option>
+                        </select>
+                        <input 
+                          type="number"
+                          value={discountValue}
+                          onChange={(e) => setDiscountValue(e.target.value)}
+                          placeholder={discountType === 'percent' ? "Ej: 15" : "Ej: 500"}
+                          className="flex-1 bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-200 placeholder:text-blue-300/70"
+                        />
+                     </div>
                   )}
-                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-muted-foreground uppercase">Método</label>
-                <select 
-                  name="method" 
-                  value={formData.method} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, method: e.target.value }))}
-                  className="w-full h-[46px] px-3 bg-card border border-border rounded-md text-sm focus:ring-2 focus:ring-primary outline-none"
-                >
-                  <option value="efectivo">Efectivo</option>
-                  <option value="tarjeta">Tarjeta</option>
-                  <option value="transferencia">Transferencia</option>
-                  <option value="mp">MercadoPago</option>
-                </select>
+              {/* FOOTER TOTAL Y ACTION */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase">Total a Pagar</p>
+                     <div className="flex items-baseline gap-2">
+                       <p className="text-3xl font-black text-slate-900 tracking-tighter">
+                           {formatCurrency(getFinalTotal())}
+                       </p>
+                       {showDiscount && discountValue && (
+                         <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-1.5 rounded">Con descuento</span>
+                       )}
+                     </div>
+                  </div>
+                  <button 
+                    type="submit"
+                    disabled={loading || !formData.amount || Number(formData.amount) <= 0}
+                    className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-lg shadow-slate-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:translate-y-[-2px] active:translate-y-[0px]"
+                  >
+                     {loading ? <Icon name="Loader" className="animate-spin" size={18} /> : <Icon name="Check" size={18} />}
+                     Confirmar
+                  </button>
               </div>
-            </div>
 
-            {/* Concepto editable */}
-            <Input 
-              label="Concepto" 
-              name="concept" 
-              value={formData.concept} 
-              onChange={(e) => setFormData(prev => ({ ...prev, concept: e.target.value }))}
-              placeholder="Descripción del pago..."
-              readOnly={selectedDebtIds.length > 0} // Bloqueado si son deudas viejas
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button 
-              type="submit" 
-              variant="default" 
-              iconName="Check" 
-              loading={loading}
-              disabled={!finalTotalToPay || Number(finalTotalToPay) <= 0}
-            >
-              Confirmar Cobro
-            </Button>
-          </div>
-        </form>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

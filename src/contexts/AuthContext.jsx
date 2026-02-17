@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
@@ -14,11 +14,18 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const clearSupabaseAuthStorage = useCallback(() => {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.includes('sb-') && key.includes('-auth-token')) {
+        localStorage.removeItem(key);
+      }
+    });
+  }, []);
+
   const resolveUserProfile = async (authUser) => {
     if (!authUser) return null;
-    
+
     try {
-      // Optimizamos: Pedimos el perfil
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, avatar_url')
@@ -37,12 +44,19 @@ export const AuthProvider = ({ children }) => {
         athleteId: null
       };
 
-      // Carga paralela de datos extra para no "trabar" la sesión
       if (baseProfile.role === 'profesor') {
-        const { data: c } = await supabase.from('coaches').select('id').eq('profile_id', profile.id).maybeSingle();
+        const { data: c } = await supabase
+          .from('coaches')
+          .select('id')
+          .eq('profile_id', profile.id)
+          .maybeSingle();
         if (c) baseProfile.coachId = c.id;
       } else if (baseProfile.role === 'atleta') {
-        const { data: a } = await supabase.from('athletes').select('id, coach_id').eq('profile_id', profile.id).maybeSingle();
+        const { data: a } = await supabase
+          .from('athletes')
+          .select('id, coach_id')
+          .eq('profile_id', profile.id)
+          .maybeSingle();
         if (a) {
           baseProfile.athleteId = a.id;
           baseProfile.coachId = a.coach_id;
@@ -51,8 +65,25 @@ export const AuthProvider = ({ children }) => {
 
       return baseProfile;
     } catch (err) {
-      console.error("❌ [Auth] Error en resolución:", err);
+      console.error('❌ [Auth] Error en resolución:', err);
       return null;
+    }
+  };
+
+  const forceClientLogoutState = useCallback(() => {
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    clearSupabaseAuthStorage();
+  }, [clearSupabaseAuthStorage]);
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error en signOut:', err);
+    } finally {
+      forceClientLogoutState();
+      window.location.href = '/login';
     }
   };
 
@@ -61,13 +92,14 @@ export const AuthProvider = ({ children }) => {
 
     const init = async () => {
       try {
-        // Obtenemos la sesión actual
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        // Si hay error de sesión (token corrupto), limpiamos localmente
+        const {
+          data: { session },
+          error
+        } = await supabase.auth.getSession();
+
         if (error) {
-          console.warn("⚠️ [Auth] Sesión corrupta detectada, limpiando...");
-          await logout();
+          console.warn('⚠️ [Auth] Sesión corrupta detectada, limpiando...');
+          forceClientLogoutState();
           return;
         }
 
@@ -77,28 +109,53 @@ export const AuthProvider = ({ children }) => {
             setCurrentUser(profile);
             setIsAuthenticated(true);
           } else if (isMounted) {
-            await logout(); // Si no hay perfil, fuera
+            forceClientLogoutState();
           }
+        } else if (isMounted) {
+          setCurrentUser(null);
+          setIsAuthenticated(false);
         }
       } catch (err) {
-        console.error("Error inicializando auth:", err);
+        console.error('Error inicializando auth:', err);
+        if (isMounted) forceClientLogoutState();
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
 
+    const revalidateOnFocus = async () => {
+      if (!isMounted) return;
+
+      const {
+        data: { session },
+        error
+      } = await supabase.auth.getSession();
+
+      if (error || !session?.user) {
+        // Si estaba autenticado y perdió sesión (expirada / inválida), redirigir limpio
+        if (isMounted && isAuthenticated) {
+          await logout();
+        } else {
+          forceClientLogoutState();
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        revalidateOnFocus();
+      }
+    };
+
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
       if (event === 'SIGNED_OUT') {
-        setCurrentUser(null);
-        setIsAuthenticated(false);
-        // Limpieza forzada de cualquier rastro en localStorage
-        Object.keys(localStorage).forEach(key => {
-          if (key.includes('sb-') && key.includes('-auth-token')) localStorage.removeItem(key);
-        });
+        forceClientLogoutState();
         return;
       }
 
@@ -109,44 +166,36 @@ export const AuthProvider = ({ children }) => {
             setCurrentUser(profile);
             setIsAuthenticated(!!profile);
           }
+        } else {
+          forceClientLogoutState();
         }
       }
     });
 
+    window.addEventListener('focus', revalidateOnFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      window.removeEventListener('focus', revalidateOnFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []); 
+  }, [forceClientLogoutState, isAuthenticated]);
 
   const login = async ({ email, password }) => {
-    // Intentamos login
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error };
 
     const profile = await resolveUserProfile(data.user);
     if (!profile) {
       await logout();
-      return { error: { message: "No se encontró un perfil vinculado." } };
+      return { error: { message: 'No se encontró un perfil vinculado.' } };
     }
 
     setCurrentUser(profile);
     setIsAuthenticated(true);
     return { user: profile };
-  };
-
-  const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.error("Error en signOut:", err);
-    } finally {
-      // Limpieza manual definitiva para evitar el problema del Modo Incógnito
-      setCurrentUser(null);
-      setIsAuthenticated(false);
-      localStorage.clear(); // Borra todo para asegurar sesión limpia en el próximo login
-      window.location.href = '/login-role-selection'; // Redirección física para resetear estado de React
-    }
   };
 
   return (
