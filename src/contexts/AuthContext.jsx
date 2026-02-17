@@ -9,7 +9,7 @@ export const useAuth = () => {
   return context;
 };
 
-// Helper: Timeout aumentado a 10s para redes lentas/móviles
+// Helper: Timeout generoso de 15s para redes móviles/lentas
 const withTimeout = (promise, ms) =>
   Promise.race([
     promise,
@@ -21,12 +21,13 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Refs para acceder al estado actual dentro de listeners sin re-renderizar
+  // Refs de estado
   const isAuthenticatedRef = useRef(false);
   const currentUserRef = useRef(null); 
   const isRevalidatingRef = useRef(false);
+  const lastFocusCheckRef = useRef(0);
 
-  // Sincronización de Refs (Separados para claridad)
+  // Sincronización de Refs
   useEffect(() => {
     isAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated]);
@@ -35,7 +36,7 @@ export const AuthProvider = ({ children }) => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
-  // A) LIMPIEZA TOTAL (Para Logout explícito o sesión corrupta confirmada)
+  // A) LIMPIEZA TOTAL (Solo para Logout explícito)
   const clearAuthData = useCallback(() => {
     setCurrentUser(null);
     setIsAuthenticated(false);
@@ -46,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
-  // B) LIMPIEZA SUAVE (Para errores de red/timeout - NO borra storage)
+  // B) LIMPIEZA SUAVE (Solo memoria)
   const resetAuthState = useCallback(() => {
     setCurrentUser(null);
     setIsAuthenticated(false);
@@ -99,6 +100,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Helper interno para reintentar la carga del perfil (Grace Pattern)
+  const fetchProfileWithRetry = useCallback(async (userId, retries = 2) => {
+    for (let i = 0; i <= retries; i++) {
+      const profile = await fetchUserProfile(userId);
+      if (profile) return profile;
+      // Si falló, esperamos un poco antes de reintentar (Backoff)
+      if (i < retries) await new Promise(r => setTimeout(r, 800));
+    }
+    return null;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
@@ -115,27 +127,39 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), 10000);
+        // Timeout de 15s (Relaxed Mode)
+        const { data: { session }, error } = await withTimeout(supabase.auth.getSession(), 15000);
 
         if (error) throw error;
 
         if (session?.user) {
-          const profile = await fetchUserProfile(session.user.id);
+          // MICRO-CAMBIO A: Marcamos autenticado inmediatamente si hay sesión válida.
+          // Esto evita que ProtectedRoute redirija a Login mientras cargamos el perfil.
+          if (mounted) setIsAuthenticated(true);
+
+          // Usamos Retry también en el init para ser más resilientes
+          const profile = await fetchProfileWithRetry(session.user.id);
           
           if (mounted) {
             if (profile) {
               setCurrentUser(profile);
-              setIsAuthenticated(true);
             } else {
-              console.warn('[Auth] Session valid but no profile found.');
-              await logout();
+              // Si falla el perfil tras reintentos, NO deslogueamos.
+              // Dejamos isAuthenticated=true y currentUser=null.
+              // ProtectedRoute mostrará "Cargando perfil..." indefinidamente o hasta un refresh,
+              // en lugar de expulsar al usuario por un fallo de red.
+              console.warn('[Auth] Session valid but profile load failed. UI will show loader.');
             }
           }
         }
       } catch (err) {
         console.warn('[Auth] Init warning:', err.message);
-        if (mounted) {
-            resetAuthState(); // Solo limpia memoria, no storage (fail-safe)
+        const isTimeout = String(err?.message || '').toLowerCase().includes('timeout');
+        
+        // Si es timeout, NO tocamos nada (asumimos red lenta).
+        // Si es otro error y no tenemos sesión montada, limpiamos memoria.
+        if (mounted && !isTimeout) {
+            resetAuthState(); 
         }
       } finally {
         if (mounted) setIsLoading(false);
@@ -153,11 +177,6 @@ export const AuthProvider = ({ children }) => {
       } 
       else if (['SIGNED_IN', 'TOKEN_REFRESHED', 'INITIAL_SESSION'].includes(event)) {
         if (session?.user) {
-           // Condiciones para forzar recarga de perfil:
-           // 1. Es un login nuevo.
-           // 2. Es la sesión inicial.
-           // 3. El contexto dice que no estamos autenticados.
-           // 4. (CRITICO) Estamos autenticados pero NO tenemos perfil cargado (Zombie).
            const needsProfileReload = 
               event === 'SIGNED_IN' || 
               event === 'INITIAL_SESSION' || 
@@ -165,17 +184,22 @@ export const AuthProvider = ({ children }) => {
               !currentUserRef.current;
 
            if (needsProfileReload) {
-               const profile = await fetchUserProfile(session.user.id);
+               // Si es un evento de auth, aseguramos que el flag esté en true
+               setIsAuthenticated(true);
+               
+               const profile = await fetchProfileWithRetry(session.user.id);
                
                if (mounted) {
                  if (profile) {
                    setCurrentUser(profile);
-                   setIsAuthenticated(true);
                  } else {
-                   // CORRECCIÓN FINAL: Si intentamos recargar y fallamos (perfil null),
-                   // debemos salir para evitar el loader infinito en ProtectedRoute.
-                   console.warn('[Auth] Token refreshed but profile load failed.');
-                   await logout(); 
+                   // Si falló tras reintentos y no tenemos nada en memoria...
+                   if (!currentUserRef.current) {
+                      console.warn('[Auth] Critical: Profile load failed after retries. Keeping session active for retry.');
+                      // En modo Relaxed, preferimos no hacer logout automático aquí tampoco,
+                      // salvo que queramos ser estrictos. Con isAuthenticated=true, 
+                      // el usuario verá el loader y podrá refrescar la página manualmente.
+                   }
                  }
                }
            }
@@ -185,17 +209,30 @@ export const AuthProvider = ({ children }) => {
     });
 
     const handleFocus = async () => {
+        // Cooldown 15s
+        const now = Date.now();
+        if (now - lastFocusCheckRef.current < 15000) return; 
+        lastFocusCheckRef.current = now;
+
         if (isRevalidatingRef.current || !isAuthenticatedRef.current) return;
 
         isRevalidatingRef.current = true;
         try {
             const { data: { session }, error } = await supabase.auth.getSession();
-            if (error || !session?.user) {
-                console.warn('[Auth] Session lost on focus revalidation.');
+            
+            // MICRO-CAMBIO B: Lógica de logout precisa.
+            if (error) throw error; // Si hay error (red/timeout), va al catch y se ignora.
+
+            if (!session) {
+                // Si la respuesta es exitosa (sin error) pero NO hay sesión,
+                // significa que el token expiró o fue revocado. Logout.
+                console.warn('[Auth] Session explicitly lost on focus.');
                 await logout();
             }
         } catch (e) {
-            console.error('[Auth] Revalidation error', e);
+            // Si es error de red, timeout o fetch failed, lo ignoramos.
+            // No expulsamos al usuario por tener mal internet al volver a la pestaña.
+            console.warn('[Auth] Revalidation check failed (network?):', e.message);
         } finally {
             isRevalidatingRef.current = false;
         }
@@ -208,22 +245,23 @@ export const AuthProvider = ({ children }) => {
       subscription.unsubscribe();
       window.removeEventListener('focus', handleFocus);
     };
-  }, [clearAuthData, resetAuthState, logout]);
+  }, [clearAuthData, resetAuthState, logout, fetchProfileWithRetry]);
 
   const login = async ({ email, password }) => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      const profile = await fetchUserProfile(data.user.id);
-      if (!profile) throw new Error('Perfil no encontrado.');
+      // Usamos retry también en login para asegurar que entra bien
+      const profile = await fetchProfileWithRetry(data.user.id);
+      
+      if (!profile) throw new Error('No se pudo cargar el perfil. Intente nuevamente.');
 
       setCurrentUser(profile);
       setIsAuthenticated(true);
       return { user: profile };
       
     } catch (err) {
-      // Si falla login (credenciales), no tocamos estado global para no romper UX
       return { error: err };
     }
   };

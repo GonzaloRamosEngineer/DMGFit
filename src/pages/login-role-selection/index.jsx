@@ -10,6 +10,9 @@ const LoginRoleSelection = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  // Ahora el modo siempre es login
+  const isLoginMode = true;
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -25,6 +28,9 @@ const LoginRoleSelection = () => {
   const rafRef = useRef(null);
   const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
   const [glow, setGlow] = useState({ x: 50, y: 40 });
+
+  // REF PARA EVITAR DOBLE SUBMIT (La clave del arreglo)
+  const submittingRef = useRef(false);
 
   const title = "Iniciar Sesión";
 
@@ -84,13 +90,19 @@ const LoginRoleSelection = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // BLOQUEO DE SEGURIDAD: Si ya está enviando o cargando, no hacer nada.
+    if (submittingRef.current || isLoading) return;
+    
+    // Activamos el bloqueo
+    submittingRef.current = true;
     setIsLoading(true);
     setUiStatus('checking');
     setError('');
 
     try {
       const { error: loginError, user } = await login({
-        email: formData.email,
+        email: formData.email.trim(), // Trim por seguridad
         password: formData.password
       });
 
@@ -100,7 +112,6 @@ const LoginRoleSelection = () => {
 
       const targetPath = redirectByRole(user?.role);
       
-      // Pequeño delay para mostrar el tick verde de éxito
       setTimeout(() => {
         navigate(targetPath, { replace: true });
       }, 450);
@@ -109,11 +120,12 @@ const LoginRoleSelection = () => {
       console.error('Login failed:', err);
       setUiStatus('error');
       setError(friendlyError(err));
-      
-      // Volver a estado normal después de mostrar error
+      // Liberamos el bloqueo visual en caso de error
       setTimeout(() => setUiStatus('idle'), 1500);
     } finally {
+      // Importante: Liberamos el estado de carga y el ref
       setIsLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -131,10 +143,8 @@ const LoginRoleSelection = () => {
       </Helmet>
 
       <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-50">
-        {/* Background Pattern */}
         <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:32px_32px]" />
 
-        {/* Dynamic Glow Background */}
         <div
           className="absolute w-[900px] h-[900px] rounded-full blur-3xl pointer-events-none"
           style={{
@@ -146,8 +156,6 @@ const LoginRoleSelection = () => {
         />
 
         <div className="w-full max-w-md relative z-10">
-          
-          {/* Header Logo */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg border border-white/60 bg-stone-900 transition-all duration-300">
               <BrandIcon />
@@ -161,7 +169,6 @@ const LoginRoleSelection = () => {
             </p>
           </div>
 
-          {/* Login Card */}
           <div
             ref={cardRef}
             onMouseMove={handleMouseMove}
@@ -172,7 +179,6 @@ const LoginRoleSelection = () => {
               transformStyle: 'preserve-3d',
             }}
           >
-            {/* Loading Overlay Gradient */}
             <div
               className="absolute left-0 right-0 h-24 pointer-events-none"
               style={{
@@ -183,7 +189,6 @@ const LoginRoleSelection = () => {
             />
 
             <div className="p-8">
-              
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-stone-900 tracking-tight">
                   Acceso
@@ -194,8 +199,6 @@ const LoginRoleSelection = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                
-                {/* Email Input */}
                 <div>
                   <label htmlFor="email" className="block text-xs font-bold text-stone-700 mb-2 tracking-widest uppercase">
                     Email
@@ -209,10 +212,10 @@ const LoginRoleSelection = () => {
                     placeholder="tuemail@..."
                     className="w-full"
                     required
+                    disabled={isLoading} // Deshabilitar si carga
                   />
                 </div>
 
-                {/* Password Input */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label htmlFor="password" className="block text-xs font-bold text-stone-700 tracking-widest uppercase">
@@ -231,19 +234,20 @@ const LoginRoleSelection = () => {
                       className="w-full pr-12 text-center tracking-[0.35em]"
                       required
                       minLength={6}
+                      disabled={isLoading} // Deshabilitar si carga
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 transition-colors"
                       aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      disabled={isLoading}
                     >
                       <Icon name={showPassword ? 'EyeOff' : 'Eye'} size={18} />
                     </button>
                   </div>
                 </div>
 
-                {/* Error Message */}
                 {error && (
                   <div className="rounded-xl p-3 flex items-start gap-2 bg-red-50 border border-red-100 animate-in fade-in slide-in-from-top-1">
                     <Icon name="AlertCircle" size={18} color="var(--color-error)" className="flex-shrink-0 mt-0.5" />
@@ -251,24 +255,24 @@ const LoginRoleSelection = () => {
                   </div>
                 )}
 
-                {/* Submit Button */}
                 <Button
                   type="submit"
                   variant="default"
                   size="lg"
                   fullWidth
                   loading={isLoading}
+                  disabled={isLoading} // Bloqueo extra
                   iconName={uiStatus === 'success' ? 'Check' : 'LogIn'}
                   className={uiStatus === 'success' ? 'bg-green-600 hover:bg-green-700' : ''}
                 >
                   {uiStatus === 'checking' ? 'Verificando...' : uiStatus === 'success' ? '¡Bienvenido!' : 'Ingresar'}
                 </Button>
 
-                {/* Footer Links */}
                 <div className="flex items-center justify-between pt-2">
                   <button
                     type="button"
-                    onClick={() => navigate('/forgot-password')} // Redirección limpia
+                    onClick={() => navigate('/forgot-password')}
+                    disabled={isLoading}
                     className="text-[10px] text-stone-400 hover:text-stone-700 transition-colors uppercase tracking-widest font-bold hover:underline"
                   >
                     ¿Olvidaste tu contraseña?
@@ -277,12 +281,10 @@ const LoginRoleSelection = () => {
                     Acceso controlado
                   </span>
                 </div>
-
               </form>
             </div>
           </div>
 
-          {/* Footer Branding */}
           <div className="mt-8 flex flex-col items-center gap-2">
             <span className="text-[10px] text-stone-400 uppercase tracking-widest">Engineered by</span>
             <a
