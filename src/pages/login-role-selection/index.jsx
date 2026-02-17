@@ -1,18 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabaseClient';
 
 const LoginRoleSelection = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
-
-  // Ahora el modo siempre es login, eliminamos la posibilidad de cambiarlo
-  const isLoginMode = true;
 
   const [formData, setFormData] = useState({
     email: '',
@@ -23,7 +19,6 @@ const LoginRoleSelection = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [uiStatus, setUiStatus] = useState('idle'); // idle | checking | success | error
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   // --- UI: Tilt + Glow ---
   const cardRef = useRef(null);
@@ -70,7 +65,6 @@ const LoginRoleSelection = () => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setError('');
-    setSuccessMessage('');
   };
 
   const redirectByRole = (role) => {
@@ -88,43 +82,13 @@ const LoginRoleSelection = () => {
     return msg;
   };
 
-  const handleResetPassword = async () => {
-    setError('');
-    setSuccessMessage('');
-
-    const email = (formData.email || '').trim();
-    if (!email) {
-      setError('Ingresá tu email para poder enviarte el link de recuperación.');
-      return;
-    }
-
-    try {
-      setUiStatus('checking');
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
-      });
-
-      if (resetError) throw resetError;
-
-      setUiStatus('success');
-      setSuccessMessage('Te enviamos un correo para recuperar el acceso. Revisa tu bandeja de entrada.');
-      setTimeout(() => setUiStatus('idle'), 900);
-    } catch (err) {
-      setUiStatus('error');
-      setError(friendlyError(err));
-      setTimeout(() => setUiStatus('idle'), 900);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setUiStatus('checking');
     setError('');
-    setSuccessMessage('');
 
     try {
-      // --- SOLO MODO LOGIN PERMITIDO ---
       const { error: loginError, user } = await login({
         email: formData.email,
         password: formData.password
@@ -135,18 +99,21 @@ const LoginRoleSelection = () => {
       setUiStatus('success');
 
       const targetPath = redirectByRole(user?.role);
+      
+      // Pequeño delay para mostrar el tick verde de éxito
       setTimeout(() => {
         navigate(targetPath, { replace: true });
       }, 450);
 
     } catch (err) {
-      console.error('Operation failed:', err);
+      console.error('Login failed:', err);
       setUiStatus('error');
       setError(friendlyError(err));
-      setTimeout(() => setUiStatus('idle'), 900);
+      
+      // Volver a estado normal después de mostrar error
+      setTimeout(() => setUiStatus('idle'), 1500);
     } finally {
       setIsLoading(false);
-      if (uiStatus === 'checking') setUiStatus('idle');
     }
   };
 
@@ -164,8 +131,10 @@ const LoginRoleSelection = () => {
       </Helmet>
 
       <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-stone-50">
+        {/* Background Pattern */}
         <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:32px_32px]" />
 
+        {/* Dynamic Glow Background */}
         <div
           className="absolute w-[900px] h-[900px] rounded-full blur-3xl pointer-events-none"
           style={{
@@ -177,8 +146,10 @@ const LoginRoleSelection = () => {
         />
 
         <div className="w-full max-w-md relative z-10">
+          
+          {/* Header Logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg border border-white/60 bg-stone-900">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg border border-white/60 bg-stone-900 transition-all duration-300">
               <BrandIcon />
             </div>
 
@@ -190,17 +161,18 @@ const LoginRoleSelection = () => {
             </p>
           </div>
 
+          {/* Login Card */}
           <div
             ref={cardRef}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
-            className="relative rounded-3xl border border-white/60 bg-white/85 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden"
+            className="relative rounded-3xl border border-white/60 bg-white/85 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.12)] overflow-hidden transition-all duration-200"
             style={{
               transform: `perspective(1100px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
               transformStyle: 'preserve-3d',
-              transition: 'transform 120ms ease-out'
             }}
           >
+            {/* Loading Overlay Gradient */}
             <div
               className="absolute left-0 right-0 h-24 pointer-events-none"
               style={{
@@ -211,7 +183,6 @@ const LoginRoleSelection = () => {
             />
 
             <div className="p-8">
-              {/* Se eliminó la sección de Tabs (Navegación entre Login y Registro) */}
               
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-stone-900 tracking-tight">
@@ -223,6 +194,8 @@ const LoginRoleSelection = () => {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
+                
+                {/* Email Input */}
                 <div>
                   <label htmlFor="email" className="block text-xs font-bold text-stone-700 mb-2 tracking-widest uppercase">
                     Email
@@ -239,6 +212,7 @@ const LoginRoleSelection = () => {
                   />
                 </div>
 
+                {/* Password Input */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label htmlFor="password" className="block text-xs font-bold text-stone-700 tracking-widest uppercase">
@@ -269,47 +243,46 @@ const LoginRoleSelection = () => {
                   </div>
                 </div>
 
+                {/* Error Message */}
                 {error && (
-                  <div className="rounded-xl p-3 flex items-start gap-2 bg-red-50 border border-red-100 animate-in fade-in">
+                  <div className="rounded-xl p-3 flex items-start gap-2 bg-red-50 border border-red-100 animate-in fade-in slide-in-from-top-1">
                     <Icon name="AlertCircle" size={18} color="var(--color-error)" className="flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-600">{error}</p>
+                    <p className="text-sm text-red-600 font-medium">{error}</p>
                   </div>
                 )}
 
-                {successMessage && (
-                  <div className="rounded-xl p-3 flex items-start gap-2 bg-green-50 border border-green-100 animate-in fade-in">
-                    <Icon name="CheckCircle" size={18} color="var(--color-success)" className="flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-green-700">{successMessage}</p>
-                  </div>
-                )}
-
+                {/* Submit Button */}
                 <Button
                   type="submit"
                   variant="default"
                   size="lg"
                   fullWidth
                   loading={isLoading}
-                  iconName="LogIn"
+                  iconName={uiStatus === 'success' ? 'Check' : 'LogIn'}
+                  className={uiStatus === 'success' ? 'bg-green-600 hover:bg-green-700' : ''}
                 >
-                  {uiStatus === 'checking' ? 'Verificando...' : 'Ingresar'}
+                  {uiStatus === 'checking' ? 'Verificando...' : uiStatus === 'success' ? '¡Bienvenido!' : 'Ingresar'}
                 </Button>
 
-                <div className="flex items-center justify-between pt-1">
+                {/* Footer Links */}
+                <div className="flex items-center justify-between pt-2">
                   <button
                     type="button"
-                    onClick={handleResetPassword}
-                    className="text-[10px] text-stone-400 hover:text-stone-700 transition-colors uppercase tracking-widest font-semibold"
+                    onClick={() => navigate('/forgot-password')} // Redirección limpia
+                    className="text-[10px] text-stone-400 hover:text-stone-700 transition-colors uppercase tracking-widest font-bold hover:underline"
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
-                  <span className="text-[10px] text-stone-300 uppercase tracking-widest font-semibold">
+                  <span className="text-[10px] text-stone-300 uppercase tracking-widest font-semibold cursor-help" title="Sistema Seguro">
                     Acceso controlado
                   </span>
                 </div>
+
               </form>
             </div>
           </div>
 
+          {/* Footer Branding */}
           <div className="mt-8 flex flex-col items-center gap-2">
             <span className="text-[10px] text-stone-400 uppercase tracking-widest">Engineered by</span>
             <a

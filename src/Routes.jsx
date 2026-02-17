@@ -25,6 +25,9 @@ import AccessControl from "./pages/access-control";
 import AccessHistory from "./pages/access-history";
 import ClassSchedule from "./pages/class-schedule";
 import Unauthorized from "./pages/Unauthorized";
+// ... importaciones ...
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import UpdatePassword from "./pages/auth/UpdatePassword";
 
 const Routes = () => {
   return (
@@ -33,14 +36,8 @@ const Routes = () => {
         <ScrollToTop />
         <RouterRoutes>
           {/* Public Routes - Sin Layout */}
-          <Route
-            path="/login"
-            element={<LoginRoleSelection />}
-          />
-          <Route
-            path="/"
-            element={<Navigate to="/login" replace />}
-          />
+          <Route path="/login" element={<LoginRoleSelection />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* 2. Modo Kiosco - SIN sidebar (PANTALLA COMPLETA) */}
           <Route
@@ -51,6 +48,14 @@ const Routes = () => {
               </ProtectedRoute>
             }
           />
+
+
+
+          // ... dentro del Router ...
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
+
+
 
           {/* Protected Routes - Con AppLayout (Sidebar) */}
           <Route element={<AppLayout />}>
@@ -63,7 +68,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/coaches-management"
               element={
@@ -72,7 +76,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/athletes-management"
               element={
@@ -81,7 +84,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/plan-management"
               element={
@@ -90,7 +92,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/payment-management"
               element={
@@ -99,7 +100,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             {/* <Route
               path="/access-control"
               element={
@@ -108,7 +108,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             /> */}
-
             <Route
               path="/access-history"
               element={
@@ -117,7 +116,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             {/* Professor Routes */}
             <Route
               path="/professor-dashboard"
@@ -127,7 +125,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/class-schedule"
               element={
@@ -136,7 +133,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/performance-analytics"
               element={
@@ -145,7 +141,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/individual-athlete-profile/:id"
               element={
@@ -154,7 +149,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="/pdf-export-center"
               element={
@@ -163,7 +157,6 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
             {/* Athlete Routes */}
             <Route
               path="/athlete-portal"
@@ -173,16 +166,8 @@ const Routes = () => {
                 </ProtectedRoute>
               }
             />
-
-
-
             <Route path="/unauthorized" element={<Unauthorized />} />
-
-
-
-
-
-
+            
           </Route>
 
           {/* 404 - Sin Layout */}
