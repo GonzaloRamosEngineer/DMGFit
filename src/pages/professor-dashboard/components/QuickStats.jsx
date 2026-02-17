@@ -1,25 +1,25 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
 
-const QuickStats = ({ totalAthletes, totalPlans, completedSessions, avgAttendance }) => {
-  const stats = [
-    { title: 'Mis Atletas', value: totalAthletes, icon: 'Users', color: 'var(--color-primary)', bg: 'bg-primary/10' },
-    { title: 'Planes Activos', value: totalPlans, icon: 'Package', color: 'var(--color-accent)', bg: 'bg-accent/10' },
-    { title: 'Sesiones Completadas', value: completedSessions, icon: 'CheckCircle', color: 'var(--color-success)', bg: 'bg-success/10' },
-    { title: 'Asistencia Prom.', value: `${avgAttendance}%`, icon: 'TrendingUp', color: 'var(--color-secondary)', bg: 'bg-secondary/10' }
+const QuickStats = ({ stats }) => {
+  const items = [
+    { label: 'Total Atletas', value: stats?.totalAthletes || 0, icon: 'Users', color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Planes Activos', value: stats?.activePlans || 0, icon: 'Package', color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'Sesiones Hoy', value: stats?.todaySessions || 0, icon: 'Calendar', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Completado', value: `${stats?.completionRate || 0}%`, icon: 'Activity', color: 'text-orange-600', bg: 'bg-orange-50' },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((stat, index) => (
-        <div key={index} className="bg-card border border-border rounded-xl p-6 transition-smooth hover:shadow-lg">
-          <div className="flex items-start justify-between mb-4">
-            <div className={`w-12 h-12 ${stat.bg} rounded-lg flex items-center justify-center`}>
-              <Icon name={stat.icon} size={24} color={stat.color} />
-            </div>
-          </div>
-          <p className="text-2xl font-heading font-bold text-foreground mb-1">{stat.value}</p>
-          <p className="text-sm text-muted-foreground">{stat.title}</p>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {items.map((item, idx) => (
+        <div key={idx} className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
+           <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
+              <p className="text-3xl font-black text-slate-800 tracking-tighter">{item.value}</p>
+           </div>
+           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${item.bg} ${item.color} group-hover:scale-110 transition-transform`}>
+              <Icon name={item.icon} size={24} />
+           </div>
         </div>
       ))}
     </div>

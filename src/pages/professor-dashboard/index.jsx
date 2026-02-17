@@ -6,28 +6,24 @@ import { useAuth } from '../../contexts/AuthContext';
 
 // UI Components
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
-import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 
-// Sub-Sections
+// Sub-Sections (Widgets)
 import MyPlansSection from './components/MyPlansSection';
 import MyAthletesSection from './components/MyAthletesSection';
 import AttendanceTracker from './components/AttendanceTracker';
 import QuickStats from './components/QuickStats';
-
-// Analytics reuse
-import PerformanceEvolutionChart from '../performance-analytics/components/PerformanceEvolutionChart';
 
 const ProfessorDashboard = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   
   // UI State
-  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Data State
+  const [coachProfile, setCoachProfile] = useState(null);
   const [dashboardData, setDashboardData] = useState({
     plans: [],
     athletes: [],
@@ -35,288 +31,255 @@ const ProfessorDashboard = () => {
     notes: [],
     stats: {
       totalAthletes: 0,
-      totalPlans: 0,
-      completedSessions: 0,
-      avgAttendance: 0
+      activePlans: 0,
+      todaySessions: 0,
+      completionRate: 0
     }
   });
 
-  const professorName = currentUser?.name || 'Entrenador';
-  const coachId = currentUser?.coachId || currentUser?.id;
-
-  // --- DATA FETCHING OPTIMIZED ---
+  // --- DATA FETCHING (CORREGIDO) ---
   useEffect(() => {
-    const loadData = async () => {
-      // Si no hay coachId aún, esperamos (el auth context puede tardar unos ms)
-      if (!coachId) return;
-      
-      setLoading(true);
+    let isMounted = true;
 
+    const loadCoachData = async () => {
       try {
-        // 1. Cargar Datos Principales en Paralelo
+        setLoading(true);
+        if (!currentUser) return;
+
+        // 1. IDENTIDAD
+        // Nota: Aquí también simplificamos la query de profiles
+        const { data: coachData, error: coachError } = await supabase
+          .from('coaches')
+          .select('id, bio, specialization, profiles (full_name, avatar_url)')
+          .eq('profile_id', currentUser.id)
+          .single();
+
+        if (coachError || !coachData) {
+          console.error("Coach no encontrado:", coachError);
+          setLoading(false);
+          return;
+        }
+
+        if (isMounted) setCoachProfile(coachData);
+        const realCoachId = coachData.id;
+
+        // 2. PARALLEL FETCH
         const [plansRes, athletesRes, sessionsRes, notesRes] = await Promise.all([
           
-          // A) CORRECCIÓN AQUÍ: Quitamos 'enrolled' y pedimos la relación enrollments(count)
-          supabase.from('plans')
-            .select('id, name, status, capacity, enrollments(count)')
-            .eq('status', 'active'), 
+          // A) Planes
+          supabase
+            .from('plan_coaches')
+            .select('plan_id, plans ( id, name, status, capacity, price, description )')
+            .eq('coach_id', realCoachId),
 
-          // B) Atletas del Coach
-          supabase.from('athletes')
-            .select('id, status, profiles:profile_id(full_name, email, avatar_url)')
-            .eq('coach_id', coachId),
+          // B) ATLETAS (AQUÍ ESTABA EL PROBLEMA)
+          // Quitamos los alias complejos "profiles:profile_id" y usamos directo "profiles" y "plans"
+          supabase
+            .from('athletes')
+            .select(`
+              id, status, phone,
+              profiles (full_name, email, avatar_url), 
+              plans (name)
+            `)
+            .eq('coach_id', realCoachId)
+            .eq('status', 'active'),
 
           // C) Sesiones
-          supabase.from('sessions')
-            .select('id, session_date, time, status, type, location')
-            .eq('coach_id', coachId)
-            .order('session_date', { ascending: false }),
+          supabase
+            .from('sessions')
+            .select(`
+              id, session_date, time, status, type, location, capacity,
+              attendees:session_attendees(count)
+            `)
+            .eq('coach_id', realCoachId)
+            .order('session_date', { ascending: false })
+            .limit(20),
 
-          // D) Notas Recientes
-          supabase.from('notes')
+          // D) Notas
+          supabase
+            .from('notes')
             .select('*')
-            .eq('coach_id', coachId)
+            .eq('coach_id', realCoachId)
             .order('date', { ascending: false })
             .limit(5)
         ]);
 
-        if (plansRes.error) throw plansRes.error;
-        if (athletesRes.error) throw athletesRes.error;
-        if (sessionsRes.error) throw sessionsRes.error;
-
-        // 2. Procesar Datos
-        const athletesList = athletesRes.data || [];
-        const sessionsList = sessionsRes.data || [];
+        // 3. PROCESAMIENTO
+        const rawPlans = plansRes.data?.map(pc => pc.plans).filter(Boolean) || [];
+        const rawAthletes = athletesRes.data || [];
         
-        // Mapeo de Planes (Ajuste para leer el conteo)
-        const mappedPlans = (plansRes.data || []).map(p => ({
-          id: p.id,
-          name: p.name,
-          status: p.status,
-          capacity: p.capacity,
-          description: 'Plan activo', // Default si no lo trajimos
-          // Supabase devuelve enrollments como [{count: 5}] o []
-          enrolled: p.enrollments?.[0]?.count || 0 
-        }));
+        // --- LOG DE DEPURACIÓN (MIRA ESTO EN LA CONSOLA F12) ---
+        // console.log("Atletas Crudos recuperados:", rawAthletes); 
+        // -------------------------------------------------------
 
-        setDashboardData({
-          plans: mappedPlans,
-          athletes: athletesList.map(a => ({
-            id: a.id,
-            name: a.profiles?.full_name || 'Sin Nombre',
-            email: a.profiles?.email,
-            avatar: a.profiles?.avatar_url,
-            status: a.status
-          })),
-          sessions: sessionsList,
-          notes: notesRes.data || [],
-          stats: {
-            totalAthletes: athletesList.length,
-            totalPlans: mappedPlans.length,
-            completedSessions: sessionsList.filter(s => s.status === 'completed').length,
-            avgAttendance: 85 // Dato simulado o calculado si trajéramos attendance
-          }
-        });
+        const rawSessions = sessionsRes.data || [];
+        const rawNotes = notesRes.data || [];
 
-      } catch (error) {
-        console.error("Error cargando dashboard profesor:", error);
+        // Stats
+        const todayStr = new Date().toISOString().split('T')[0];
+        const sessionsToday = rawSessions.filter(s => s.session_date === todayStr);
+        const completed = rawSessions.filter(s => s.status === 'completed').length;
+        const rate = rawSessions.length > 0 ? Math.round((completed / rawSessions.length) * 100) : 0;
+
+        if (isMounted) {
+          setDashboardData({
+            plans: rawPlans,
+            
+            // MAPEO ROBUSTO
+            athletes: rawAthletes.map(a => {
+              // Ahora que simplificamos la query, 'profiles' debería venir directo.
+              // Aún así, mantenemos la defensa Array vs Object por seguridad.
+              const profileObj = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles;
+              const planObj = Array.isArray(a.plans) ? a.plans[0] : a.plans;
+
+              return {
+                id: a.id,
+                // Usamos el objeto extraído
+                name: profileObj?.full_name || 'Sin Nombre (Revisar DB)',
+                email: profileObj?.email,
+                avatar: profileObj?.avatar_url,
+                planName: planObj?.name || 'Sin Plan',
+                status: a.status,
+                phone: a.phone
+              };
+            }),
+
+            sessions: rawSessions,
+            notes: rawNotes,
+            stats: {
+              totalAthletes: rawAthletes.length,
+              activePlans: rawPlans.length,
+              todaySessions: sessionsToday.length,
+              completionRate: rate
+            }
+          });
+        }
+
+      } catch (err) {
+        console.error("Error dashboard:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
-    loadData();
-  }, [coachId]);
+    loadCoachData();
+    return () => { isMounted = false; };
+  }, [currentUser]);
 
-  // --- DERIVED DATA ---
-  const todaySessions = useMemo(() => {
-    return dashboardData.sessions.filter(s => s.session_date === selectedDate);
-  }, [dashboardData.sessions, selectedDate]);
-
-  // --- TABS CONFIG ---
-  const tabs = [
-    { id: 'overview', label: 'Resumen', icon: 'LayoutDashboard' },
-    { id: 'plans', label: 'Mis Planes', icon: 'Package' },
-    { id: 'athletes', label: 'Mis Atletas', icon: 'Users' },
-    { id: 'attendance', label: 'Asistencia', icon: 'Calendar' }
-  ];
+  // Render Helpers
+  const todaySessionsList = useMemo(() => 
+    dashboardData.sessions.filter(s => s.session_date === selectedDate), 
+  [dashboardData.sessions, selectedDate]);
 
   return (
     <>
-      <Helmet>
-        <title>Dashboard Profesor - VC Fit</title>
-      </Helmet>
+      <Helmet><title>Panel del Entrenador | DMG Fitness</title></Helmet>
       
-      <div className="p-4 md:p-6 lg:p-8 w-full">
-        <BreadcrumbTrail items={[{ label: 'Dashboard', path: '/professor-dashboard', active: true }]} />
+      <div className="min-h-screen bg-[#F8FAFC] p-6 md:p-10 pb-24">
+        <BreadcrumbTrail items={[{ label: 'Portal Staff', path: '/professor-dashboard', active: true }]} />
         
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 mt-2">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground mb-2">
-              Hola, {professorName}
-            </h1>
-            <p className="text-muted-foreground">
-              Aquí tienes el resumen de tu actividad hoy.
-            </p>
+            <div className="flex items-center gap-3 mb-2">
+               {coachProfile?.profiles?.avatar_url ? (
+                 <img src={coachProfile.profiles.avatar_url} alt="Profile" className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover" />
+               ) : (
+                 <div className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg">
+                    {coachProfile?.profiles?.full_name?.charAt(0) || 'C'}
+                 </div>
+               )}
+               <div>
+                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                   Hola, {coachProfile?.profiles?.full_name?.split(' ')[0] || 'Coach'}
+                 </h1>
+                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                   {coachProfile?.specialization || 'Entrenador de Staff'}
+                 </p>
+               </div>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="h-10 px-4 bg-input border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary transition-smooth"
-            />
-            <Button
-              variant="default"
-              iconName="Plus"
-              onClick={() => navigate('/performance-analytics')}
-            >
-              Nueva Nota
-            </Button>
-          </div>
-        </div>
 
-        {/* Tabs Navigation */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 border-b border-border">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-t-lg font-medium transition-smooth border-b-2 ${
-                activeTab === tab.id
-                  ? 'border-primary text-primary bg-primary/5'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-            >
-              <Icon name={tab.icon} size={18} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* CONTENT AREA */}
-        {loading ? (
-          <DashboardSkeleton />
-        ) : (
-          <>
-            {activeTab === 'overview' && (
-              <div className="space-y-6 animate-in fade-in duration-500">
-                {/* 1. KPIs */}
-                <QuickStats
-                  totalAthletes={dashboardData.stats.totalAthletes}
-                  totalPlans={dashboardData.stats.totalPlans}
-                  completedSessions={dashboardData.stats.completedSessions}
-                  avgAttendance={dashboardData.stats.avgAttendance}
+          <div className="flex gap-3">
+             <div className="relative">
+                <Icon name="Calendar" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
+             </div>
+             <button 
+               onClick={() => navigate('/performance-analytics')}
+               className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-lg shadow-slate-200 transition-all text-xs uppercase tracking-wider"
+             >
+                <Icon name="BarChart2" size={16} /> Analytics
+             </button>
+          </div>
+        </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* 2. Sesiones de Hoy */}
-                  <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-heading font-semibold text-foreground">
-                        Sesiones para Hoy ({todaySessions.length})
-                      </h3>
-                      <Icon name="Calendar" size={20} color="var(--color-primary)" />
-                    </div>
-                    
-                    {todaySessions.length > 0 ? (
-                      <div className="space-y-3">
-                        {todaySessions.map((session) => (
-                          <div key={session.id} className="p-4 bg-muted/30 rounded-lg border border-border/50 flex justify-between items-center hover:bg-muted/50 transition-smooth">
-                            <div>
-                              <p className="font-medium text-foreground">{session.type || 'Entrenamiento'}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Icon name="Clock" size={14} className="text-muted-foreground"/>
-                                <span className="text-sm text-muted-foreground">{session.time?.slice(0,5)}</span>
-                                {session.location && (
-                                  <>
-                                    <span className="text-muted-foreground">•</span>
-                                    <span className="text-sm text-muted-foreground">{session.location}</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              session.status === 'completed' ? 'bg-success/10 text-success' : 
-                              session.status === 'cancelled' ? 'bg-error/10 text-error' : 'bg-primary/10 text-primary'
-                            }`}>
-                              {session.status === 'scheduled' ? 'Programada' : session.status}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <Icon name="Coffee" size={48} className="mx-auto mb-3 text-muted-foreground opacity-50" />
-                        <p className="text-muted-foreground">No tienes sesiones hoy. ¡Disfruta tu día!</p>
-                      </div>
-                    )}
+        {/* LOADING STATE */}
+        {loading ? (
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-pulse">
+              {[1,2,3,4].map(i => <div key={i} className="h-32 bg-slate-200 rounded-2xl"></div>)}
+           </div>
+        ) : (
+          <div className="space-y-8">
+            
+            <QuickStats stats={dashboardData.stats} />
+
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+               {/* COLUMNA IZQUIERDA (8/12) */}
+               <div className="xl:col-span-8 space-y-8">
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 relative overflow-hidden">
+                     <div className="flex justify-between items-center mb-6 relative z-10">
+                        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                           <Icon name="CheckSquare" className="text-blue-600" />
+                           Gestión de Clases
+                        </h3>
+                        <span className="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-full uppercase tracking-wide">
+                           {todaySessionsList.length} Sesiones Hoy
+                        </span>
+                     </div>
+                     <div className="relative z-10">
+                        <AttendanceTracker sessions={todaySessionsList} selectedDate={selectedDate} />
+                     </div>
+                     <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-[80px] opacity-50 -mr-20 -mt-20 pointer-events-none"></div>
                   </div>
 
-                  {/* 3. Notas Recientes */}
-                  <div className="bg-card border border-border rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-heading font-semibold text-foreground">Notas Rápidas</h3>
-                      <Button variant="ghost" size="sm" iconName="Plus" />
-                    </div>
-                    <div className="space-y-3">
-                      {dashboardData.notes.length > 0 ? (
-                        dashboardData.notes.map((note) => (
-                          <div key={note.id} className="p-3 bg-muted/30 rounded-lg text-sm">
-                            <p className="text-foreground line-clamp-2">{note.content}</p>
-                            <p className="text-xs text-muted-foreground mt-2 text-right">
-                              {new Date(note.date).toLocaleDateString()}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">No hay notas recientes.</p>
-                      )}
-                    </div>
+                  <MyAthletesSection athletes={dashboardData.athletes} />
+               </div>
+
+               {/* COLUMNA DERECHA (4/12) */}
+               <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-6">
+                  <MyPlansSection plans={dashboardData.plans} />
+
+                  <div className="bg-[#0F172A] text-white p-6 rounded-[2rem] shadow-xl relative overflow-hidden">
+                     <div className="flex items-center justify-between mb-4 relative z-10">
+                        <h3 className="font-bold uppercase tracking-widest text-sm">Notas del Coach</h3>
+                        <button className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                           <Icon name="Plus" size={16} />
+                        </button>
+                     </div>
+                     <div className="space-y-3 relative z-10">
+                        {dashboardData.notes?.length > 0 ? dashboardData.notes.map(n => (
+                           <div key={n.id} className="p-3 bg-white/5 rounded-xl text-xs text-slate-300 border border-white/5">
+                              {n.content}
+                           </div>
+                        )) : (
+                           <p className="text-xs text-slate-500 italic">No hay notas recientes.</p>
+                        )}
+                     </div>
+                     <div className="absolute bottom-0 right-0 w-32 h-32 bg-purple-500 rounded-full blur-[60px] opacity-20 -mr-10 -mb-10"></div>
                   </div>
-                </div>
-
-                {/* 4. Gráfico Evolución */}
-                <div className="mt-8">
-                  <h3 className="text-lg font-heading font-semibold text-foreground mb-4">Tendencias de Rendimiento</h3>
-                  <PerformanceEvolutionChart /> 
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'plans' && (
-              <MyPlansSection plans={dashboardData.plans} />
-            )}
-
-            {activeTab === 'athletes' && (
-              <MyAthletesSection
-                athletes={dashboardData.athletes}
-                athleteIds={dashboardData.athletes.map(a => a.id)}
-              />
-            )}
-
-            {activeTab === 'attendance' && (
-              <AttendanceTracker sessions={dashboardData.sessions} selectedDate={selectedDate} />
-            )}
-          </>
+               </div>
+            </div>
+          </div>
         )}
       </div>
     </>
   );
 };
-
-// Componente Skeleton Interno
-const DashboardSkeleton = () => (
-  <div className="space-y-6 animate-pulse">
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      {[1,2,3,4].map(i => <div key={i} className="h-32 bg-muted/30 rounded-xl"></div>)}
-    </div>
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 h-64 bg-muted/30 rounded-xl"></div>
-      <div className="h-64 bg-muted/30 rounded-xl"></div>
-    </div>
-  </div>
-);
 
 export default ProfessorDashboard;

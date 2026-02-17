@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from '../../../components/AppIcon';
-import Button from '../../../components/ui/Button';
 
 const MyAthletesSection = ({ athletes }) => {
   const navigate = useNavigate();
@@ -13,73 +12,78 @@ const MyAthletesSection = ({ athletes }) => {
   );
 
   return (
-    <div className="space-y-4">
-      {/* Barra de búsqueda */}
-      <div className="relative">
-        <Icon name="Search" size={20} color="var(--color-muted-foreground)" className="absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          placeholder="Buscar atleta por nombre o email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-10 pl-10 pr-4 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth"
-        />
+    <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
+      
+      {/* Header & Search */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+           <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+              <Icon name="Users" className="text-blue-600" />
+              Mis Atletas
+           </h3>
+           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+              {filteredAthletes?.length} Activos
+           </p>
+        </div>
+        
+        <div className="relative w-full sm:w-64 group">
+           <Icon name="Search" size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+           <input
+             type="text"
+             placeholder="Buscar atleta..."
+             value={searchQuery}
+             onChange={(e) => setSearchQuery(e.target.value)}
+             className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:border-blue-100 focus:bg-white rounded-2xl outline-none font-medium text-slate-700 transition-all placeholder:text-slate-400 text-sm"
+           />
+        </div>
       </div>
 
+      {/* Grid de Atletas */}
       {filteredAthletes?.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredAthletes.map((athlete) => (
-            <div key={athlete.id} className="bg-card border border-border rounded-xl p-6 transition-smooth hover:shadow-lg flex flex-col sm:flex-row gap-4">
-              {/* Avatar */}
-              <div className="flex-shrink-0">
-                {athlete.avatar ? (
-                  <img src={athlete.avatar} alt={athlete.name} className="w-16 h-16 rounded-full object-cover border-2 border-border" />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border-2 border-border">
-                    <Icon name="User" size={32} className="text-primary" />
-                  </div>
-                )}
+            <div key={athlete.id} className="group relative bg-white border border-slate-100 rounded-2xl p-4 hover:shadow-lg hover:border-blue-100 transition-all duration-300 flex items-center gap-4">
+              
+              {/* Avatar con anillo de estado */}
+              <div className="relative flex-shrink-0">
+                 {athlete.avatar ? (
+                   <img src={athlete.avatar} alt={athlete.name} className="w-14 h-14 rounded-2xl object-cover shadow-sm" />
+                 ) : (
+                   <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center font-black text-lg">
+                     {athlete.name.charAt(0)}
+                   </div>
+                 )}
+                 <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${athlete.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`}></div>
               </div>
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-heading font-semibold text-foreground truncate">{athlete.name}</h3>
-                <p className="text-sm text-muted-foreground mb-3 truncate">{athlete.email}</p>
-                
-                {/* Status Badge */}
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  athlete.status === 'active' ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
-                }`}>
-                  {athlete.status === 'active' ? 'Activo' : 'Inactivo'}
-                </span>
-
-                {/* Actions */}
-                <div className="flex gap-2 mt-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    iconName="FileText" 
-                    onClick={() => navigate(`/individual-athlete-profile/${athlete.id}`)} // CORRECCIÓN AQUÍ
-                  >
-                    Perfil
-                  </Button>
-                  <Button variant="ghost" size="sm" iconName="MessageSquare">
-                    Mensaje
-                  </Button>
-                </div>
+                 <h4 className="font-bold text-slate-800 truncate group-hover:text-blue-700 transition-colors">{athlete.name}</h4>
+                 <p className="text-xs text-slate-400 truncate mb-2">{athlete.planName || 'Sin Plan'}</p>
+                 
+                 {/* Mini Actions */}
+                 <div className="flex gap-2">
+                    <button 
+                      onClick={() => navigate(`/individual-athlete-profile/${athlete.id}`)}
+                      className="text-[10px] font-bold uppercase tracking-wide bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                       Ver Perfil
+                    </button>
+                    {athlete.phone && (
+                       <a href={`https://wa.me/${athlete.phone}`} target="_blank" rel="noreferrer" className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors">
+                          <Icon name="MessageCircle" size={14} />
+                       </a>
+                    )}
+                 </div>
               </div>
+
             </div>
           ))}
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <Icon name="Users" size={64} color="var(--color-muted-foreground)" className="mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-heading font-semibold text-foreground mb-2">
-            {searchQuery ? 'No se encontraron resultados' : 'No tienes atletas asignados'}
-          </h3>
-          <p className="text-muted-foreground">
-            {searchQuery ? 'Intenta con otro término' : 'Cuando se te asignen atletas, aparecerán aquí.'}
-          </p>
+        <div className="py-12 text-center border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/30">
+           <Icon name="Search" size={32} className="mx-auto mb-3 text-slate-300" />
+           <p className="text-sm font-bold text-slate-400">No se encontraron atletas</p>
         </div>
       )}
     </div>
