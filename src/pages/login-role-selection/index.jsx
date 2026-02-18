@@ -8,10 +8,8 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const LoginRoleSelection = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
-
-  // Ahora el modo siempre es login
-  const isLoginMode = true;
+  // Traemos currentUser e isAuthenticated para detectar si ya entramos
+  const { login, isAuthenticated, currentUser } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -20,7 +18,7 @@ const LoginRoleSelection = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [uiStatus, setUiStatus] = useState('idle'); // idle | checking | success | error
+  const [uiStatus, setUiStatus] = useState('idle'); 
   const [error, setError] = useState('');
 
   // --- UI: Tilt + Glow ---
@@ -29,10 +27,37 @@ const LoginRoleSelection = () => {
   const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
   const [glow, setGlow] = useState({ x: 50, y: 40 });
 
-  // REF PARA EVITAR DOBLE SUBMIT (La clave del arreglo)
   const submittingRef = useRef(false);
-
   const title = "Iniciar Sesión";
+
+  // --- LOGICA DE REDIRECCIÓN (El Fix) ---
+  const redirectByRole = (role) => {
+    const redirectPaths = {
+      admin: '/main-dashboard',
+      profesor: '/professor-dashboard',
+      atleta: '/athlete-portal'
+    };
+    return redirectPaths[role] || '/athlete-portal';
+  };
+
+  // ✅ NUEVO: Si AuthContext dice que ya estamos dentro (Optimistic o Real),
+  // nos vamos de aquí automáticamente. No dejamos que el usuario se clave en "Verificando..."
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Si tenemos usuario y rol, vamos a su dashboard específico.
+      if (currentUser?.role) {
+        const target = redirectByRole(currentUser.role);
+        navigate(target, { replace: true });
+      } else {
+        // Si estamos en "Modo Optimista" (Authenticated=true pero currentUser=null),
+        // mandamos a una ruta protegida genérica. El ProtectedRoute se encargará
+        // de mostrar el loader "Cargando perfil..." con el botón de escape.
+        // Usamos '/main-dashboard' como intento; si es atleta luego rebotará, pero salimos del login.
+        navigate('/main-dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, currentUser, navigate]);
+  // --------------------------------------
 
   useEffect(() => {
     return () => {
@@ -73,15 +98,6 @@ const LoginRoleSelection = () => {
     setError('');
   };
 
-  const redirectByRole = (role) => {
-    const redirectPaths = {
-      admin: '/main-dashboard',
-      profesor: '/professor-dashboard',
-      atleta: '/athlete-portal'
-    };
-    return redirectPaths[role] || '/athlete-portal';
-  };
-
   const friendlyError = (err) => {
     const msg = err?.message || 'Ocurrió un error inesperado.';
     if (msg.includes('Invalid login credentials')) return 'Usuario o contraseña incorrectos.';
@@ -91,10 +107,8 @@ const LoginRoleSelection = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // BLOQUEO DE SEGURIDAD: Si ya está enviando o cargando, no hacer nada.
     if (submittingRef.current || isLoading) return;
     
-    // Activamos el bloqueo
     submittingRef.current = true;
     setIsLoading(true);
     setUiStatus('checking');
@@ -102,7 +116,7 @@ const LoginRoleSelection = () => {
 
     try {
       const { error: loginError, user } = await login({
-        email: formData.email.trim(), // Trim por seguridad
+        email: formData.email.trim(),
         password: formData.password
       });
 
@@ -110,8 +124,9 @@ const LoginRoleSelection = () => {
 
       setUiStatus('success');
 
+      // La redirección ahora la maneja principalmente el useEffect, 
+      // pero dejamos esto por si acaso la respuesta es inmediata.
       const targetPath = redirectByRole(user?.role);
-      
       setTimeout(() => {
         navigate(targetPath, { replace: true });
       }, 450);
@@ -120,10 +135,8 @@ const LoginRoleSelection = () => {
       console.error('Login failed:', err);
       setUiStatus('error');
       setError(friendlyError(err));
-      // Liberamos el bloqueo visual en caso de error
       setTimeout(() => setUiStatus('idle'), 1500);
     } finally {
-      // Importante: Liberamos el estado de carga y el ref
       setIsLoading(false);
       submittingRef.current = false;
     }
@@ -212,7 +225,7 @@ const LoginRoleSelection = () => {
                     placeholder="tuemail@..."
                     className="w-full"
                     required
-                    disabled={isLoading} // Deshabilitar si carga
+                    disabled={isLoading} 
                   />
                 </div>
 
@@ -234,7 +247,7 @@ const LoginRoleSelection = () => {
                       className="w-full pr-12 text-center tracking-[0.35em]"
                       required
                       minLength={6}
-                      disabled={isLoading} // Deshabilitar si carga
+                      disabled={isLoading}
                     />
                     <button
                       type="button"
@@ -261,7 +274,7 @@ const LoginRoleSelection = () => {
                   size="lg"
                   fullWidth
                   loading={isLoading}
-                  disabled={isLoading} // Bloqueo extra
+                  disabled={isLoading} 
                   iconName={uiStatus === 'success' ? 'Check' : 'LogIn'}
                   className={uiStatus === 'success' ? 'bg-green-600 hover:bg-green-700' : ''}
                 >
