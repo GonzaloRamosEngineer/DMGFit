@@ -40,24 +40,22 @@ const LoginRoleSelection = () => {
     return redirectPaths[role] || '/athlete-portal';
   };
 
-  // ✅ NUEVO: Si AuthContext dice que ya estamos dentro (Optimistic o Real),
-  // nos vamos de aquí automáticamente. No dejamos que el usuario se clave en "Verificando..."
+// ... imports y código anterior ...
+
+  // --- LOGICA DE REDIRECCIÓN CORREGIDA ---
+  // Solo redirigimos si tenemos la certeza absoluta (currentUser cargado).
+  // Si estamos en "Modo Optimista" (isAuthenticated=true pero currentUser=null),
+  // nos quedamos en el Login para permitirle al usuario re-loguearse y destrabar la sesión.
   useEffect(() => {
-    if (isAuthenticated) {
-      // Si tenemos usuario y rol, vamos a su dashboard específico.
-      if (currentUser?.role) {
-        const target = redirectByRole(currentUser.role);
-        navigate(target, { replace: true });
-      } else {
-        // Si estamos en "Modo Optimista" (Authenticated=true pero currentUser=null),
-        // mandamos a una ruta protegida genérica. El ProtectedRoute se encargará
-        // de mostrar el loader "Cargando perfil..." con el botón de escape.
-        // Usamos '/main-dashboard' como intento; si es atleta luego rebotará, pero salimos del login.
-        navigate('/main-dashboard', { replace: true });
-      }
+    if (isAuthenticated && currentUser?.role) {
+      const target = redirectByRole(currentUser.role);
+      navigate(target, { replace: true });
     }
+    // ELIMINADO EL 'ELSE': Ya no redirigimos si falta el currentUser.
   }, [isAuthenticated, currentUser, navigate]);
   // --------------------------------------
+
+  // ... resto del código igual ...
 
   useEffect(() => {
     return () => {
