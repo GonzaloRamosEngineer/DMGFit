@@ -186,34 +186,38 @@ export const AuthProvider = ({ children }) => {
             );
             setIsAuthenticated(true); // Dejamos pasar al usuario
 
-// ... dentro del catch, bloque isTimeout && tokenKey ...
+// ... dentro del if (isTimeout && tokenKey) ...
 
-                // --- NUEVO: RESCATE MANUAL DEL PERFIL (MEJORADO) ---
+                // --- NUEVO: RESCATE MANUAL CON TIMEOUT ---
                 try {
-                    // 1. Decodificamos el token local
                     const sessionData = JSON.parse(localStorage.getItem(tokenKey));
                     const userId = sessionData?.user?.id;
                     
                     if (userId) {
                         console.log('[Auth] Attempting to hydrate profile from local storage ID...');
                         
-                        // 2. Buscamos el perfil
-                        fetchProfileWithRetry(userId).then(profile => {
-                            if (mounted) {
-                                if (profile) {
-                                    // EXITO: Tenemos perfil, completamos el login
-                                    setCurrentUser(profile);
-                                    console.log('[Auth] Hydration successful.');
-                                } else {
-                                    // FALLO: Si después de reintentar no hay perfil, nos rendimos.
-                                    // Esto evita que te quedes en "Cargando perfil..." para siempre.
-                                    console.warn('[Auth] Hydration failed (profile not found). Resetting.');
-                                    resetAuthState();
+                        // ENVOLVEMOS EL RESCATE EN UN TIMEOUT DE 5 SEGUNDOS
+                        // Si el "lock" del navegador está muy duro, esto cortará la espera
+                        // y te mandará al login en lugar de dejarte en el limbo.
+                        withTimeout(fetchProfileWithRetry(userId), 5000)
+                            .then(profile => {
+                                if (mounted) {
+                                    if (profile) {
+                                        setCurrentUser(profile);
+                                        console.log('[Auth] Hydration successful.');
+                                    } else {
+                                        console.warn('[Auth] Hydration returned null. Resetting.');
+                                        resetAuthState();
+                                    }
                                 }
-                            }
-                        });
+                            })
+                            .catch(hydrateErr => {
+                                // Si salta el timeout del rescate o falla el fetch
+                                console.warn('[Auth] Hydration failed or timed out:', hydrateErr.message);
+                                if (mounted) resetAuthState();
+                            });
+                            
                     } else {
-                        // Token corrupto o sin ID -> Reset
                         resetAuthState();
                     }
                 } catch (parseErr) {
