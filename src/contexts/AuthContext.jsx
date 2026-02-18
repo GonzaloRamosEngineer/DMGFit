@@ -166,27 +166,46 @@ export const AuthProvider = ({ children }) => {
           }
         }
 // ... dentro de initializeAuth ...
-      } catch (err) {
+} catch (err) {
         console.warn('[Auth] Init warning:', err.message);
         
         const isTimeout = String(err?.message || '').toLowerCase().includes('timeout');
         
         if (mounted) {
-            // 1. Verificamos si hay un token de Supabase físicamente en el navegador
-            const hasLocalToken = Object.keys(localStorage).some(key => 
+            // 1. Buscamos el token físico en el navegador
+            const tokenKey = Object.keys(localStorage).find(key => 
                 key.startsWith('sb-') && key.endsWith('-auth-token')
             );
 
-            // 2. Lógica de Resiliencia Extrema (Optimistic Mode)
-            if (isTimeout && hasLocalToken) {
-                // Si fue timeout PERO tenemos token en disco, NO expulsamos.
-                // Forzamos 'isAuthenticated' a true. 
-                // Resultado: El usuario verá "Cargando perfil..." en lugar de irse al Login.
-                // Esto le da tiempo al listener para despertar o al usuario para usar el botón de "Volver".
-                console.warn('[Auth] Timeout but local token found. Forcing Optimistic Auth (Waiting for listener).');
-                setIsAuthenticated(true);
+            // 2. Lógica de Resiliencia (Optimistic Mode + Manual Hydration)
+            if (isTimeout && tokenKey) {
+                console.warn('[Auth] Timeout but local token found. Forcing Optimistic Auth.');
+                setIsAuthenticated(true); // Dejamos pasar al usuario
+
+                // --- NUEVO: RESCATE MANUAL DEL PERFIL ---
+                // Como getSession falló, intentamos leer el ID del usuario directamente del storage
+                // para cargar su perfil y salir del loader infinito.
+                try {
+                    const sessionData = JSON.parse(localStorage.getItem(tokenKey));
+                    const userId = sessionData?.user?.id;
+                    
+                    if (userId) {
+                        console.log('[Auth] Attempting to hydrate profile from local storage ID...');
+                        // Disparamos la carga del perfil en paralelo
+                        fetchProfileWithRetry(userId).then(profile => {
+                            if (mounted && profile) {
+                                setCurrentUser(profile);
+                                // Una vez que tenemos el perfil, el loader desaparece solo.
+                            }
+                        });
+                    }
+                } catch (parseErr) {
+                    console.error('[Auth] Failed to parse local token:', parseErr);
+                }
+                // ----------------------------------------
+
             } else {
-                // Solo si NO hay token o es un error grave (no timeout), reseteamos.
+                // Si no hay token o es un error crítico, reseteamos.
                 console.warn('[Auth] Init failed & No local token found. Resetting.');
                 resetAuthState(); 
             }
