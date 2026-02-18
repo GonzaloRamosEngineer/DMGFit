@@ -185,39 +185,46 @@ export const AuthProvider = ({ children }) => {
               "[Auth] Timeout but local token found. Forcing Optimistic Auth.",
             );
             setIsAuthenticated(true); // Dejamos pasar al usuario
-
+            
 // ... dentro del if (isTimeout && tokenKey) ...
 
-                // --- NUEVO: RESCATE MANUAL CON TIMEOUT ---
+                // --- NUEVO: RESCATE INSTANTÁNEO DESDE METADATA ---
                 try {
                     const sessionData = JSON.parse(localStorage.getItem(tokenKey));
-                    const userId = sessionData?.user?.id;
+                    const user = sessionData?.user;
                     
-                    if (userId) {
-                        console.log('[Auth] Attempting to hydrate profile from local storage ID...');
+                    if (user && user.user_metadata) {
+                        console.log('[Auth] Timeout detected. Hydrating INSTANTLY from local metadata.');
                         
-                        // ENVOLVEMOS EL RESCATE EN UN TIMEOUT DE 5 SEGUNDOS
-                        // Si el "lock" del navegador está muy duro, esto cortará la espera
-                        // y te mandará al login en lugar de dejarte en el limbo.
-                        withTimeout(fetchProfileWithRetry(userId), 5000)
-                            .then(profile => {
-                                if (mounted) {
-                                    if (profile) {
-                                        setCurrentUser(profile);
-                                        console.log('[Auth] Hydration successful.');
-                                    } else {
-                                        console.warn('[Auth] Hydration returned null. Resetting.');
-                                        resetAuthState();
-                                    }
-                                }
-                            })
-                            .catch(hydrateErr => {
-                                // Si salta el timeout del rescate o falla el fetch
-                                console.warn('[Auth] Hydration failed or timed out:', hydrateErr.message);
-                                if (mounted) resetAuthState();
-                            });
-                            
+                        // 1. Construimos el perfil con lo que ya tenemos en el disco.
+                        // ¡No necesitamos internet para esto!
+                        const fallbackProfile = {
+                            id: user.id,
+                            name: user.user_metadata.full_name || user.email,
+                            email: user.email,
+                            role: user.user_metadata.role || 'atleta', // Fallback seguro
+                            avatar: user.user_metadata.avatar_url || null,
+                            // Estos quedarán null temporalmente, pero permiten entrar al dashboard
+                            coachId: null, 
+                            athleteId: null
+                        };
+
+                        // 2. Metemos al usuario ADENTRO inmediatamente
+                        setCurrentUser(fallbackProfile);
+                        setIsAuthenticated(true);
+                        
+                        // 3. (Opcional) Intentamos buscar los datos finos (IDs de coach) en segundo plano
+                        // sin bloquear al usuario. Si falla, no importa, ya está adentro.
+                        fetchProfileWithRetry(user.id).then(fullProfile => {
+                            if (mounted && fullProfile) {
+                                console.log('[Auth] Full profile loaded in background.');
+                                setCurrentUser(fullProfile);
+                            }
+                        });
+
                     } else {
+                        // Si el token no tiene metadata, ahí sí estamos fritos. Reset.
+                        console.warn('[Auth] Local token found but no metadata. Resetting.');
                         resetAuthState();
                     }
                 } catch (parseErr) {
