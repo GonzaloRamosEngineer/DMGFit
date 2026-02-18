@@ -1,3 +1,4 @@
+// C:\Projects\DMG Fitness\src\contexts\AuthContext.jsx
 import React, {
   createContext,
   useContext,
@@ -24,6 +25,17 @@ const withTimeout = (promise, ms) =>
       setTimeout(() => reject(new Error("Auth timeout")), ms),
     ),
   ]);
+
+// Helper: construir un perfil fallback desde session.user (no depende de DB)
+const buildFallbackProfile = (user) => ({
+  id: user.id,
+  name: user.user_metadata?.full_name || user.email,
+  email: user.email,
+  role: user.user_metadata?.role || "atleta",
+  avatar: user.user_metadata?.avatar_url || null,
+  coachId: null,
+  athleteId: null,
+});
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -144,28 +156,32 @@ export const AuthProvider = ({ children }) => {
         if (error) throw error;
 
         if (session?.user) {
-          // MICRO-CAMBIO A: Marcamos autenticado inmediatamente si hay sesión válida.
-          // Esto evita que ProtectedRoute redirija a Login mientras cargamos el perfil.
+          // Marcamos autenticado inmediatamente si hay sesión válida.
           if (mounted) setIsAuthenticated(true);
 
-          // Usamos Retry también en el init para ser más resilientes
+          // Intentamos cargar perfil real (con retry)
           const profile = await fetchProfileWithRetry(session.user.id);
 
-          if (mounted) {
-            if (profile) {
-              setCurrentUser(profile);
-            } else {
-              // Si falla el perfil tras reintentos, NO deslogueamos.
-              // Dejamos isAuthenticated=true y currentUser=null.
-              // ProtectedRoute mostrará "Cargando perfil..." indefinidamente o hasta un refresh,
-              // en lugar de expulsar al usuario por un fallo de red.
-              console.warn(
-                "[Auth] Session valid but profile load failed. UI will show loader.",
-              );
-            }
+          if (!mounted) return;
+
+          if (profile) {
+            setCurrentUser(profile);
+          } else {
+            // ✅ Cambio clave: nunca dejamos currentUser = null si hay sesión.
+            console.warn(
+              "[Auth] Session valid but profile load failed. Using fallback profile to avoid infinite loader.",
+            );
+            setCurrentUser(buildFallbackProfile(session.user));
+
+            // Intento en background (no bloquea)
+            fetchProfileWithRetry(session.user.id).then((fullProfile) => {
+              if (mounted && fullProfile) {
+                console.log("[Auth] Full profile loaded in background (init).");
+                setCurrentUser(fullProfile);
+              }
+            });
           }
         }
-        // ... dentro de initializeAuth ...
       } catch (err) {
         console.warn("[Auth] Init warning:", err.message);
 
@@ -185,53 +201,39 @@ export const AuthProvider = ({ children }) => {
               "[Auth] Timeout but local token found. Forcing Optimistic Auth.",
             );
             setIsAuthenticated(true); // Dejamos pasar al usuario
-            
-// ... dentro del if (isTimeout && tokenKey) ...
 
-                // --- NUEVO: RESCATE INSTANTÁNEO DESDE METADATA ---
-                try {
-                    const sessionData = JSON.parse(localStorage.getItem(tokenKey));
-                    const user = sessionData?.user;
-                    
-                    if (user && user.user_metadata) {
-                        console.log('[Auth] Timeout detected. Hydrating INSTANTLY from local metadata.');
-                        
-                        // 1. Construimos el perfil con lo que ya tenemos en el disco.
-                        // ¡No necesitamos internet para esto!
-                        const fallbackProfile = {
-                            id: user.id,
-                            name: user.user_metadata.full_name || user.email,
-                            email: user.email,
-                            role: user.user_metadata.role || 'atleta', // Fallback seguro
-                            avatar: user.user_metadata.avatar_url || null,
-                            // Estos quedarán null temporalmente, pero permiten entrar al dashboard
-                            coachId: null, 
-                            athleteId: null
-                        };
+            // --- RESCATE INSTANTÁNEO DESDE METADATA ---
+            try {
+              const sessionData = JSON.parse(localStorage.getItem(tokenKey));
+              const user = sessionData?.user;
 
-                        // 2. Metemos al usuario ADENTRO inmediatamente
-                        setCurrentUser(fallbackProfile);
-                        setIsAuthenticated(true);
-                        
-                        // 3. (Opcional) Intentamos buscar los datos finos (IDs de coach) en segundo plano
-                        // sin bloquear al usuario. Si falla, no importa, ya está adentro.
-                        fetchProfileWithRetry(user.id).then(fullProfile => {
-                            if (mounted && fullProfile) {
-                                console.log('[Auth] Full profile loaded in background.');
-                                setCurrentUser(fullProfile);
-                            }
-                        });
+              if (user) {
+                console.log(
+                  "[Auth] Timeout detected. Hydrating INSTANTLY from local metadata.",
+                );
 
-                    } else {
-                        // Si el token no tiene metadata, ahí sí estamos fritos. Reset.
-                        console.warn('[Auth] Local token found but no metadata. Resetting.');
-                        resetAuthState();
-                    }
-                } catch (parseErr) {
-                    console.error('[Auth] Failed to parse local token:', parseErr);
-                    resetAuthState();
-                }
-                // ----------------------------------------
+                // 1) Fallback inmediato (sin DB)
+                setCurrentUser(buildFallbackProfile(user));
+                setIsAuthenticated(true);
+
+                // 2) Intento de perfil real en background (no bloquea)
+                fetchProfileWithRetry(user.id).then((fullProfile) => {
+                  if (mounted && fullProfile) {
+                    console.log("[Auth] Full profile loaded in background.");
+                    setCurrentUser(fullProfile);
+                  }
+                });
+              } else {
+                console.warn(
+                  "[Auth] Local token found but no user object. Resetting.",
+                );
+                resetAuthState();
+              }
+            } catch (parseErr) {
+              console.error("[Auth] Failed to parse local token:", parseErr);
+              resetAuthState();
+            }
+            // ----------------------------------------
           } else {
             // Si no hay token o es un error crítico, reseteamos.
             console.warn(
@@ -255,35 +257,46 @@ export const AuthProvider = ({ children }) => {
       if (event === "SIGNED_OUT" || event === "USER_DELETED") {
         clearAuthData();
         setIsLoading(false);
-      } else if (
-        ["SIGNED_IN", "TOKEN_REFRESHED", "INITIAL_SESSION"].includes(event)
-      ) {
+        return;
+      }
+
+      if (["SIGNED_IN", "TOKEN_REFRESHED", "INITIAL_SESSION"].includes(event)) {
         if (session?.user) {
+          // ✅ Ajuste: evitamos duplicar cargas por INITIAL_SESSION si ya tenemos user en memoria.
           const needsProfileReload =
             event === "SIGNED_IN" ||
-            event === "INITIAL_SESSION" ||
-            !isAuthenticatedRef.current ||
-            !currentUserRef.current;
+            (!isAuthenticatedRef.current || !currentUserRef.current);
 
           if (needsProfileReload) {
-            // Si es un evento de auth, aseguramos que el flag esté en true
             setIsAuthenticated(true);
 
             const profile = await fetchProfileWithRetry(session.user.id);
 
-            if (mounted) {
-              if (profile) {
-                setCurrentUser(profile);
+            if (!mounted) return;
+
+            if (profile) {
+              setCurrentUser(profile);
+            } else {
+              // ✅ Cambio clave: si no hay perfil y no hay nada en memoria, setear fallback.
+              if (!currentUserRef.current) {
+                console.warn(
+                  "[Auth] Profile load failed after retries. Setting fallback profile to avoid infinite loader.",
+                );
+                setCurrentUser(buildFallbackProfile(session.user));
+
+                // Background retry (opcional)
+                fetchProfileWithRetry(session.user.id).then((fullProfile) => {
+                  if (mounted && fullProfile) {
+                    console.log(
+                      "[Auth] Full profile loaded in background (listener).",
+                    );
+                    setCurrentUser(fullProfile);
+                  }
+                });
               } else {
-                // Si falló tras reintentos y no tenemos nada en memoria...
-                if (!currentUserRef.current) {
-                  console.warn(
-                    "[Auth] Critical: Profile load failed after retries. Keeping session active for retry.",
-                  );
-                  // En modo Relaxed, preferimos no hacer logout automático aquí tampoco,
-                  // salvo que queramos ser estrictos. Con isAuthenticated=true,
-                  // el usuario verá el loader y podrá refrescar la página manualmente.
-                }
+                console.warn(
+                  "[Auth] Profile load failed after retries, keeping existing currentUser.",
+                );
               }
             }
           }
@@ -307,7 +320,7 @@ export const AuthProvider = ({ children }) => {
           error,
         } = await supabase.auth.getSession();
 
-        // MICRO-CAMBIO B: Lógica de logout precisa.
+        // Lógica de logout precisa.
         if (error) throw error; // Si hay error (red/timeout), va al catch y se ignora.
 
         if (!session) {
@@ -318,7 +331,6 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (e) {
         // Si es error de red, timeout o fetch failed, lo ignoramos.
-        // No expulsamos al usuario por tener mal internet al volver a la pestaña.
         console.warn("[Auth] Revalidation check failed (network?):", e.message);
       } finally {
         isRevalidatingRef.current = false;
