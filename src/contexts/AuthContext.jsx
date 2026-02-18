@@ -165,50 +165,69 @@ export const AuthProvider = ({ children }) => {
             }
           }
         }
-// ... dentro de initializeAuth ...
-} catch (err) {
-        console.warn('[Auth] Init warning:', err.message);
-        
-        const isTimeout = String(err?.message || '').toLowerCase().includes('timeout');
-        
+        // ... dentro de initializeAuth ...
+      } catch (err) {
+        console.warn("[Auth] Init warning:", err.message);
+
+        const isTimeout = String(err?.message || "")
+          .toLowerCase()
+          .includes("timeout");
+
         if (mounted) {
-            // 1. Buscamos el token físico en el navegador
-            const tokenKey = Object.keys(localStorage).find(key => 
-                key.startsWith('sb-') && key.endsWith('-auth-token')
+          // 1. Buscamos el token físico en el navegador
+          const tokenKey = Object.keys(localStorage).find(
+            (key) => key.startsWith("sb-") && key.endsWith("-auth-token"),
+          );
+
+          // 2. Lógica de Resiliencia (Optimistic Mode + Manual Hydration)
+          if (isTimeout && tokenKey) {
+            console.warn(
+              "[Auth] Timeout but local token found. Forcing Optimistic Auth.",
             );
+            setIsAuthenticated(true); // Dejamos pasar al usuario
 
-            // 2. Lógica de Resiliencia (Optimistic Mode + Manual Hydration)
-            if (isTimeout && tokenKey) {
-                console.warn('[Auth] Timeout but local token found. Forcing Optimistic Auth.');
-                setIsAuthenticated(true); // Dejamos pasar al usuario
+// ... dentro del catch, bloque isTimeout && tokenKey ...
 
-                // --- NUEVO: RESCATE MANUAL DEL PERFIL ---
-                // Como getSession falló, intentamos leer el ID del usuario directamente del storage
-                // para cargar su perfil y salir del loader infinito.
+                // --- NUEVO: RESCATE MANUAL DEL PERFIL (MEJORADO) ---
                 try {
+                    // 1. Decodificamos el token local
                     const sessionData = JSON.parse(localStorage.getItem(tokenKey));
                     const userId = sessionData?.user?.id;
                     
                     if (userId) {
                         console.log('[Auth] Attempting to hydrate profile from local storage ID...');
-                        // Disparamos la carga del perfil en paralelo
+                        
+                        // 2. Buscamos el perfil
                         fetchProfileWithRetry(userId).then(profile => {
-                            if (mounted && profile) {
-                                setCurrentUser(profile);
-                                // Una vez que tenemos el perfil, el loader desaparece solo.
+                            if (mounted) {
+                                if (profile) {
+                                    // EXITO: Tenemos perfil, completamos el login
+                                    setCurrentUser(profile);
+                                    console.log('[Auth] Hydration successful.');
+                                } else {
+                                    // FALLO: Si después de reintentar no hay perfil, nos rendimos.
+                                    // Esto evita que te quedes en "Cargando perfil..." para siempre.
+                                    console.warn('[Auth] Hydration failed (profile not found). Resetting.');
+                                    resetAuthState();
+                                }
                             }
                         });
+                    } else {
+                        // Token corrupto o sin ID -> Reset
+                        resetAuthState();
                     }
                 } catch (parseErr) {
                     console.error('[Auth] Failed to parse local token:', parseErr);
+                    resetAuthState();
                 }
                 // ----------------------------------------
-
-            } else {
-                // Si no hay token o es un error crítico, reseteamos.
-                console.warn('[Auth] Init failed & No local token found. Resetting.');
-                resetAuthState(); 
-            }
+          } else {
+            // Si no hay token o es un error crítico, reseteamos.
+            console.warn(
+              "[Auth] Init failed & No local token found. Resetting.",
+            );
+            resetAuthState();
+          }
         }
       } finally {
         if (mounted) setIsLoading(false);
