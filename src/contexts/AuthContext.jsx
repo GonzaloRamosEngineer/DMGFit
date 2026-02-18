@@ -165,26 +165,31 @@ export const AuthProvider = ({ children }) => {
             }
           }
         }
+      // ... dentro de initializeAuth ...
       } catch (err) {
-        console.warn("[Auth] Init warning:", err.message);
-
-        const isTimeout = String(err?.message || "")
-          .toLowerCase()
-          .includes("timeout");
-
+        console.warn('[Auth] Init warning:', err.message);
+        
+        const isTimeout = String(err?.message || '').toLowerCase().includes('timeout');
+        
         if (mounted) {
-          // LÓGICA MEJORADA:
-          // Si es un error normal (!isTimeout) -> Reseteamos.
-          // Si es Timeout PERO tampoco tenemos usuario cargado (!currentUserRef.current) -> Reseteamos.
-          // (Porque si pasaron 15s y no hay perfil, no tiene sentido dejarlo en el limbo).
-          if (!isTimeout || !currentUserRef.current) {
-            console.warn(
-              "[Auth] Init failed & No Profile loaded. Resetting state.",
-            );
-            resetAuthState();
-          }
-          // Si es Timeout pero YA tenemos usuario (porque el listener funcionó rápido),
-          // entonces NO hacemos nada y dejamos que siga.
+            // LÓGICA CORREGIDA PARA PRODUCCIÓN:
+            
+            // 1. Si NO es timeout (error real de credenciales), limpiamos.
+            if (!isTimeout) {
+                resetAuthState();
+            } 
+            // 2. Si ES timeout, verificamos si el listener ya nos autenticó mientras esperábamos.
+            else {
+                // Si el listener (INITIAL_SESSION) ya puso isAuthenticated=true, 
+                // entonces el timeout del getSession es irrelevante. ¡No lo matamos!
+                if (isAuthenticatedRef.current && currentUserRef.current) {
+                    console.log('[Auth] Timeout ignored because session is already active via listener.');
+                } else {
+                    // Solo si pasaron 15s y NADIE nos autenticó, ahí sí asumimos fallo.
+                    console.warn('[Auth] Timeout and no session established. Resetting.');
+                    resetAuthState();
+                }
+            }
         }
       } finally {
         if (mounted) setIsLoading(false);
