@@ -26,17 +26,13 @@ const withTimeout = (promise, ms) =>
     ),
   ]);
 
-// Helper: construir un perfil fallback desde session.user (no depende de DB)
-const buildFallbackProfile = (user) => ({
-  id: user.id,
-  name: user.user_metadata?.full_name || user.email,
-  email: user.email,
-  role: user.user_metadata?.role || "atleta",
-  avatar: user.user_metadata?.avatar_url || null,
-  coachId: null,
-  athleteId: null,
-});
-
+/**
+ * Ultra-relaxed mode:
+ * - Nunca cerramos sesión automáticamente por fallos de red/timeout.
+ * - Si existe token local o session.user, hidratamos un fallbackProfile inmediato (desde metadata).
+ * - Intentamos cargar el perfil real en background; si falla, no bloquea ni desloguea.
+ * - En focus, si getSession no devuelve sesión, NO hacemos logout (solo log).
+ */
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -69,10 +65,72 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // B) LIMPIEZA SUAVE (Solo memoria)
+  // Nota: en modo ultra-relajado, la usamos sólo cuando NO hay token local o el token está corrupto.
   const resetAuthState = useCallback(() => {
     setCurrentUser(null);
     setIsAuthenticated(false);
   }, []);
+
+  // Helper: encontrar tokenKey de Supabase en localStorage
+  const findSupabaseTokenKey = useCallback(() => {
+    return Object.keys(localStorage).find(
+      (key) => key.startsWith("sb-") && key.endsWith("-auth-token"),
+    );
+  }, []);
+
+  // Helper: construir fallbackProfile desde user/user_metadata
+  const buildFallbackProfile = useCallback((user) => {
+    const md = user?.user_metadata || {};
+    return {
+      id: user?.id,
+      name: md.full_name || user?.email || "Usuario",
+      email: user?.email || md.email || "",
+      role: md.role || "atleta",
+      avatar: md.avatar_url || null,
+      coachId: null,
+      athleteId: null,
+    };
+  }, []);
+
+  // Helper: hidratar desde token local (instantáneo)
+  const hydrateFromLocalToken = useCallback(
+    async ({ mounted, reason = "unknown" } = {}) => {
+      const tokenKey = findSupabaseTokenKey();
+      if (!tokenKey) return false;
+
+      try {
+        const raw = localStorage.getItem(tokenKey);
+        if (!raw) return false;
+
+        const sessionData = JSON.parse(raw);
+        const user = sessionData?.user;
+
+        if (!user) return false;
+
+        if (mounted) {
+          console.log(
+            `[Auth] Hydrating fallback profile from local token (${reason}).`,
+          );
+          setIsAuthenticated(true);
+          setCurrentUser(buildFallbackProfile(user));
+        }
+
+        // Background: intentar cargar perfil completo (sin bloquear ni desloguear)
+        fetchProfileWithRetry(user.id).then((fullProfile) => {
+          if (mounted && fullProfile) {
+            console.log("[Auth] Full profile loaded in background.");
+            setCurrentUser(fullProfile);
+          }
+        });
+
+        return true;
+      } catch (e) {
+        console.warn("[Auth] Failed to parse local token:", e?.message || e);
+        return false;
+      }
+    },
+    [findSupabaseTokenKey, buildFallbackProfile],
+  );
 
   const fetchUserProfile = async (userId) => {
     try {
@@ -121,15 +179,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Helper interno para reintentar la carga del perfil (Grace Pattern)
-  const fetchProfileWithRetry = useCallback(async (userId, retries = 2) => {
-    for (let i = 0; i <= retries; i++) {
-      const profile = await fetchUserProfile(userId);
-      if (profile) return profile;
-      // Si falló, esperamos un poco antes de reintentar (Backoff)
-      if (i < retries) await new Promise((r) => setTimeout(r, 800));
-    }
-    return null;
-  }, []);
+  const fetchProfileWithRetry = useCallback(
+    async (userId, retries = 2) => {
+      for (let i = 0; i <= retries; i++) {
+        const profile = await fetchUserProfile(userId);
+        if (profile) return profile;
+        if (i < retries) await new Promise((r) => setTimeout(r, 800));
+      }
+      return null;
+    },
+    [], // fetchUserProfile es estable por scope; si la movés a useCallback, agregala aquí.
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -147,7 +207,7 @@ export const AuthProvider = ({ children }) => {
 
     const initializeAuth = async () => {
       try {
-        // Timeout de 15s (Relaxed Mode)
+        // 1) Intentamos sesión inicial con timeout
         const {
           data: { session },
           error,
@@ -156,91 +216,45 @@ export const AuthProvider = ({ children }) => {
         if (error) throw error;
 
         if (session?.user) {
-          // Marcamos autenticado inmediatamente si hay sesión válida.
-          if (mounted) setIsAuthenticated(true);
-
-          // Intentamos cargar perfil real (con retry)
-          const profile = await fetchProfileWithRetry(session.user.id);
-
-          if (!mounted) return;
-
-          if (profile) {
-            setCurrentUser(profile);
-          } else {
-            // ✅ Cambio clave: nunca dejamos currentUser = null si hay sesión.
-            console.warn(
-              "[Auth] Session valid but profile load failed. Using fallback profile to avoid infinite loader.",
-            );
+          // Ultra-relaxed: marcamos auth true y ponemos fallback inmediato (sin esperar DB)
+          if (mounted) {
+            setIsAuthenticated(true);
             setCurrentUser(buildFallbackProfile(session.user));
+          }
 
-            // Intento en background (no bloquea)
-            fetchProfileWithRetry(session.user.id).then((fullProfile) => {
-              if (mounted && fullProfile) {
-                console.log("[Auth] Full profile loaded in background (init).");
-                setCurrentUser(fullProfile);
-              }
-            });
+          // Background: perfil completo
+          fetchProfileWithRetry(session.user.id).then((profile) => {
+            if (mounted && profile) setCurrentUser(profile);
+          });
+        } else {
+          // No session: igual intentamos token local (por si getSession no devolvió pero hay storage)
+          const hydrated = await hydrateFromLocalToken({
+            mounted,
+            reason: "init-no-session",
+          });
+
+          // Si no hay nada en local, dejamos público
+          if (!hydrated && mounted) {
+            resetAuthState();
           }
         }
       } catch (err) {
-        console.warn("[Auth] Init warning:", err.message);
+        console.warn("[Auth] Init warning:", err?.message || err);
 
         const isTimeout = String(err?.message || "")
           .toLowerCase()
           .includes("timeout");
 
-        if (mounted) {
-          // 1. Buscamos el token físico en el navegador
-          const tokenKey = Object.keys(localStorage).find(
-            (key) => key.startsWith("sb-") && key.endsWith("-auth-token"),
-          );
+        // Ultra-relaxed: si hay token local, siempre hidratamos fallback (sea timeout o no)
+        const hydrated = await hydrateFromLocalToken({
+          mounted,
+          reason: isTimeout ? "init-timeout" : "init-error",
+        });
 
-          // 2. Lógica de Resiliencia (Optimistic Mode + Manual Hydration)
-          if (isTimeout && tokenKey) {
-            console.warn(
-              "[Auth] Timeout but local token found. Forcing Optimistic Auth.",
-            );
-            setIsAuthenticated(true); // Dejamos pasar al usuario
-
-            // --- RESCATE INSTANTÁNEO DESDE METADATA ---
-            try {
-              const sessionData = JSON.parse(localStorage.getItem(tokenKey));
-              const user = sessionData?.user;
-
-              if (user) {
-                console.log(
-                  "[Auth] Timeout detected. Hydrating INSTANTLY from local metadata.",
-                );
-
-                // 1) Fallback inmediato (sin DB)
-                setCurrentUser(buildFallbackProfile(user));
-                setIsAuthenticated(true);
-
-                // 2) Intento de perfil real en background (no bloquea)
-                fetchProfileWithRetry(user.id).then((fullProfile) => {
-                  if (mounted && fullProfile) {
-                    console.log("[Auth] Full profile loaded in background.");
-                    setCurrentUser(fullProfile);
-                  }
-                });
-              } else {
-                console.warn(
-                  "[Auth] Local token found but no user object. Resetting.",
-                );
-                resetAuthState();
-              }
-            } catch (parseErr) {
-              console.error("[Auth] Failed to parse local token:", parseErr);
-              resetAuthState();
-            }
-            // ----------------------------------------
-          } else {
-            // Si no hay token o es un error crítico, reseteamos.
-            console.warn(
-              "[Auth] Init failed & No local token found. Resetting.",
-            );
-            resetAuthState();
-          }
+        // Si NO pudimos hidratar y no hay token, dejamos público
+        if (!hydrated && mounted) {
+          console.warn("[Auth] Init failed and no local token. Staying public.");
+          resetAuthState();
         }
       } finally {
         if (mounted) setIsLoading(false);
@@ -255,6 +269,7 @@ export const AuthProvider = ({ children }) => {
       if (!mounted) return;
 
       if (event === "SIGNED_OUT" || event === "USER_DELETED") {
+        // Estos sí son eventos reales: limpiamos (logout explícito o borrado)
         clearAuthData();
         setIsLoading(false);
         return;
@@ -262,44 +277,28 @@ export const AuthProvider = ({ children }) => {
 
       if (["SIGNED_IN", "TOKEN_REFRESHED", "INITIAL_SESSION"].includes(event)) {
         if (session?.user) {
-          // ✅ Ajuste: evitamos duplicar cargas por INITIAL_SESSION si ya tenemos user en memoria.
-          const needsProfileReload =
-            event === "SIGNED_IN" ||
-            (!isAuthenticatedRef.current || !currentUserRef.current);
+          // Ultra-relaxed: fallback inmediato (siempre)
+          setIsAuthenticated(true);
 
-          if (needsProfileReload) {
-            setIsAuthenticated(true);
+          // Si ya teníamos usuario, no lo pisamos con null. Solo pisamos si no hay currentUser o cambia el id.
+          const shouldSetFallback =
+            !currentUserRef.current ||
+            currentUserRef.current?.id !== session.user.id;
 
-            const profile = await fetchProfileWithRetry(session.user.id);
-
-            if (!mounted) return;
-
-            if (profile) {
-              setCurrentUser(profile);
-            } else {
-              // ✅ Cambio clave: si no hay perfil y no hay nada en memoria, setear fallback.
-              if (!currentUserRef.current) {
-                console.warn(
-                  "[Auth] Profile load failed after retries. Setting fallback profile to avoid infinite loader.",
-                );
-                setCurrentUser(buildFallbackProfile(session.user));
-
-                // Background retry (opcional)
-                fetchProfileWithRetry(session.user.id).then((fullProfile) => {
-                  if (mounted && fullProfile) {
-                    console.log(
-                      "[Auth] Full profile loaded in background (listener).",
-                    );
-                    setCurrentUser(fullProfile);
-                  }
-                });
-              } else {
-                console.warn(
-                  "[Auth] Profile load failed after retries, keeping existing currentUser.",
-                );
-              }
-            }
+          if (shouldSetFallback) {
+            setCurrentUser(buildFallbackProfile(session.user));
           }
+
+          // Background: perfil completo
+          fetchProfileWithRetry(session.user.id).then((profile) => {
+            if (mounted && profile) setCurrentUser(profile);
+          });
+        } else {
+          // Evento sin session.user: en ultra-relaxed, intentamos token local y si no, no hacemos nada agresivo.
+          await hydrateFromLocalToken({
+            mounted,
+            reason: `listener-${event}-no-session`,
+          });
         }
         setIsLoading(false);
       }
@@ -320,18 +319,22 @@ export const AuthProvider = ({ children }) => {
           error,
         } = await supabase.auth.getSession();
 
-        // Lógica de logout precisa.
-        if (error) throw error; // Si hay error (red/timeout), va al catch y se ignora.
+        if (error) throw error;
 
         if (!session) {
-          // Si la respuesta es exitosa (sin error) pero NO hay sesión,
-          // significa que el token expiró o fue revocado. Logout.
-          console.warn("[Auth] Session explicitly lost on focus.");
-          await logout();
+          // Ultra-relaxed: NO logout aunque session sea null.
+          console.warn(
+            "[Auth] Session not present on focus. Keeping relaxed session (no logout).",
+          );
+
+          // Intentamos re-hidratar desde storage por si el SDK no devolvió session
+          await hydrateFromLocalToken({ mounted, reason: "focus-no-session" });
+
+          // Importante: NO hacemos resetAuthState acá para no echarlo.
         }
       } catch (e) {
-        // Si es error de red, timeout o fetch failed, lo ignoramos.
-        console.warn("[Auth] Revalidation check failed (network?):", e.message);
+        // Si es error de red/timeout/fetch failed, lo ignoramos.
+        console.warn("[Auth] Revalidation check failed (network?):", e?.message);
       } finally {
         isRevalidatingRef.current = false;
       }
@@ -344,7 +347,14 @@ export const AuthProvider = ({ children }) => {
       subscription.unsubscribe();
       window.removeEventListener("focus", handleFocus);
     };
-  }, [clearAuthData, resetAuthState, logout, fetchProfileWithRetry]);
+  }, [
+    clearAuthData,
+    resetAuthState,
+    logout,
+    fetchProfileWithRetry,
+    buildFallbackProfile,
+    hydrateFromLocalToken,
+  ]);
 
   const login = async ({ email, password }) => {
     try {
@@ -354,15 +364,15 @@ export const AuthProvider = ({ children }) => {
       });
       if (error) throw error;
 
-      // Usamos retry también en login para asegurar que entra bien
-      const profile = await fetchProfileWithRetry(data.user.id);
-
-      if (!profile)
-        throw new Error("No se pudo cargar el perfil. Intente nuevamente.");
-
-      setCurrentUser(profile);
+      // Ultra-relaxed: fallback inmediato
       setIsAuthenticated(true);
-      return { user: profile };
+      setCurrentUser(buildFallbackProfile(data.user));
+
+      // Background: perfil completo
+      const profile = await fetchProfileWithRetry(data.user.id);
+      if (profile) setCurrentUser(profile);
+
+      return { user: profile || buildFallbackProfile(data.user) };
     } catch (err) {
       return { error: err };
     }
