@@ -165,30 +165,30 @@ export const AuthProvider = ({ children }) => {
             }
           }
         }
-      // ... dentro de initializeAuth ...
+// ... dentro de initializeAuth ...
       } catch (err) {
         console.warn('[Auth] Init warning:', err.message);
         
         const isTimeout = String(err?.message || '').toLowerCase().includes('timeout');
         
         if (mounted) {
-            // LÓGICA CORREGIDA PARA PRODUCCIÓN:
-            
-            // 1. Si NO es timeout (error real de credenciales), limpiamos.
-            if (!isTimeout) {
-                resetAuthState();
-            } 
-            // 2. Si ES timeout, verificamos si el listener ya nos autenticó mientras esperábamos.
-            else {
-                // Si el listener (INITIAL_SESSION) ya puso isAuthenticated=true, 
-                // entonces el timeout del getSession es irrelevante. ¡No lo matamos!
-                if (isAuthenticatedRef.current && currentUserRef.current) {
-                    console.log('[Auth] Timeout ignored because session is already active via listener.');
-                } else {
-                    // Solo si pasaron 15s y NADIE nos autenticó, ahí sí asumimos fallo.
-                    console.warn('[Auth] Timeout and no session established. Resetting.');
-                    resetAuthState();
-                }
+            // 1. Verificamos si hay un token de Supabase físicamente en el navegador
+            const hasLocalToken = Object.keys(localStorage).some(key => 
+                key.startsWith('sb-') && key.endsWith('-auth-token')
+            );
+
+            // 2. Lógica de Resiliencia Extrema (Optimistic Mode)
+            if (isTimeout && hasLocalToken) {
+                // Si fue timeout PERO tenemos token en disco, NO expulsamos.
+                // Forzamos 'isAuthenticated' a true. 
+                // Resultado: El usuario verá "Cargando perfil..." en lugar de irse al Login.
+                // Esto le da tiempo al listener para despertar o al usuario para usar el botón de "Volver".
+                console.warn('[Auth] Timeout but local token found. Forcing Optimistic Auth (Waiting for listener).');
+                setIsAuthenticated(true);
+            } else {
+                // Solo si NO hay token o es un error grave (no timeout), reseteamos.
+                console.warn('[Auth] Init failed & No local token found. Resetting.');
+                resetAuthState(); 
             }
         }
       } finally {
