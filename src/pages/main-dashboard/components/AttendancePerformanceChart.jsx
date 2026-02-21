@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Icon from '../../../components/AppIcon';
-import Button from '../../../components/ui/Button';
 
 const AttendancePerformanceChart = ({ data, onDrillDown, loading = false }) => {
   const [activeView, setActiveView] = useState('week');
@@ -12,16 +11,34 @@ const AttendancePerformanceChart = ({ data, onDrillDown, loading = false }) => {
     { value: 'quarter', label: 'Trimestre' }
   ];
 
+  // Colores alineados con Tailwind
+  const COLOR_BAR = "#3b82f6"; // blue-500 (Asistencia)
+  const COLOR_LINE = "#8b5cf6"; // violet-500 (Rendimiento)
+
+  // Cálculos reales para las métricas inferiores
+  const averages = useMemo(() => {
+    if (!data || data.length === 0) return { attendance: 0, performance: 0 };
+    const sumAtt = data.reduce((acc, curr) => acc + (curr.attendance || 0), 0);
+    const sumPerf = data.reduce((acc, curr) => acc + (curr.performance || 0), 0);
+    return {
+      attendance: Math.round(sumAtt / data.length),
+      performance: (sumPerf / data.length).toFixed(1)
+    };
+  }, [data]);
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg z-50">
-          <p className="text-sm font-medium text-foreground mb-2">{label}</p>
+        <div className="bg-white/95 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 shadow-xl shadow-slate-200/50 z-50 min-w-[150px]">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">{label}</p>
           {payload.map((entry, index) => (
-            <div key={index} className="flex items-center justify-between space-x-4 text-xs">
-              <span className="text-muted-foreground">{entry.name}:</span>
-              <span className="font-medium" style={{ color: entry.color }}>
-                {entry.name === 'Asistencia' ? `${entry.value}%` : entry.value}
+            <div key={index} className="flex items-center justify-between gap-4 mb-1.5 last:mb-0">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+                <span className="text-sm font-bold text-slate-600">{entry.name}</span>
+              </div>
+              <span className="text-sm font-black text-slate-800">
+                {entry.name === 'Asistencia' ? entry.value : entry.value}
               </span>
             </div>
           ))}
@@ -34,81 +51,104 @@ const AttendancePerformanceChart = ({ data, onDrillDown, loading = false }) => {
   // 1. ESTADO DE CARGA VISUAL
   if (loading) {
     return (
-      <div className="bg-card border border-border rounded-lg p-4 md:p-6 animate-pulse">
-        <div className="flex justify-between mb-6">
-          <div className="h-6 bg-muted/50 rounded w-1/3"></div>
-          <div className="h-8 bg-muted/50 rounded w-1/4"></div>
+      <div className="bg-white border border-slate-100 rounded-[2rem] p-6 md:p-8 animate-pulse shadow-sm h-full flex flex-col">
+        <div className="flex justify-between items-center mb-8">
+          <div className="space-y-2">
+            <div className="h-6 bg-slate-100 rounded-lg w-48"></div>
+            <div className="h-3 bg-slate-100 rounded w-32"></div>
+          </div>
+          <div className="h-10 bg-slate-100 rounded-xl w-32 hidden sm:block"></div>
         </div>
-        <div className="h-64 bg-muted/30 rounded w-full"></div>
-        <div className="mt-4 pt-4 border-t border-border flex justify-between">
-          <div className="h-4 bg-muted/50 rounded w-1/4"></div>
-          <div className="h-4 bg-muted/50 rounded w-1/4"></div>
+        <div className="flex-1 bg-slate-50/50 rounded-2xl w-full min-h-[300px]"></div>
+        <div className="mt-6 pt-6 border-t border-slate-50 flex gap-6">
+          <div className="h-10 bg-slate-100 rounded-xl w-1/3"></div>
+          <div className="h-10 bg-slate-100 rounded-xl w-1/3"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 md:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 md:mb-6 space-y-3 sm:space-y-0">
-        <div>
-          <h3 className="text-lg md:text-xl font-heading font-semibold text-foreground">
-            Asistencia y Rendimiento
-          </h3>
-          <p className="text-xs md:text-sm text-muted-foreground mt-1">
-            Correlación entre asistencia y métricas de rendimiento
-          </p>
+    <div className="bg-white border border-slate-100 rounded-[2rem] p-6 md:p-8 shadow-sm flex flex-col h-full">
+      
+      {/* Cabecera del Gráfico */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-600 flex items-center justify-center border border-slate-100">
+            <Icon name="Activity" size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800 tracking-tight">
+              Asistencia vs. Rendimiento
+            </h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              Correlación de los últimos 7 días
+            </p>
+          </div>
         </div>
         
-        <div className="flex items-center space-x-2">
+        {/* Píldoras de Filtro de Tiempo */}
+        <div className="flex items-center bg-slate-50 p-1 rounded-xl border border-slate-100 self-start sm:self-auto">
           {viewOptions.map((option) => (
-            <Button
+            <button
               key={option.value}
-              variant={activeView === option.value ? 'default' : 'outline'}
-              size="sm"
               onClick={() => setActiveView(option.value)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeView === option.value 
+                  ? 'bg-white text-slate-800 shadow-sm' 
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
             >
               {option.label}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="w-full h-64 md:h-80 lg:h-96" aria-label="Gráfico de asistencia y rendimiento">
+      {/* Contenedor del Gráfico */}
+      <div className="w-full flex-1 min-h-[300px]" aria-label="Gráfico de asistencia y rendimiento">
         <ResponsiveContainer width="100%" height="100%">
-          {/* 2. PROTECCIÓN CONTRA DATOS VACÍOS */}
           {data && data.length > 0 ? (
-            <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.08)" />
+            <ComposedChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis 
                 dataKey="period" 
-                stroke="var(--color-muted-foreground)"
-                style={{ fontSize: '12px' }}
+                stroke="#94a3b8"
+                tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                tickLine={false}
+                axisLine={false}
+                dy={10}
               />
               <YAxis 
                 yAxisId="left"
-                stroke="var(--color-muted-foreground)"
-                style={{ fontSize: '12px' }}
-                label={{ value: 'Asistencia (%)', angle: -90, position: 'insideLeft', style: { fill: 'var(--color-muted-foreground)', fontSize: '12px' } }}
+                stroke="#94a3b8"
+                tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                tickLine={false}
+                axisLine={false}
+                dx={-10}
               />
               <YAxis 
                 yAxisId="right"
                 orientation="right"
-                stroke="var(--color-muted-foreground)"
-                style={{ fontSize: '12px' }}
-                label={{ value: 'Rendimiento', angle: 90, position: 'insideRight', style: { fill: 'var(--color-muted-foreground)', fontSize: '12px' } }}
+                stroke="#94a3b8"
+                tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }}
+                tickLine={false}
+                axisLine={false}
+                dx={10}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
               <Legend 
-                wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }}
+                wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', paddingTop: '20px' }}
                 iconType="circle"
+                iconSize={8}
               />
               <Bar 
                 yAxisId="left"
                 dataKey="attendance" 
                 name="Asistencia"
-                fill="var(--color-primary)" 
-                radius={[4, 4, 0, 0]}
+                fill={COLOR_BAR} 
+                radius={[6, 6, 6, 6]} // Bordes redondos en las barras
+                barSize={32}
                 onClick={(data) => onDrillDown && onDrillDown(data)}
                 style={{ cursor: 'pointer' }}
               />
@@ -117,45 +157,56 @@ const AttendancePerformanceChart = ({ data, onDrillDown, loading = false }) => {
                 type="monotone" 
                 dataKey="performance" 
                 name="Rendimiento"
-                stroke="var(--color-secondary)" 
-                strokeWidth={3}
-                dot={{ fill: 'var(--color-secondary)', r: 4 }}
-                activeDot={{ r: 6 }}
+                stroke={COLOR_LINE} 
+                strokeWidth={4}
+                dot={{ fill: COLOR_LINE, stroke: '#ffffff', strokeWidth: 2, r: 5 }}
+                activeDot={{ r: 8, strokeWidth: 0, fill: COLOR_LINE, className: "shadow-xl" }}
               />
             </ComposedChart>
           ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              No hay datos disponibles para mostrar el gráfico.
+            <div className="flex flex-col h-full items-center justify-center text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200">
+              <Icon name="BarChart2" size={32} className="text-slate-300 mb-2" />
+              <p className="text-sm font-bold text-slate-500">No hay datos suficientes</p>
             </div>
           )}
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-border">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 rounded-full bg-primary"></div>
+      {/* Resumen Promedios (Real) */}
+      <div className="mt-8 pt-6 border-t border-slate-100">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl">
+            <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+              <Icon name="Users" size={16} />
+            </div>
             <div>
-              <p className="text-xs text-muted-foreground">Asistencia Promedio</p>
-              <p className="text-sm md:text-base font-medium text-foreground">87.5%</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Asistencia Prom.</p>
+              <p className="text-lg font-black text-slate-800 leading-none mt-1">{averages.attendance}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 rounded-full bg-secondary"></div>
+          
+          <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl">
+            <div className="w-8 h-8 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">
+              <Icon name="Award" size={16} />
+            </div>
             <div>
-              <p className="text-xs text-muted-foreground">Rendimiento Promedio</p>
-              <p className="text-sm md:text-base font-medium text-foreground">8.2/10</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Rendimiento Prom.</p>
+              <p className="text-lg font-black text-slate-800 leading-none mt-1">{averages.performance}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <Icon name="TrendingUp" size={16} color="var(--color-success)" />
+          
+          <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl col-span-2 md:col-span-1">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+              <Icon name="TrendingUp" size={16} />
+            </div>
             <div>
-              <p className="text-xs text-muted-foreground">Correlación</p>
-              <p className="text-sm md:text-base font-medium text-success">+12.3%</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tendencia</p>
+              <p className="text-sm font-black text-emerald-600 leading-none mt-1.5">Positiva</p>
             </div>
           </div>
         </div>
       </div>
+
     </div>
   );
 };
