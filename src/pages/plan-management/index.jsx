@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
-import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
@@ -39,7 +38,7 @@ const PlanManagement = () => {
     try {
       setLoading(true);
 
-      // 1. Cargar Lista de Coaches Disponibles (Para el Modal)
+      // 1. Cargar Lista de Coaches Disponibles
       const { data: coachesData } = await supabase
         .from('coaches')
         .select('id, profiles(full_name)');
@@ -50,7 +49,7 @@ const PlanManagement = () => {
       })) || [];
       setAvailableCoaches(formattedCoaches);
 
-      // 2. Cargar Planes con todas sus relaciones
+      // 2. Cargar Planes
       const { data: plansData, error } = await supabase
         .from('plans')
         .select(`
@@ -64,7 +63,7 @@ const PlanManagement = () => {
 
       if (error) throw error;
 
-      // 3. Formatear datos para el Frontend
+      // 3. Formatear datos
       const formattedPlans = plansData.map(p => {
         const enrolledCount = p.enrollments?.length || 0; 
 
@@ -103,7 +102,6 @@ const PlanManagement = () => {
     const enrolled = data.reduce((sum, p) => sum + p.enrolled, 0);
     const revenue = data.reduce((sum, p) => sum + (p.enrolled * p.price), 0);
     
-    // Ocupación promedio ponderada
     let occupancySum = 0;
     let capacitySum = 0;
     data.forEach(p => {
@@ -124,12 +122,10 @@ const PlanManagement = () => {
   };
 
   // --- ACTIONS ---
-
   const handleSavePlan = async (planData) => {
     try {
       setLoading(true);
       
-      // 1. Insertar/Actualizar Plan Base
       const planPayload = {
         name: planData.name,
         description: planData.description,
@@ -141,24 +137,20 @@ const PlanManagement = () => {
       let planId = planData.id;
 
       if (editingPlan) {
-        // Update
         const { error } = await supabase.from('plans').update(planPayload).eq('id', planId);
         if (error) throw error;
         
-        // Limpiar relaciones antiguas para re-crearlas (Estrategia simple)
         await Promise.all([
           supabase.from('plan_features').delete().eq('plan_id', planId),
           supabase.from('plan_schedule').delete().eq('plan_id', planId),
           supabase.from('plan_coaches').delete().eq('plan_id', planId)
         ]);
       } else {
-        // Insert
         const { data, error } = await supabase.from('plans').insert(planPayload).select().single();
         if (error) throw error;
         planId = data.id;
       }
 
-      // 2. Insertar Relaciones
       const featuresInsert = planData.features.map(f => ({ plan_id: planId, feature: f }));
       const scheduleInsert = planData.schedule.map(s => ({ plan_id: planId, day: s.day, time: s.time }));
       const coachesInsert = planData.professorIds?.map(coachId => ({ plan_id: planId, coach_id: coachId })) || [];
@@ -169,7 +161,7 @@ const PlanManagement = () => {
         coachesInsert.length > 0 && supabase.from('plan_coaches').insert(coachesInsert)
       ]);
 
-      await fetchData(); // Recargar todo
+      await fetchData(); 
       setIsCreateModalOpen(false);
       setEditingPlan(null);
 
@@ -200,6 +192,7 @@ const PlanManagement = () => {
     try {
       await supabase.from('plans').update({ status: newStatus }).eq('id', planId);
       setPlans(prev => prev.map(p => p.id === planId ? { ...p, status: newStatus } : p));
+      calculateMetrics(plans.map(p => p.id === planId ? { ...p, status: newStatus } : p));
     } catch (error) {
       console.error("Error actualizando estado:", error);
     }
@@ -219,90 +212,125 @@ const PlanManagement = () => {
         <title>Gestión de Planes - VC Fit</title>
       </Helmet>
       
-      {/* REMOVED NavigationSidebar - ya está en AppLayout */}
-      <div className="p-4 md:p-6 lg:p-8 w-full">
+      {/* Contenedor Principal con estilo unificado */}
+      <div className="min-h-screen bg-[#F8FAFC] p-4 sm:p-6 md:p-10 pb-24">
         <div className="max-w-7xl mx-auto">
-          <BreadcrumbTrail 
-            items={[
-              { label: 'Gestión de Planes', path: '/plan-management', active: true }
-            ]} 
-          />
           
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">
+              <BreadcrumbTrail 
+                items={[
+                  { label: 'Gestión de Planes', path: '/plan-management', active: true }
+                ]} 
+              />
+              <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-2">
                 Gestión de Planes
               </h1>
-              <p className="text-sm md:text-base text-muted-foreground">
-                Administra los planes de entrenamiento disponibles
+              <p className="text-slate-500 font-medium mt-1">
+                Administra los servicios, precios y horarios de tu centro
               </p>
             </div>
-            <Button
-              variant="default"
-              size="md"
-              iconName="Plus"
-              onClick={() => {
-                setEditingPlan(null);
-                setIsCreateModalOpen(true);
-              }}
-            >
-              Crear Nuevo Plan
-            </Button>
-          </div>
-
-          {/* MÉTRICAS */}
-          <PlanMetrics metrics={metrics} loading={loading} />
-
-          {/* FILTROS */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Icon name="Search" size={20} color="var(--color-muted-foreground)" className="absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Buscar planes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-4 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth"
-              />
+            
+            <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+              <button
+                onClick={() => {
+                  setEditingPlan(null);
+                  setIsCreateModalOpen(true);
+                }}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
+              >
+                <Icon name="Plus" size={16} /> Crear Plan
+              </button>
             </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-10 px-4 bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-smooth"
-            >
-              <option value="all">Todos los estados</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
-            </select>
           </div>
 
-          {/* LISTA DE PLANES */}
-          {loading ? (
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-               {[1,2,3,4].map(i => <PlanCard key={i} loading={true} />)}
-             </div>
-          ) : filteredPlans.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {filteredPlans.map((plan) => (
-                <PlanCard
-                  key={plan.id}
-                  plan={plan}
-                  onEdit={(p) => {
-                    setEditingPlan(p);
-                    setIsCreateModalOpen(true);
-                  }}
-                  onDelete={handleDeletePlan}
-                  onToggleStatus={handleToggleStatus}
+          {/* MÉTRICAS (Componente Hijo) */}
+          <div className="mb-8">
+            <PlanMetrics metrics={metrics} loading={loading} />
+          </div>
+
+          {/* ÁREA DE CONTENIDO (Filtros + Lista) */}
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-4 sm:p-6 md:p-8">
+            
+            {/* FILTROS Y BÚSQUEDA */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              
+              {/* Buscador */}
+              <div className="flex-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Icon name="Search" size={18} className="text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Buscar planes por nombre..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium transition-all"
                 />
-              ))}
+              </div>
+
+              {/* Selector de Estado */}
+              <div className="sm:w-48 relative">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium appearance-none focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all"
+                >
+                  <option value="all">Todos los estados</option>
+                  <option value="active">Activos</option>
+                  <option value="inactive">Inactivos</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-400">
+                  <Icon name="ChevronDown" size={16} />
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="bg-card border border-border rounded-xl p-12 text-center">
-              <Icon name="Package" size={64} color="var(--color-muted-foreground)" className="mx-auto mb-4" />
-              <h3 className="text-lg font-heading font-semibold text-foreground mb-2">No se encontraron planes</h3>
-              <p className="text-muted-foreground mb-4">Crea un nuevo plan para comenzar.</p>
-            </div>
-          )}
+
+            {/* LISTA DE PLANES (Grid Responsivo) */}
+            {loading ? (
+               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                 {[1,2,3].map(i => <PlanCard key={i} loading={true} />)}
+               </div>
+            ) : filteredPlans.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredPlans.map((plan) => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    onEdit={(p) => {
+                      setEditingPlan(p);
+                      setIsCreateModalOpen(true);
+                    }}
+                    onDelete={handleDeletePlan}
+                    onToggleStatus={handleToggleStatus}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20 px-4 border-2 border-dashed border-slate-200 rounded-[2rem] bg-slate-50/50">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100 shadow-sm">
+                  <Icon name="Package" size={28} className="text-slate-300" />
+                </div>
+                <h3 className="text-lg font-black text-slate-700 mb-1">
+                  {searchQuery ? "No hay coincidencias" : "No hay planes creados"}
+                </h3>
+                <p className="text-sm font-medium text-slate-500">
+                  {searchQuery 
+                    ? "Prueba buscando con otros términos o cambia los filtros."
+                    : "Crea tu primer plan de entrenamiento para empezar."}
+                </p>
+                {!searchQuery && (
+                  <button 
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="mt-6 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+                  >
+                    Crear mi primer plan
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
