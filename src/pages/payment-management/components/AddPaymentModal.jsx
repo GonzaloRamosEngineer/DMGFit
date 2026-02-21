@@ -17,7 +17,7 @@ const getCurrentMonthName = () => {
   return month.charAt(0).toUpperCase() + month.slice(1);
 };
 
-const AddPaymentModal = ({ onClose, onSuccess }) => {
+const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
   // --- ESTADOS GLOBALES ---
   const [loading, setLoading] = useState(false);
   const [fetchingDebts, setFetchingDebts] = useState(false);
@@ -27,7 +27,7 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
   const [searchTerm, setSearchTerm] = useState('');
    
   // --- SELECCIÓN Y FLUJO ---
-  const [selectedAthlete, setSelectedAthlete] = useState(null);
+  const [selectedAthlete, setSelectedAthlete] = useState(initialAthlete);
   const [pendingDebts, setPendingDebts] = useState([]);
   const [selectedDebtIds, setSelectedDebtIds] = useState([]);
 
@@ -48,10 +48,11 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
   // 1. CARGA INICIAL DE ATLETAS (CORREGIDO PARA TU ESQUEMA)
   // ----------------------------------------------------------------
   useEffect(() => {
+    // Si ya recibimos un atleta inicial, no necesitamos cargar la lista
+    if (selectedAthlete) return;
+
     const fetchAthletes = async () => {
       try {
-        // CORRECCIÓN AQUÍ: Usamos el nombre de la tabla 'profiles' y 'plans' directamente
-        // Supabase detecta la relación FK automáticamente.
         const { data, error } = await supabase
           .from('athletes')
           .select(`
@@ -91,7 +92,7 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
       }
     };
     fetchAthletes();
-  }, []);
+  }, [selectedAthlete]);
 
   // ----------------------------------------------------------------
   // 2. BUSCAR DEUDAS AL SELECCIONAR ATLETA
@@ -152,7 +153,7 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
     const newSelection = isSelected 
       ? selectedDebtIds.filter(id => id !== debtId) 
       : [...selectedDebtIds, debtId];
-     
+      
     setSelectedDebtIds(newSelection);
 
     // Recalcular montos basados en la selección
@@ -177,7 +178,7 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
   // Carga Rápida: Cobrar Plan Actual
   const handleLoadPlan = () => {
     if (!selectedAthlete?.planPrice) return;
-     
+      
     setSelectedDebtIds([]); // Asegurar que es un pago nuevo
     setShowDiscount(false);
     setDiscountValue('');
@@ -254,7 +255,7 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
   // RENDER UI
   // ----------------------------------------------------------------
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-2xl rounded-[1.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         
         {/* HEADER */}
@@ -322,7 +323,7 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
               </div>
             </div>
           ) : (
-             
+              
             /* VISTA 2: FORMULARIO DE PAGO */
             <form onSubmit={handleSubmit} className="space-y-6 animate-in slide-in-from-right-8 duration-300">
                
@@ -341,13 +342,16 @@ const AddPaymentModal = ({ onClose, onSuccess }) => {
                      <p className="text-xs text-slate-500 font-medium">{selectedAthlete.planName}</p>
                    </div>
                 </div>
-                <button 
-                  type="button" 
-                  onClick={() => { setSelectedAthlete(null); setSearchTerm(''); }} 
-                  className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline px-2"
-                >
-                  Cambiar
-                </button>
+                {/* Ocultamos el botón "Cambiar" si entramos directo desde el modal rápido */}
+                {!initialAthlete && (
+                  <button 
+                    type="button" 
+                    onClick={() => { setSelectedAthlete(null); setSearchTerm(''); }} 
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline px-2"
+                  >
+                    Cambiar
+                  </button>
+                )}
               </div>
 
               {/* Sección A: Deudas Pendientes */}

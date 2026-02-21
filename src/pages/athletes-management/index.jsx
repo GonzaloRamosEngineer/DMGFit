@@ -8,11 +8,11 @@ import AthleteSegmentation from "./components/AthleteSegmentation";
 import RecentActivity from "./components/RecentActivity";
 import BulkActionsBar from "./components/BulkActionsBar";
 import Icon from "../../components/AppIcon";
-import Button from "../../components/ui/Button";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
 import AddAthleteModal from "./components/AddAthleteModal";
 import EnableAccountModal from "../../components/EnableAccountModal";
+import AddPaymentModal from "../payment-management/components/AddPaymentModal";
 
 const AthletesManagement = () => {
   const { currentUser } = useAuth();
@@ -27,9 +27,11 @@ const AthletesManagement = () => {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // --- ESTADOS PARA HABILITACIÓN ---
   const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
   const [enableTarget, setEnableTarget] = useState(null);
+  
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [payTarget, setPayTarget] = useState(null);
 
   const [athletes, setAthletes] = useState([]);
   const [metricsSummary, setMetricsSummary] = useState({
@@ -38,6 +40,7 @@ const AthletesManagement = () => {
     avgPerformance: 0,
     retentionRate: 0,
   });
+  
   const [segmentation, setSegmentation] = useState({
     elite: 0,
     advanced: 0,
@@ -46,13 +49,8 @@ const AthletesManagement = () => {
     total: 0,
   });
 
-  const mockActivities = [
-    { id: "ACT001", athleteName: "Carlos Mendoza", type: "achievement", description: "Récord personal", timestamp: new Date(Date.now() - 300000) },
-    { id: "ACT002", athleteName: "María Rodríguez", type: "payment", description: "Pago mensual completado", timestamp: new Date(Date.now() - 900000) },
-    { id: "ACT005", athleteName: "Nuevo Atleta", type: "registration", description: "Registro completado", timestamp: new Date(Date.now() - 7200000) },
-  ];
+  const [recentActivities, setRecentActivities] = useState([]);
 
-  // --- CARGA DE DATOS ---
   useEffect(() => {
     let isMounted = true;
 
@@ -66,7 +64,8 @@ const AthletesManagement = () => {
             coach_id,
             profile_id,
             profiles:profile_id ( full_name, email, avatar_url ),
-            coaches:coach_id ( id, profiles:profile_id ( full_name ) )
+            coaches:coach_id ( id, profiles:profile_id ( full_name ) ),
+            plans ( name, price )
           `);
 
         if (currentUser?.role === "profesor" && currentUser?.coachId) {
@@ -80,6 +79,7 @@ const AthletesManagement = () => {
         if (athleteIds.length === 0) {
           if (isMounted) {
             setAthletes([]);
+            setRecentActivities([]);
             setIsLoading(false);
           }
           return;
@@ -106,6 +106,8 @@ const AthletesManagement = () => {
           const rawEmail = athlete.profiles?.email || "";
           const isInternalEmail = rawEmail.includes('@dmg.internal') || rawEmail.includes('@vcfit.internal');
 
+          const planData = Array.isArray(athlete.plans) ? athlete.plans[0] : athlete.plans;
+
           return {
             id: athlete.id,
             profileId: athlete.profile_id,
@@ -113,6 +115,9 @@ const AthletesManagement = () => {
             email: isInternalEmail ? "Sin acceso a App" : rawEmail,
             rawEmail: rawEmail,
             profileImage: athlete.profiles?.avatar_url,
+            avatar: athlete.profiles?.avatar_url,
+            planName: planData?.name || "Sin Plan",
+            planPrice: planData?.price || 0,
             coach: athlete.coaches?.profiles?.full_name || "Sin Asignar",
             isActive: athlete.status === "active",
             attendanceRate,
@@ -124,7 +129,6 @@ const AthletesManagement = () => {
           };
         });
 
-        // RE-CALCULAR SEGMENTACIÓN (Que se había perdido)
         const seg = { elite: 0, advanced: 0, intermediate: 0, beginner: 0, total: enrichedAthletes.length };
         enrichedAthletes.forEach((a) => {
           if (a.performanceScore >= 90) seg.elite++;
@@ -133,9 +137,57 @@ const AthletesManagement = () => {
           else seg.beginner++;
         });
 
+        const allActivities = [];
+
+        athletesData.forEach(a => {
+          if (a.join_date) {
+            allActivities.push({
+              id: `reg-${a.id}`,
+              athleteName: a.profiles?.full_name || "Desconocido",
+              athleteImage: a.profiles?.avatar_url,
+              type: "registration",
+              description: "se unió al gimnasio",
+              timestamp: new Date(a.join_date).getTime()
+            });
+          }
+        });
+
+        paymentsRes.data?.forEach(p => {
+          if (p.status === 'paid' && (p.date || p.payment_date)) {
+            const athlete = athletesData.find(a => a.id === p.athlete_id);
+            allActivities.push({
+              id: `pay-${p.id || Math.random()}`,
+              athleteName: athlete?.profiles?.full_name || "Desconocido",
+              athleteImage: athlete?.profiles?.avatar_url,
+              type: "payment",
+              description: "registró un pago",
+              timestamp: new Date(p.date || p.payment_date).getTime()
+            });
+          }
+        });
+
+        attendanceRes.data?.forEach(att => {
+          if (att.status === 'present' && att.date) {
+            const athlete = athletesData.find(a => a.id === att.athlete_id);
+            allActivities.push({
+              id: `att-${att.athlete_id}-${att.date}`,
+              athleteName: athlete?.profiles?.full_name || "Desconocido",
+              athleteImage: athlete?.profiles?.avatar_url,
+              type: "session",
+              description: "asistió a clase",
+              timestamp: new Date(att.date).getTime()
+            });
+          }
+        });
+
+        const topRecentActivities = allActivities
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, 5);
+
         if (isMounted) {
           setAthletes(enrichedAthletes);
           setSegmentation(seg);
+          setRecentActivities(topRecentActivities);
           setMetricsSummary({
             totalAthletes: enrichedAthletes.length,
             activeThisMonth: enrichedAthletes.filter((a) => a.isActive).length,
@@ -154,7 +206,6 @@ const AthletesManagement = () => {
     return () => { isMounted = false; };
   }, [currentUser, lastRefresh]);
 
-  // --- FILTRADO Y BÚSQUEDA (Manteniendo lógica original) ---
   const filteredAthletes = useMemo(() => {
     let result = [...athletes];
     if (searchQuery) {
@@ -192,111 +243,201 @@ const AthletesManagement = () => {
     else setSelectedAthletes(filteredAthletes.map((a) => a.id));
   };
 
+  // Función auxiliar para renderizar el ícono de ordenamiento
+  const renderSortIcon = (key) => {
+    if (sortConfig.key !== key) return <Icon name="ArrowUpDown" size={12} className="opacity-30" />;
+    return <Icon name={sortConfig.direction === "asc" ? "ArrowUp" : "ArrowDown"} size={12} className="text-blue-600" />;
+  };
+
   return (
     <>
       <Helmet><title>Gestión de Atletas - VC Fit</title></Helmet>
 
-      <div className="p-4 md:p-6 lg:p-8 w-full">
-        <div className="max-w-7xl mx-auto">
-          <BreadcrumbTrail currentPath="/athletes-management" />
-
-          {/* Header con props de iconos recuperadas */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 md:mb-8">
-            <div>
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-foreground mb-2">Gestión de Atletas</h1>
-              <p className="text-sm md:text-base text-muted-foreground">Supervisa y gestiona todos tus atletas en un solo lugar</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={handleRefresh} loading={isLoading} iconName="RefreshCw" iconPosition="left">Actualizar</Button>
-              <Button variant="default" iconName="UserPlus" iconPosition="left" onClick={() => setIsAddModalOpen(true)}>Nuevo Atleta</Button>
-            </div>
+      <div className="min-h-screen bg-[#F8FAFC] p-6 md:p-10 pb-24">
+        
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <BreadcrumbTrail currentPath="/athletes-management" />
+            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-2">
+              Gestión de Atletas
+            </h1>
+            <p className="text-slate-500 font-medium mt-1">
+              Supervisa y gestiona todos tus atletas en un solo lugar
+            </p>
           </div>
+          
+          <div className="flex flex-wrap gap-3">
+            <button 
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className={`flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 text-xs uppercase tracking-wider shadow-lg transition-all ${isLoading ? 'opacity-70 cursor-wait' : ''}`}
+            >
+              <Icon name={isLoading ? "Loader" : "RefreshCw"} size={16} className={isLoading ? "animate-spin" : ""} /> 
+              {isLoading ? 'Actualizando...' : 'Actualizar'}
+            </button>
 
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
+            >
+              <Icon name="UserPlus" size={16} /> Nuevo Atleta
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-8">
           <MetricsStrip metrics={metricsSummary} loading={isLoading} />
-          <SearchAndFilters onSearch={setSearchQuery} onFilterChange={setActiveFilters} onBulkAction={() => {}} />
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-            <div className="lg:col-span-8">
-              <div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-4">
-                
-                {/* RECUPERADO: Barra de Herramientas de Lista (Checkbox y Orden) */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedAthletes.length > 0 && selectedAthletes.length === filteredAthletes.length}
-                      onChange={handleSelectAll}
-                      className="w-5 h-5 rounded border-border bg-input text-primary focus:ring-2 focus:ring-primary"
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {isLoading ? "Cargando..." : `${filteredAthletes.length} atletas encontrados`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => handleSort("name")} iconName="ArrowUpDown" iconPosition="right">Nombre</Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleSort("performanceScore")} iconName="ArrowUpDown" iconPosition="right">Rendimiento</Button>
-                  </div>
-                </div>
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          
+          {/* COLUMNA IZQUIERDA (Principal - 8/12) */}
+          <div className="xl:col-span-8 space-y-8 w-full min-w-0">
+            
+            <div className="sticky top-4 z-20">
+              <SearchAndFilters onSearch={setSearchQuery} onFilterChange={setActiveFilters} onBulkAction={() => {}} />
+            </div>
 
-                <div className="space-y-4">
-                  {isLoading ? (
-                    [1, 2, 3].map((i) => <AthleteCard key={i} loading={true} />)
-                  ) : filteredAthletes.length > 0 ? (
-                    filteredAthletes.map((athlete) => (
-                      <AthleteCard
-                        key={athlete.id}
-                        athlete={athlete}
-                        isSelected={selectedAthletes.includes(athlete.id)}
-                        canEnable={currentUser?.role === "admin"}
-                        onSelect={(id) => setSelectedAthletes(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])}
-                        onEnableAccount={(target) => {
-                          setEnableTarget({
-                            profileId: target.profileId,
-                            email: target.rawEmail?.includes("@dmg.internal") || target.rawEmail?.includes("@vcfit.internal")
-                              ? ""
-                              : target.rawEmail,
-                            name: target.name,
-                            role: "atleta",
-                          });
-                          setIsEnableModalOpen(true);
-                        }}
-                      />
-                    ))
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <Icon name="Users" size={48} className="mx-auto mb-4 opacity-50" />
-                      <p>No se encontraron atletas.</p>
+            {/* TABLA PRINCIPAL MODIFICADA */}
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm flex flex-col min-h-[600px] overflow-hidden">
+              
+              {/* Cabecera de la Tarjeta */}
+              <div className="p-6 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <Icon name="Users" size={20} />
                     </div>
-                  )}
+                    Directorio de Atletas
+                  </h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2 sm:ml-14">
+                    {isLoading ? "Cargando..." : `${filteredAthletes.length} Atletas registrados`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contenedor Ajustado (Sin scroll horizontal forzado) */}
+              <div className="flex-1 w-full">
+                <div className="w-full"> 
+                  
+                  {/* ENCABEZADOS DE LA TABLA COMPACTOS */}
+                  <div className="grid grid-cols-[32px_minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-4 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest items-center">
+                      
+                    <div className="flex justify-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedAthletes.length > 0 && selectedAthletes.length === filteredAthletes.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </div>
+                    
+                    <button onClick={() => handleSort("name")} className="flex items-center gap-1.5 hover:text-slate-800 transition-colors text-left group">
+                      ATLETA {renderSortIcon("name")}
+                    </button>
+                    
+                    <button onClick={() => handleSort("planName")} className="flex items-center gap-1.5 hover:text-slate-800 transition-colors text-left group">
+                      MEMBRESÍA {renderSortIcon("planName")}
+                    </button>
+                    
+                    <button onClick={() => handleSort("performanceScore")} className="flex items-center gap-1.5 hover:text-slate-800 transition-colors text-left group">
+                      MÉTRICAS {renderSortIcon("performanceScore")}
+                    </button>
+                    
+                    <button onClick={() => handleSort("paymentStatus")} className="flex items-center gap-1.5 hover:text-slate-800 transition-colors text-left group">
+                      ESTADO {renderSortIcon("paymentStatus")}
+                    </button>
+                    
+                    <div className="text-center">ACCIONES</div>
+                  </div>
+
+                  {/* CUERPO DE LA TABLA (Filas divididas por línea) */}
+                  <div className="flex flex-col divide-y divide-slate-100 pb-4">
+                    {isLoading ? (
+                      [1, 2, 3].map((i) => <AthleteCard key={i} loading={true} layout="table" />)
+                    ) : filteredAthletes.length > 0 ? (
+                      filteredAthletes.map((athlete) => (
+                        <AthleteCard
+                          key={athlete.id}
+                          athlete={athlete}
+                          layout="table" // <-- Le pasamos este prop para que la tarjeta se adapte
+                          isSelected={selectedAthletes.includes(athlete.id)}
+                          canEnable={currentUser?.role === "admin"}
+                          onSelect={(id) => setSelectedAthletes(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])}
+                          onQuickPay={(target) => {
+                            setPayTarget(target);
+                            setIsPayModalOpen(true);
+                          }}
+                          onEnableAccount={(target) => {
+                            setEnableTarget({
+                              profileId: target.profileId,
+                              email: target.rawEmail?.includes("@dmg.internal") || target.rawEmail?.includes("@vcfit.internal") ? "" : target.rawEmail,
+                              name: target.name,
+                              role: "atleta",
+                            });
+                            setIsEnableModalOpen(true);
+                          }}
+                        />
+                      ))
+                    ) : (
+                      <div className="text-center py-20 px-4">
+                        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                          <Icon name="Users" size={28} className="text-slate-300" />
+                        </div>
+                        <p className="font-black text-slate-600 mb-1">No se encontraron atletas.</p>
+                        <p className="text-sm font-medium text-slate-400">Intenta cambiar los filtros de búsqueda.</p>
+                      </div>
+                    )}
+                  </div>
+                  
                 </div>
               </div>
             </div>
-
-            <div className="lg:col-span-4 space-y-6">
-              <AthleteSegmentation segmentationData={segmentation} loading={isLoading} />
-              <RecentActivity activities={mockActivities} loading={isLoading} />
-            </div>
           </div>
 
-          {/* Modales y Barras Finales */}
-          {isAddModalOpen && (
-            <AddAthleteModal onClose={() => setIsAddModalOpen(false)} onAthleteAdded={handleRefresh} />
-          )}
-
-          <EnableAccountModal
-            isOpen={isEnableModalOpen}
-            target={enableTarget}
-            onClose={() => { setIsEnableModalOpen(false); setEnableTarget(null); }}
-            onSuccess={handleRefresh}
-          />
-
-          <BulkActionsBar
-            selectedCount={selectedAthletes.length}
-            onAction={() => setSelectedAthletes([])}
-            onClearSelection={() => setSelectedAthletes([])}
-          />
+          {/* COLUMNA DERECHA */}
+          <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-6 w-full min-w-0">
+            <AthleteSegmentation segmentationData={segmentation} loading={isLoading} />
+            <RecentActivity activities={recentActivities} loading={isLoading} />
+          </div>
+          
         </div>
       </div>
+
+      {/* Modales */}
+      {isAddModalOpen && (
+        <AddAthleteModal onClose={() => setIsAddModalOpen(false)} onAthleteAdded={handleRefresh} />
+      )}
+
+      <EnableAccountModal
+        isOpen={isEnableModalOpen}
+        target={enableTarget}
+        onClose={() => { setIsEnableModalOpen(false); setEnableTarget(null); }}
+        onSuccess={handleRefresh}
+      />
+
+      {isPayModalOpen && payTarget && (
+        <AddPaymentModal 
+          initialAthlete={{
+            id: payTarget.id,
+            name: payTarget.name,
+            avatar: payTarget.profileImage, 
+            email: payTarget.email,
+            planName: payTarget.planName,
+            planPrice: payTarget.planPrice
+          }}
+          onClose={() => { setIsPayModalOpen(false); setPayTarget(null); }}
+          onSuccess={() => {
+            handleRefresh(); 
+          }}
+        />
+      )}
+
+      <BulkActionsBar
+        selectedCount={selectedAthletes.length}
+        onAction={() => setSelectedAthletes([])}
+        onClearSelection={() => setSelectedAthletes([])}
+      />
     </>
   );
 };

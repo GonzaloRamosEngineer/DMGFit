@@ -1,54 +1,59 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
-import Button from '../../../components/ui/Button';
 
 const BulkActionsBar = ({ selectedCount, onAction, onClearSelection }) => {
   if (!selectedCount || selectedCount === 0) return null;
 
   const bulkActions = [
-    { id: 'message', label: 'Mensaje', icon: 'MessageSquare' },
-    { id: 'schedule', label: 'Programar', icon: 'Calendar' },
-    { id: 'payment', label: 'Recordatorio', icon: 'Bell' },
-    { id: 'export', label: 'Exportar', icon: 'Download' }
+    { id: 'message', label: 'Mensaje', icon: 'MessageSquare', iconColor: 'text-blue-400' },
+    { id: 'schedule', label: 'Programar', icon: 'Calendar', iconColor: 'text-violet-400' },
+    { id: 'payment', label: 'Recordatorio', icon: 'Bell', iconColor: 'text-amber-400' },
+    { id: 'export', label: 'Exportar', icon: 'Download', iconColor: 'text-slate-300' }
   ];
 
   return (
-    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-4xl px-4 animate-in slide-in-from-bottom-4 duration-300">
-      <div className="bg-card border border-primary/50 rounded-xl shadow-glow-primary p-4 backdrop-blur-md bg-opacity-95">
-        <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
-          
+    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-3xl animate-in slide-in-from-bottom-10 fade-in duration-300">
+      
+      {/* Contenedor Principal Oscuro */}
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-[2rem] shadow-2xl shadow-slate-900/20 p-3 pr-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        
+        {/* Izquierda: Contador y Desmarcar */}
+        <div className="flex items-center gap-4 pl-2 w-full sm:w-auto justify-between sm:justify-start">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-base shadow-inner">
               {selectedCount}
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">
+            <div className="flex flex-col">
+              <span className="text-sm font-black text-white leading-none">
                 Seleccionados
-              </p>
+              </span>
               <button 
                 onClick={onClearSelection}
-                className="text-xs text-muted-foreground hover:text-primary underline transition-colors"
+                className="text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest text-left mt-1.5 transition-colors flex items-center gap-1"
               >
-                Desmarcar todo
+                <Icon name="X" size={10} /> Desmarcar
               </button>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 justify-end">
-            {bulkActions.map((action) => (
-              <Button
-                key={action.id}
-                variant="outline"
-                size="sm"
-                onClick={() => onAction(action.id)}
-                iconName={action.icon}
-                className="flex-shrink-0"
-              >
-                <span className="hidden sm:inline">{action.label}</span>
-              </Button>
-            ))}
-          </div>
+          
+          {/* Separador vertical (solo en desktop) */}
+          <div className="h-8 w-px bg-slate-700/50 hidden sm:block ml-2"></div>
         </div>
+
+        {/* Derecha: Botones de Acción */}
+        <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
+          {bulkActions.map((action) => (
+            <button
+              key={action.id}
+              onClick={() => onAction(action.id)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-bold text-white transition-all hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <Icon name={action.icon} size={16} className={action.iconColor} />
+              <span className="hidden md:inline">{action.label}</span>
+            </button>
+          ))}
+        </div>
+        
       </div>
     </div>
   );

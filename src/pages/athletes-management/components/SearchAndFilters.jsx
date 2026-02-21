@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import Input from '../../../components/ui/Input';
-import Select from '../../../components/ui/Select';
-import Button from '../../../components/ui/Button';
+import Icon from '../../../components/AppIcon';
 
 const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = false }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -13,7 +11,6 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = fa
     attendanceRange: ''
   });
 
-  // Nota: Estas opciones podrían venir dinámicamente desde el padre en el futuro
   const performanceTierOptions = [
     { value: '', label: 'Todos los Niveles' },
     { value: 'elite', label: 'Elite (90-100%)' },
@@ -57,74 +54,109 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = fa
   const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 md:p-6 mb-6 md:mb-8">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
-        <div className="flex-1">
-          <Input
+    <div className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-[2rem] p-4 shadow-sm mb-6 transition-all">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+        
+        {/* Buscador */}
+        <div className="flex-1 relative">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Icon name="Search" size={18} className="text-slate-400" />
+          </div>
+          <input
             type="search"
             placeholder="Buscar atletas por nombre o email..."
             value={searchQuery}
             onChange={handleSearchChange}
-            className="w-full"
             disabled={loading}
+            className="w-full pl-11 pr-4 py-3 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 focus:border-blue-500 rounded-2xl text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 outline-none font-medium transition-all"
           />
         </div>
         
-        <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          <Button
-            variant={showAdvancedFilters ? 'default' : 'outline'}
+        {/* Botones de Acción */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            iconName="Filter"
-            iconPosition="left"
-            className="flex-shrink-0"
             disabled={loading}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all border ${
+              showAdvancedFilters || activeFilterCount > 0
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+            }`}
           >
-            Filtros {activeFilterCount > 0 && `(${activeFilterCount})`}
-          </Button>
+            <Icon name="Filter" size={16} />
+            Filtros {activeFilterCount > 0 && <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs">{activeFilterCount}</span>}
+          </button>
           
-          <Button
-            variant="outline"
-            onClick={handleClearFilters}
-            iconName="X"
-            iconPosition="left"
-            className="flex-shrink-0"
-            disabled={loading}
-          >
-            Limpiar
-          </Button>
+          {(activeFilterCount > 0 || searchQuery) && (
+            <button
+              onClick={handleClearFilters}
+              disabled={loading}
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm bg-white border border-slate-200 text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-all"
+            >
+              <Icon name="X" size={16} />
+              Limpiar
+            </button>
+          )}
           
-          <Button
-            variant="outline"
+          <button
             onClick={() => onBulkAction('export')}
-            iconName="Download"
-            iconPosition="left"
-            className="flex-shrink-0"
             disabled={loading}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all ml-auto lg:ml-0"
           >
+            <Icon name="Download" size={16} />
             Exportar
-          </Button>
+          </button>
         </div>
       </div>
 
+      {/* Filtros Avanzados */}
       {showAdvancedFilters && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-border">
-          <Select
-            label="Nivel de Rendimiento"
-            options={performanceTierOptions}
-            value={filters.performanceTier}
-            onChange={(value) => handleFilterChange('performanceTier', value)}
-            disabled={loading}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-4 duration-300">
           
-          <Select
-            label="Estado de Pago"
-            options={paymentStatusOptions}
-            value={filters.paymentStatus}
-            onChange={(value) => handleFilterChange('paymentStatus', value)}
-            disabled={loading}
-          />
+          {/* Select: Nivel de Rendimiento */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+              Nivel de Rendimiento
+            </label>
+            <select
+              value={filters.performanceTier}
+              onChange={(e) => handleFilterChange('performanceTier', e.target.value)}
+              disabled={loading}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium appearance-none cursor-pointer"
+            >
+              {performanceTierOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           
-          {/* Aquí puedes añadir más filtros como 'Entrenador' si tienes la lista */}
+          {/* Select: Estado de Pago */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+              Estado de Pago
+            </label>
+            <select
+              value={filters.paymentStatus}
+              onChange={(e) => handleFilterChange('paymentStatus', e.target.value)}
+              disabled={loading}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium appearance-none cursor-pointer"
+            >
+              {paymentStatusOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Espacio para futuros filtros (ej: Entrenador) */}
+          <div className="flex flex-col gap-1.5 opacity-50 pointer-events-none">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+              Entrenador (Próximamente)
+            </label>
+            <select disabled className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 font-medium appearance-none">
+              <option>Todos los entrenadores</option>
+            </select>
+          </div>
+          
         </div>
       )}
     </div>

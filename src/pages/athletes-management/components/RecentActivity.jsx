@@ -1,19 +1,18 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
-import Image from '../../../components/AppImage';
 
 const RecentActivity = ({ activities, loading = false }) => {
   if (loading) {
     return (
-      <div className="bg-card border border-border rounded-lg p-4 md:p-6 animate-pulse">
-        <div className="h-6 bg-muted/50 rounded w-1/3 mb-6"></div>
+      <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm animate-pulse">
+        <div className="h-6 bg-slate-200 rounded-lg w-1/3 mb-6"></div>
         <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="flex gap-3">
-              <div className="w-10 h-10 bg-muted/50 rounded-full"></div>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="flex gap-3 items-center">
+              <div className="w-10 h-10 bg-slate-200 rounded-full shrink-0"></div>
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-muted/50 rounded w-3/4"></div>
-                <div className="h-3 bg-muted/50 rounded w-1/4"></div>
+                <div className="h-4 bg-slate-200 rounded-md w-3/4"></div>
+                <div className="h-3 bg-slate-200 rounded-md w-1/3"></div>
               </div>
             </div>
           ))}
@@ -22,25 +21,19 @@ const RecentActivity = ({ activities, loading = false }) => {
     );
   }
 
-  const getActivityIcon = (type) => {
+  // --- Helpers visuales estilo SaaS ---
+  const getActivityStyles = (type) => {
     switch (type) {
-      case 'registration': return 'UserPlus';
-      case 'payment': return 'CreditCard';
-      case 'session': return 'Calendar';
-      case 'achievement': return 'Award';
-      case 'message': return 'MessageSquare';
-      default: return 'Activity';
-    }
-  };
-
-  const getActivityColor = (type) => {
-    switch (type) {
-      case 'registration': return 'var(--color-success)';
-      case 'payment': return 'var(--color-warning)';
-      case 'session': return 'var(--color-accent)';
-      case 'achievement': return 'var(--color-secondary)';
-      case 'message': return 'var(--color-primary)';
-      default: return 'var(--color-muted-foreground)';
+      case 'registration': 
+        return { icon: 'UserPlus', color: 'text-emerald-600', bg: 'bg-emerald-100' };
+      case 'payment': 
+        return { icon: 'DollarSign', color: 'text-blue-600', bg: 'bg-blue-100' };
+      case 'session': 
+        return { icon: 'CalendarCheck', color: 'text-indigo-600', bg: 'bg-indigo-100' };
+      case 'achievement': 
+        return { icon: 'Award', color: 'text-amber-600', bg: 'bg-amber-100' };
+      default: 
+        return { icon: 'Activity', color: 'text-slate-500', bg: 'bg-slate-100' };
     }
   };
 
@@ -52,71 +45,82 @@ const RecentActivity = ({ activities, loading = false }) => {
 
     if (diffInMinutes < 1) return 'Ahora mismo';
     if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`;
-    if (diffInMinutes < 1440) return `Hace ${Math.floor(diffInMinutes / 60)} h`;
+    if (diffInMinutes < 1440) return `Hace ${Math.floor(diffInMinutes / 60)} hs`;
     return `Hace ${Math.floor(diffInMinutes / 1440)} días`;
   };
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4 md:p-6">
-      <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h3 className="text-base md:text-lg font-heading font-semibold text-foreground">
-          Actividad Reciente
-        </h3>
-        <Icon name="Clock" size={20} color="var(--color-primary)" />
+    <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm relative overflow-hidden">
+      
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6 relative z-10">
+        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
+          <Icon name="Activity" size={20} className="text-slate-700" />
+        </div>
+        <div>
+          <h3 className="font-black text-slate-800 tracking-tight">
+            Actividad Reciente
+          </h3>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+            Últimos movimientos
+          </p>
+        </div>
       </div>
       
-      <div className="space-y-4">
+      {/* Lista */}
+      <div className="space-y-4 relative z-10">
         {activities?.length > 0 ? (
-          activities.map((activity) => (
-            <div
-              key={activity.id}
-              className="flex items-start gap-3 pb-4 border-b border-border last:border-b-0 last:pb-0"
-            >
-              <div className="flex-shrink-0">
-                {activity.athleteImage ? (
-                  <Image
-                    src={activity.athleteImage}
-                    alt={activity.athleteName}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Icon
-                      name={getActivityIcon(activity.type)}
-                      size={18}
-                      color={getActivityColor(activity.type)}
+          activities.map((activity) => {
+            const styles = getActivityStyles(activity.type);
+            return (
+              <div
+                key={activity.id}
+                className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-2xl transition-colors group border border-transparent hover:border-slate-100"
+              >
+                {/* Avatar o Icono */}
+                <div className="shrink-0 relative mt-1">
+                  {activity.athleteImage ? (
+                    <img
+                      src={activity.athleteImage}
+                      alt={activity.athleteName}
+                      className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200"
                     />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 font-bold text-slate-500 text-sm">
+                      {activity.athleteName.charAt(0)}
+                    </div>
+                  )}
+                  {/* Badge del tipo de actividad flotante */}
+                  <div className={`absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center ${styles.bg}`}>
+                    <Icon name={styles.icon} size={10} className={styles.color} />
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground mb-1">
-                  <span className="font-medium">{activity.athleteName}</span>
-                  {' '}
-                  <span className="text-muted-foreground">{activity.description}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">{formatTimeAgo(activity.timestamp)}</p>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-700 leading-snug">
+                    <span className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      {activity.athleteName}
+                    </span>
+                    {' '}
+                    <span className="text-slate-500 font-medium">
+                      {activity.description}
+                    </span>
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    {formatTimeAgo(activity.timestamp)}
+                  </p>
+                </div>
               </div>
-
-              <Icon
-                name={getActivityIcon(activity.type)}
-                size={16}
-                color={getActivityColor(activity.type)}
-                className="flex-shrink-0 opacity-70"
-              />
-            </div>
-          ))
+            );
+          })
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">No hay actividad reciente.</p>
+          <div className="text-center py-8">
+            <Icon name="Inbox" size={32} className="mx-auto mb-3 text-slate-300" />
+            <p className="text-sm font-bold text-slate-500">No hay actividad reciente</p>
+          </div>
         )}
       </div>
-      
-      {activities?.length > 0 && (
-        <button className="w-full mt-4 md:mt-6 py-2 text-sm text-primary hover:text-primary/80 transition-smooth font-medium">
-          Ver Todas las Actividades
-        </button>
-      )}
     </div>
   );
 };
