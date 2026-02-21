@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import Icon from '../../../components/AppIcon';
-import Button from '../../../components/ui/Button';
 
 const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -114,72 +113,96 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
 
   const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-  return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-modal flex items-end md:items-center justify-center p-0 md:p-4">
-      <div className="bg-card border-t md:border border-border rounded-t-2xl md:rounded-xl w-full max-w-md shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-200">
-        
-        <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mt-3 mb-1 md:hidden" />
+  // Clases Reutilizables
+  const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium transition-all";
+  const labelClasses = "text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2 ml-1";
 
-        <div className="flex justify-between items-center p-4 md:p-5 border-b border-border">
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+      
+      {/* Contenedor Modal */}
+      <div className="bg-white border-t md:border border-slate-100 rounded-t-[2rem] md:rounded-[2rem] w-full max-w-md shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-300">
+        
+        {/* Agarradera Mobile */}
+        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-3 mb-1 md:hidden" />
+
+        {/* Header */}
+        <div className="flex justify-between items-center p-5 md:p-6 border-b border-slate-100 shrink-0">
           <div>
-            <h3 className="font-bold text-lg md:text-xl text-foreground">
+            <h3 className="font-black text-xl text-slate-800 tracking-tight">
               {isEditing ? 'Editar Clase' : 'Programar Clase'}
             </h3>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest mt-1 bg-blue-50 inline-block px-2 py-0.5 rounded-md">
               {days[formData.dayOfWeek]}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-full text-muted-foreground transition-colors">
-            <Icon name="X" size={24} />
+          <button 
+            onClick={onClose} 
+            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+          >
+            <Icon name="X" size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 md:p-6 space-y-6 overflow-y-auto custom-scrollbar pb-10 md:pb-6">
+        {/* Formulario */}
+        <form onSubmit={handleSubmit} className="p-5 md:p-6 space-y-6 overflow-y-auto custom-scrollbar">
           
-          {/* ACTIVIDAD - Se ha quitado appearance-none para evitar fallos de renderizado en navegadores */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Actividad</label>
+          {/* ACTIVIDAD */}
+          <div>
+            <label className={labelClasses}>Actividad <span className="text-rose-500">*</span></label>
             <div className="relative">
               <select 
-                className="w-full h-11 px-3 rounded-lg bg-muted/30 border border-border text-sm focus:ring-2 focus:ring-primary outline-none transition-all text-foreground"
+                className={`${inputClasses} appearance-none cursor-pointer`}
                 value={formData.classTypeId}
                 onChange={e => setFormData({...formData, classTypeId: e.target.value})}
                 required
               >
-                <option value="" className="bg-card">Seleccionar actividad...</option>
+                <option value="" disabled>Seleccionar actividad...</option>
                 {classTypes.map(t => (
-                  <option key={t.id} value={t.id} className="bg-card">
-                    {t.name}
-                  </option>
+                  <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
+              <Icon name="ChevronDown" className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
             </div>
           </div>
 
           {/* PROFESORES */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex justify-between">
-              Profesores a Cargo
+          <div>
+            <div className="flex justify-between items-end mb-2 ml-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Profesores a Cargo
+              </label>
               {formData.selectedCoachIds.length === 0 && (
-                <span className="text-[10px] text-error lowercase font-normal italic">Sin asignar</span>
+                <span className="text-[9px] text-rose-500 font-bold uppercase tracking-wider bg-rose-50 px-2 py-0.5 rounded-md">
+                  Requerido
+                </span>
               )}
-            </label>
-            <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto p-1">
+            </div>
+            
+            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
               {coaches.map(c => {
                 const isSelected = formData.selectedCoachIds.includes(c.id);
                 return (
                   <label 
                     key={c.id} 
-                    className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
                       isSelected 
-                        ? 'bg-primary/10 border-primary text-primary' 
-                        : 'bg-muted/10 border-border text-foreground hover:bg-muted/20'
+                        ? 'bg-blue-50 border-blue-200 shadow-sm' 
+                        : 'bg-white border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    <span className="text-sm font-semibold">{c.name}</span>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
+                        {isSelected ? <Icon name="Check" size={14} strokeWidth={3} /> : <Icon name="User" size={14} />}
+                      </div>
+                      <span className={`text-sm font-bold ${isSelected ? 'text-blue-900' : 'text-slate-700'}`}>
+                        {c.name}
+                      </span>
+                    </div>
+                    {/* Checkbox Oculto para accesibilidad */}
                     <input 
                       type="checkbox" 
-                      className="w-5 h-5 rounded-full border-2 border-primary text-primary focus:ring-primary accent-primary"
+                      className="sr-only"
                       checked={isSelected}
                       onChange={() => toggleCoach(c.id)}
                     />
@@ -191,21 +214,21 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
 
           {/* HORARIOS */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Inicia</label>
+            <div>
+              <label className={labelClasses}>Inicia</label>
               <input 
                 type="time" 
-                className="w-full h-11 px-3 rounded-lg bg-muted/20 border border-border text-sm font-mono focus:ring-2 focus:ring-primary outline-none"
+                className={`${inputClasses} font-mono font-bold text-center`}
                 value={formData.startTime}
                 onChange={e => setFormData({...formData, startTime: e.target.value})}
                 required 
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Finaliza</label>
+            <div>
+              <label className={labelClasses}>Finaliza</label>
               <input 
                 type="time" 
-                className="w-full h-11 px-3 rounded-lg bg-muted/20 border border-border text-sm font-mono focus:ring-2 focus:ring-primary outline-none"
+                className={`${inputClasses} font-mono font-bold text-center`}
                 value={formData.endTime}
                 onChange={e => setFormData({...formData, endTime: e.target.value})}
                 required 
@@ -214,50 +237,60 @@ const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
           </div>
 
           {/* CUPO */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Cupo Máximo</label>
-            <div className="flex items-center gap-4">
-               <input 
+          <div>
+            <label className={labelClasses}>Cupo Máximo</label>
+            <div className="relative">
+              <input 
                 type="number" 
-                className="flex-1 h-11 px-3 rounded-lg bg-muted/20 border border-border text-sm font-bold focus:ring-2 focus:ring-primary outline-none"
+                className={`${inputClasses} pl-12 font-bold`}
                 value={formData.capacity}
                 onChange={e => setFormData({...formData, capacity: e.target.value})}
+                min="1"
               />
-              <span className="text-xs text-muted-foreground">Atletas</span>
+              <Icon name="Users" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold uppercase tracking-widest pointer-events-none">
+                Atletas
+              </span>
             </div>
           </div>
 
-          {/* BOTONES */}
-          <div className="flex flex-col-reverse md:flex-row justify-between gap-3 pt-4 border-t border-border mt-4">
-            {isEditing && (
-              <Button 
-                type="button" 
-                variant="ghost" 
-                className="text-error hover:bg-error/10 h-11 font-bold" 
-                onClick={handleDelete}
-              >
-                Eliminar
-              </Button>
-            )}
-            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto md:ml-auto">
-              <Button 
-                type="button" 
-                variant="ghost" 
-                className="h-11 md:px-6"
-                onClick={onClose}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                type="submit" 
-                loading={loading}
-                className="h-11 md:px-8 shadow-lg shadow-primary/20"
-              >
-                {isEditing ? 'Guardar Cambios' : 'Crear Clase'}
-              </Button>
-            </div>
-          </div>
         </form>
+
+        {/* FOOTER - Botones */}
+        <div className="p-5 md:p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-between gap-3 shrink-0 pb-8 md:pb-6 rounded-b-[2rem]">
+          {isEditing && (
+            <button 
+              type="button" 
+              onClick={handleDelete}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors order-2 sm:order-1"
+            >
+              <Icon name="Trash2" size={14} /> Eliminar
+            </button>
+          )}
+          
+          <div className={`flex gap-3 w-full sm:w-auto ${isEditing ? 'order-1 sm:order-2 ml-auto' : 'w-full justify-end'}`}>
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-bold text-xs text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-colors uppercase tracking-wider"
+            >
+              Cancelar
+            </button>
+            <button 
+              onClick={handleSubmit}
+              disabled={loading}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs text-white uppercase tracking-wider transition-all shadow-md ${
+                loading 
+                  ? 'bg-blue-400 cursor-wait' 
+                  : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-0.5 shadow-blue-200'
+              }`}
+            >
+              {loading ? <Icon name="Loader" size={14} className="animate-spin" /> : <Icon name="Save" size={14} />}
+              {isEditing ? 'Guardar' : 'Crear'}
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );

@@ -16,7 +16,6 @@ import { es } from 'date-fns/locale';
 import { supabase } from '../../lib/supabaseClient';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
-import Button from '../../components/ui/Button';
 
 // Modales
 import ClassSlotModal from './components/ClassSlotModal';
@@ -24,52 +23,60 @@ import ActivityManagerModal from './components/ActivityManagerModal';
 
 // --- COMPONENTE INTERNO: TARJETA COMPACTA ---
 const ScheduleCard = ({ cls, onClick }) => {
-  // Lógica de ocupación original recuperada
-  const occupancy = Math.min((15 / cls.capacity) * 100, 100);
+  const occupancy = Math.min((15 / cls.capacity) * 100, 100); // Esto a futuro lo conectas con los inscriptos reales
   const isFull = occupancy >= 100;
+  const classColor = cls.class_types?.color || '#3b82f6'; // Fallback a blue-500 si no tiene color
 
   return (
     <div 
       onClick={(e) => { e.stopPropagation(); onClick(cls); }}
-      className="group relative w-full rounded-md border-l-[3px] p-2 shadow-sm border border-border bg-card transition-all hover:ring-1 hover:ring-primary/30 cursor-pointer overflow-hidden"
-      style={{ borderLeftColor: cls.class_types?.color }}
+      className="group relative w-full rounded-xl border-l-[4px] p-2.5 shadow-sm bg-white border-y border-r border-slate-200 transition-all hover:shadow-md hover:-translate-y-0.5 cursor-pointer overflow-hidden flex flex-col gap-2"
+      style={{ borderLeftColor: classColor }}
     >
-      <div className="flex justify-between items-start gap-1 relative z-10">
-        <h4 className="font-bold text-[10px] md:text-xs uppercase truncate flex-1" style={{ color: cls.class_types?.color }}>
+      <div className="flex justify-between items-start gap-2 relative z-10">
+        <h4 className="font-black text-[11px] md:text-xs uppercase tracking-tight leading-none truncate" style={{ color: classColor }}>
           {cls.class_types?.name}
         </h4>
-        <span className="text-[9px] font-mono text-muted-foreground shrink-0 bg-muted/30 px-1 rounded">
+        <span className="text-[9px] font-bold text-slate-500 shrink-0 bg-slate-100 px-1.5 py-0.5 rounded-md">
           {cls.start_time.slice(0, 5)}
         </span>
       </div>
 
-      <div className="flex items-center gap-1 mt-1.5 relative z-10">
-        <div className="flex -space-x-1.5 overflow-hidden">
+      <div className="flex items-center gap-2 relative z-10">
+        {/* Avatares Profesores */}
+        <div className="flex -space-x-1.5 overflow-hidden shrink-0">
           {cls.schedule_coaches?.length > 0 ? (
             cls.schedule_coaches.map((sc, i) => (
-              <div key={i} className="w-5 h-5 rounded-full ring-2 ring-card bg-muted flex items-center justify-center text-[8px] font-bold overflow-hidden border border-border" title={sc.coaches?.profiles?.full_name}>
+              <div key={i} className="w-5 h-5 rounded-full ring-2 ring-white bg-slate-100 flex items-center justify-center text-[8px] font-bold overflow-hidden border border-slate-200" title={sc.coaches?.profiles?.full_name}>
                 {sc.coaches?.profiles?.avatar_url ? 
-                  <img src={sc.coaches.profiles.avatar_url} className="w-full h-full object-cover" /> : 
+                  <img src={sc.coaches.profiles.avatar_url} alt="Profesor" className="w-full h-full object-cover" /> : 
                   sc.coaches?.profiles?.full_name?.charAt(0)}
               </div>
             ))
           ) : (
-            <Icon name="AlertCircle" size={12} className="text-error" />
+            <div className="w-5 h-5 rounded-full ring-2 ring-white bg-rose-50 flex items-center justify-center border border-rose-200" title="Sin profesor asignado">
+              <Icon name="AlertCircle" size={10} className="text-rose-500" />
+            </div>
           )}
         </div>
         
-        {/* Barra de cupo recuperada */}
-        <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
-          <div 
-            className={`h-full ${isFull ? 'bg-error' : 'bg-primary/60'}`} 
-            style={{ width: '40%' }} // Manteniendo tu valor visual original
-          />
+        {/* Barra de cupo */}
+        <div className="flex-1 flex items-center gap-1.5">
+          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all ${isFull ? 'bg-rose-500' : 'bg-emerald-400'}`} 
+              style={{ width: `${occupancy}%` }} 
+            />
+          </div>
+          <span className={`text-[9px] font-black ${isFull ? 'text-rose-500' : 'text-slate-400'}`}>
+            {cls.capacity}p
+          </span>
         </div>
-        <span className="text-[8px] text-muted-foreground font-medium">{cls.capacity}p</span>
       </div>
 
-      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Icon name="Edit" size={8} className="text-muted-foreground" />
+      {/* Ícono de edición hover */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none">
+        <Icon name="Edit" size={40} />
       </div>
     </div>
   );
@@ -87,11 +94,12 @@ const ClassSchedule = () => {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [showActivityManager, setShowActivityManager] = useState(false);
   
-  // Nuevo estado para vista de día en mobile (1-7)
-  const [mobileDayView, setMobileDayView] = useState(new Date().getDay() || 7);
+  const [mobileDayView, setMobileDayView] = useState(new Date().getDay() || 7); // 1 = Lunes, 7 = Domingo
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = useMemo(() => Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i)), [weekStart]);
+  
+  // Definimos la grilla horaria (7 AM a 22 PM)
   const hours = Array.from({ length: 16 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`);
 
   const fetchData = async () => {
@@ -143,7 +151,6 @@ const ClassSchedule = () => {
     alert("Plantilla guardada. Los cambios se replicarán automáticamente.");
   };
 
-  // Totales originales recuperados
   const totalClasses = filteredSchedule.length;
   const totalHours = filteredSchedule.reduce((acc, curr) => acc + (parseInt(curr.end_time) - parseInt(curr.start_time)), 0);
 
@@ -151,142 +158,214 @@ const ClassSchedule = () => {
     <>
       <Helmet><title>Agenda Maestra - DMG Fitness</title></Helmet>
       
-      <div className="flex flex-col h-screen bg-background overflow-hidden w-full">
+      {/* NOTA UX: Usamos h-screen y overflow-hidden en el contenedor principal 
+        para que la barra superior se quede fija y solo scrollee el calendario.
+      */}
+      <div className="flex flex-col h-screen bg-[#F8FAFC] w-full overflow-hidden">
         
-        {/* HEADER COMPACTO Y DINÁMICO */}
-        <div className="bg-card border-b border-border z-30 flex-shrink-0 shadow-sm">
-          <div className="px-4 py-3">
-            <div className="flex justify-between items-center gap-4 mb-3">
+        {/* --- HEADER Y TOOLBAR FIJOS --- */}
+        <div className="bg-white border-b border-slate-200 z-30 flex-shrink-0 shadow-sm">
+          <div className="px-4 md:px-6 py-4">
+            
+            {/* Fila 1: Títulos y Botones Principales */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
               <div>
-                <div className="hidden md:block scale-90 origin-left opacity-70">
+                <div className="hidden md:block scale-90 origin-left opacity-80 mb-1">
                   <BreadcrumbTrail items={[{ label: 'Gestión', path: '#' }, { label: 'Agenda Maestra', active: true }]} />
                 </div>
-                <h1 className="text-xl md:text-2xl font-heading font-bold text-foreground">Planificación</h1>
-                <p className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider font-medium">Grilla Base Semanal</p>
+                <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-none">
+                  Planificación
+                </h1>
+                <p className="text-[11px] md:text-xs text-slate-400 font-bold uppercase tracking-widest mt-1.5">
+                  Grilla Base Semanal
+                </p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setShowActivityManager(true)} iconName="Settings" className="hidden md:flex">
-                  Actividades
-                </Button>
-                <Button variant="default" size="sm" iconName="Save" onClick={handleCopyPreviousWeek}>
-                  <span className="hidden md:inline">Guardar Plantilla</span>
-                  <span className="md:hidden">Guardar</span>
-                </Button>
+              
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <button 
+                  onClick={() => setShowActivityManager(true)} 
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors text-xs uppercase tracking-wider"
+                >
+                  <Icon name="Settings" size={16} /> <span className="hidden sm:inline">Actividades</span>
+                </button>
+                <button 
+                  onClick={handleCopyPreviousWeek}
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-200 hover:-translate-y-0.5 transition-all text-xs uppercase tracking-wider"
+                >
+                  <Icon name="Save" size={16} /> <span>Guardar <span className="hidden sm:inline">Plantilla</span></span>
+                </button>
               </div>
             </div>
 
-            {/* TOOLBAR RESPONSIVE CON STATS */}
-            <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
-              <div className="flex items-center gap-4 w-full md:w-auto">
-                <div className="flex items-center bg-muted/30 rounded-lg p-1 border border-border">
-                  <button onClick={() => setCurrentDate(subWeeks(currentDate, 1))} className="p-1 hover:bg-background rounded shadow-sm transition-all">
-                    <Icon name="ChevronLeft" size={16} />
+            {/* Fila 2: Filtros y Navegación del Calendario */}
+            <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between bg-slate-50 p-2 rounded-2xl border border-slate-100">
+              
+              {/* Controles de Semana */}
+              <div className="flex items-center gap-3 w-full xl:w-auto">
+                <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm w-full xl:w-auto justify-between">
+                  <button onClick={() => setCurrentDate(subWeeks(currentDate, 1))} className="p-1.5 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors">
+                    <Icon name="ChevronLeft" size={18} />
                   </button>
-                  <div className="px-3 font-bold text-[10px] md:text-xs min-w-[100px] text-center uppercase">
+                  <div className="px-4 font-black text-xs min-w-[120px] text-center uppercase tracking-widest text-slate-700">
                     {format(weekStart, 'MMM yyyy', { locale: es })}
                   </div>
-                  <button onClick={() => setCurrentDate(addWeeks(currentDate, 1))} className="p-1 hover:bg-background rounded shadow-sm transition-all">
-                    <Icon name="ChevronRight" size={16} />
+                  <button onClick={() => setCurrentDate(addWeeks(currentDate, 1))} className="p-1.5 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors">
+                    <Icon name="ChevronRight" size={18} />
                   </button>
                 </div>
-                <button onClick={() => setCurrentDate(new Date())} className="text-[10px] font-bold text-primary hover:underline uppercase">Hoy</button>
+                <button onClick={() => setCurrentDate(new Date())} className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest bg-blue-50 px-3 py-2 rounded-xl border border-blue-100 hidden sm:block">
+                  Hoy
+                </button>
               </div>
 
-              <div className="flex gap-2 w-full md:w-auto items-center">
-                <div className="hidden xl:flex items-center gap-3 mr-4 pr-4 border-r border-border opacity-60">
-                  <div className="text-[10px] text-right"><span className="block font-bold">{totalClasses}</span><span>Clases</span></div>
-                  <div className="text-[10px] text-right"><span className="block font-bold">{totalHours}h</span><span>Carga</span></div>
+              {/* Filtros y Stats */}
+              <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto items-center">
+                
+                {/* Stats (Desktop) */}
+                <div className="hidden lg:flex items-center gap-4 mr-2 pr-4 border-r border-slate-200">
+                  <div className="text-right">
+                    <span className="block font-black text-slate-800 text-sm leading-none">{totalClasses}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Clases</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block font-black text-slate-800 text-sm leading-none">{totalHours}h</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Carga</span>
+                  </div>
                 </div>
-                <select className="flex-1 md:w-40 h-8 rounded-md border border-border bg-background px-2 text-xs outline-none" value={filterCoach} onChange={(e) => setFilterCoach(e.target.value)}>
-                  <option value="all">Todos los Profes</option>
-                  {allCoaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <select className="flex-1 md:w-40 h-8 rounded-md border border-border bg-background px-2 text-xs outline-none" value={filterActivity} onChange={(e) => setFilterActivity(e.target.value)}>
-                  <option value="all">Todas las Clases</option>
-                  {allActivities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
+
+                {/* Selects */}
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <select 
+                    className="flex-1 sm:w-40 appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer" 
+                    value={filterCoach} 
+                    onChange={(e) => setFilterCoach(e.target.value)}
+                  >
+                    <option value="all">Todos los Profes</option>
+                    {allCoaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <select 
+                    className="flex-1 sm:w-40 appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer" 
+                    value={filterActivity} 
+                    onChange={(e) => setFilterActivity(e.target.value)}
+                  >
+                    <option value="all">Todas las Clases</option>
+                    {allActivities.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
           
-          {/* SELECTOR DE DÍAS MOBILE */}
-          <div className="flex md:hidden border-t border-border bg-muted/10 overflow-x-auto no-scrollbar">
+          {/* SELECTOR DE DÍAS MOBILE (Estilo App Nativa) */}
+          <div className="md:hidden flex bg-white border-t border-slate-100 p-2 overflow-x-auto no-scrollbar gap-1 shadow-sm relative z-20">
             {weekDays.map((day, idx) => {
               const dbDay = (idx + 1);
               const active = mobileDayView === dbDay;
+              const today = isToday(day);
               return (
                 <button 
                   key={idx}
                   onClick={() => setMobileDayView(dbDay)}
-                  className={`flex-1 py-3 px-2 flex flex-col items-center min-w-[60px] transition-all border-b-2 ${active ? 'border-primary bg-primary/5' : 'border-transparent opacity-60'}`}
+                  className={`flex-1 py-2 px-1 flex flex-col items-center min-w-[55px] rounded-xl transition-all ${
+                    active 
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-200' 
+                      : today 
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'bg-transparent text-slate-500 hover:bg-slate-50'
+                  }`}
                 >
-                  <span className="text-[10px] font-bold uppercase">{format(day, 'EEE', { locale: es })}</span>
-                  <span className={`text-sm font-black ${active ? 'text-primary' : ''}`}>{format(day, 'd')}</span>
+                  <span className={`text-[9px] font-bold uppercase tracking-wider ${active ? 'text-blue-100' : ''}`}>
+                    {format(day, 'EEE', { locale: es })}
+                  </span>
+                  <span className="text-lg font-black leading-tight">
+                    {format(day, 'd')}
+                  </span>
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* GRILLA DINÁMICA */}
-        <div className="flex-1 overflow-auto bg-muted/5 custom-scrollbar relative">
-          <div className="md:min-w-[1200px] h-full relative">
+        {/* --- ÁREA DEL CALENDARIO SCROLLABLE --- */}
+        <div className="flex-1 overflow-auto bg-white relative custom-scrollbar">
+          <div className="md:min-w-[1000px] lg:min-w-[1200px] h-full relative">
             
-            {/* LÍNEA "AHORA" RECUPERADA */}
+            {/* LÍNEA "AHORA" (Rediseñada) */}
             {isSameDay(currentDate, new Date()) && (
-              <div className="absolute left-0 right-0 border-t-2 border-error z-10 pointer-events-none opacity-40 md:opacity-50"
+              <div 
+                className="absolute left-0 right-0 z-20 pointer-events-none flex items-center group"
                 style={{ top: `${(getHours(new Date()) - 7) * 120 + (getMinutes(new Date()) * 2)}px` }}
               >
-                <span className="absolute -top-2 left-14 md:left-1 bg-error text-white text-[8px] px-1 rounded font-bold uppercase">Ahora</span>
+                <div className="w-12 md:w-16 flex justify-end pr-2">
+                  <div className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                    {format(new Date(), 'HH:mm')}
+                  </div>
+                </div>
+                <div className="flex-1 border-t-2 border-rose-500 border-dashed opacity-50 relative">
+                  <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-rose-500 rounded-full shadow-[0_0_0_4px_rgba(244,63,94,0.2)] animate-pulse"></div>
+                </div>
               </div>
             )}
 
             {/* CABECERA DÍAS (Solo Desktop) */}
-            <div className="hidden md:grid sticky top-0 z-20 grid-cols-[60px_repeat(7,_1fr)] border-b border-border bg-background shadow-sm">
-              <div className="h-12 border-r border-border flex items-center justify-center bg-muted/5">
-                <Icon name="Clock" size={14} className="text-muted-foreground" />
+            <div className="hidden md:grid sticky top-0 z-30 grid-cols-[60px_repeat(7,_1fr)] border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
+              <div className="h-14 border-r border-slate-100 flex items-center justify-center">
+                <Icon name="Clock" size={16} className="text-slate-400" />
               </div>
-              {weekDays.map((day, i) => (
-                <div key={i} className={`h-12 border-r border-border last:border-r-0 flex flex-col items-center justify-center ${isToday(day) ? 'bg-primary/[0.03]' : ''}`}>
-                  <span className="text-[9px] font-bold uppercase text-muted-foreground">{format(day, 'EEEE', { locale: es })}</span>
-                  <span className="text-sm font-bold">{format(day, 'd')}</span>
-                </div>
-              ))}
+              {weekDays.map((day, i) => {
+                const today = isToday(day);
+                return (
+                  <div key={i} className={`h-14 border-r border-slate-100 last:border-r-0 flex flex-col items-center justify-center ${today ? 'bg-blue-50/50' : ''}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${today ? 'text-blue-600' : 'text-slate-400'}`}>
+                      {format(day, 'EEEE', { locale: es })}
+                    </span>
+                    <span className={`text-base font-black leading-none mt-0.5 ${today ? 'text-blue-700' : 'text-slate-800'}`}>
+                      {format(day, 'd')}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* CUERPO - Horas */}
-            <div className="relative">
+            {/* CUERPO DEL CALENDARIO - Grilla de Horas */}
+            <div className="relative pb-10">
               {hours.map((hour) => (
-                <div key={hour} className="grid grid-cols-[50px_1fr] md:grid-cols-[60px_repeat(7,_1fr)] min-h-[100px] md:min-h-[120px]">
+                <div key={hour} className="grid grid-cols-[50px_1fr] md:grid-cols-[60px_repeat(7,_1fr)] min-h-[120px]">
                   
-                  <div className="sticky left-0 z-10 bg-background/95 backdrop-blur border-r border-border border-b border-dashed border-border/30 flex justify-center items-start pt-2">
-                    <span className="text-[10px] font-mono font-bold text-muted-foreground bg-background px-1">
+                  {/* Columna de la Hora (Izquierda) */}
+                  <div className="sticky left-0 z-20 bg-white border-r border-slate-100 border-b border-dashed border-slate-100 flex justify-center items-start pt-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                       {hour}
                     </span>
                   </div>
 
+                  {/* Celdas de los Días */}
                   {weekDays.map((day, dayIndex) => {
                     const dbDay = dayIndex + 1;
                     const classes = getClassesForCell(dbDay, hour);
-                    const isVisible = mobileDayView === dbDay;
+                    const isVisible = mobileDayView === dbDay; // Lógica Mobile
+                    const today = isToday(day);
 
                     return (
                       <div 
                         key={`${dbDay}-${hour}`}
                         className={`
-                          relative border-r border-b border-border/40 border-dashed p-1.5 flex flex-col gap-1.5
+                          relative border-r border-b border-slate-100 border-dashed p-1.5 flex flex-col gap-1.5
                           ${!isVisible ? 'hidden md:flex' : 'flex'} 
-                          ${isToday(day) ? 'bg-primary/[0.01]' : ''}
-                          hover:bg-primary/[0.02] group transition-colors
+                          ${today ? 'bg-blue-50/10' : ''}
+                          hover:bg-slate-50 transition-colors group
                         `}
                       >
+                        {/* Botón flotante para agregar clase en ese horario */}
                         <button
                           onClick={() => handleSlotClick(dbDay, hour)}
-                          className="absolute bottom-1 right-1 z-20 opacity-0 group-hover:opacity-100 p-1.5 rounded-lg bg-primary text-white shadow-lg scale-90 hover:scale-100 transition-all"
+                          className="absolute inset-0 m-auto w-8 h-8 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 hover:scale-110 transition-all z-10"
+                          title="Agregar Clase"
                         >
-                          <Icon name="Plus" size={14} />
+                          <Icon name="Plus" size={16} />
                         </button>
 
+                        {/* Tarjetas de clases en este horario */}
                         {classes.map(cls => (
                           <ScheduleCard key={cls.id} cls={cls} onClick={(c) => handleSlotClick(dbDay, hour, c)} />
                         ))}
@@ -300,6 +379,7 @@ const ClassSchedule = () => {
         </div>
       </div>
 
+      {/* Modales */}
       {selectedSlot && (
         <ClassSlotModal slotInfo={selectedSlot} onClose={() => setSelectedSlot(null)} onSuccess={() => { fetchData(); setSelectedSlot(null); }} />
       )}
