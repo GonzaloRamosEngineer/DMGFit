@@ -24,3 +24,10 @@ This document defines the initial database-only foundation for the kiosk enforce
 - `code` is the stable key, while `category` and `description` support grouping and operator clarity.
 - `is_active` supports non-destructive deprecation of reason codes over time.
 - This table is intentionally isolated from current kiosk UX flow until a later integration phase.
+
+## Phase 2 atomic enforcement notes
+
+- `public.kiosk_check_in(...)` centralizes validation, consumption, and logging in one DB transaction.
+- Duplicate guard uses `access_logs.local_checkin_date` (gym local date) + `athlete_id` + `weekly_schedule_id` for clarity and deterministic behavior.
+- Timezone policy: duplicate/day guards must be evaluated with gym local timezone (`p_timezone`), not UTC day boundaries.
+- Historical compatibility is preserved: old `access_logs` rows can keep `reason_code` and `weekly_schedule_id` as `NULL`.
