@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabaseClient';
+import { runKioskCheckIn } from '../../services/kiosk';
+import { defaultKioskErrorMessage, kioskReasonMessages } from '../../data/kioskReasonMessages';
 import Icon from '../../components/AppIcon';
 
 const AccessControl = () => {
@@ -20,66 +21,21 @@ const AccessControl = () => {
     setStatus('loading');
 
     try {
-      // 1. Buscar Atleta por DNI
-      const { data: athlete, error: athError } = await supabase
-        .from('athletes')
-        .select(`
-          id, status, 
-          profiles:profile_id(full_name, avatar_url),
-          plans:plan_id(name, access_limit), 
-          payments(payment_date, status)
-        `)
-        .eq('dni', dni)
-        .single();
+      const result = await runKioskCheckIn({ dni });
+      const reasonMessage = kioskReasonMessages[result.reason_code] || result.message || defaultKioskErrorMessage;
 
-      if (athError || !athlete) throw new Error("Atleta no encontrado");
-
-      // 2. Validar Estado General
-      if (athlete.status !== 'active') throw new Error("Atleta INACTIVO. Consulte en administración.");
-
-      // 3. Calcular Período
-      const lastPayment = athlete.payments
-        ?.filter(p => p.status === 'paid')
-        .sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))[0];
-
-      const cycleStartDate = lastPayment ? new Date(lastPayment.payment_date) : new Date(new Date().setDate(new Date().getDate() - 30));
-      
-      const expirationDate = new Date(cycleStartDate);
-      expirationDate.setDate(expirationDate.getDate() + 30);
-
-      if (new Date() > expirationDate) throw new Error("Cuota VENCIDA. Por favor regularice su pago.");
-
-      // 4. Contar Accesos en este ciclo
-      const { count, error: countError } = await supabase
-        .from('access_logs')
-        .select('*', { count: 'exact', head: true })
-        .eq('athlete_id', athlete.id)
-        .gte('check_in_time', cycleStartDate.toISOString());
-
-      // 5. Lógica de Plan
-      const limit = athlete.plans?.access_limit;
-      const planName = athlete.plans?.name || "Plan Sin Nombre";
-      let displayMessage = "";
-
-      if (limit) {
-        const remaining = limit - count;
-        if (remaining <= 0) throw new Error(`Sin accesos restantes. Límite: ${limit}.`);
-        displayMessage = `Te quedan ${remaining - 1} accesos hasta el ${expirationDate.toLocaleDateString()}`; 
-      } else {
-        displayMessage = `Pase Libre activo hasta el ${expirationDate.toLocaleDateString()}`;
+      if (!result.allowed) {
+        throw new Error(reasonMessage);
       }
 
-      // 6. Registrar Acceso Exitoso
-      await supabase.from('access_logs').insert({
-        athlete_id: athlete.id,
-        access_granted: true
-      });
+      const displayMessage = typeof result.remaining === 'number'
+        ? `Te quedan ${result.remaining} accesos disponibles.`
+        : reasonMessage;
 
-      // ÉXITO VISUAL
       setAthleteData({
-        name: athlete.profiles.full_name,
-        plan: planName,
-        photo: athlete.profiles.avatar_url
+        name: 'Atleta',
+        plan: 'Control por kiosco',
+        photo: null
       });
       setMessage(displayMessage);
       setStatus('success');
@@ -93,7 +49,7 @@ const AccessControl = () => {
     } catch (err) {
       console.error(err);
       setStatus('error');
-      setMessage(err.message);
+      setMessage(err.message || defaultKioskErrorMessage);
 
       setTimeout(() => {
         setStatus('idle');
