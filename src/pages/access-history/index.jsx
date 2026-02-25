@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { Helmet } from 'react-helmet';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
+import { kioskReasonMessages } from '../../data/kioskReasonMessages';
 
 const AccessHistory = () => {
   const [allLogs, setAllLogs] = useState([]);
@@ -40,7 +41,7 @@ const AccessHistory = () => {
       const { data, error } = await supabase
         .from('access_logs')
         .select(`
-          id, check_in_time, access_granted, rejection_reason,
+          id, check_in_time, access_granted, rejection_reason, reason_code, weekly_schedule_id, remaining_sessions,
           athletes (
             id, 
             profiles (full_name, email)
@@ -337,8 +338,22 @@ const AccessHistory = () => {
                               </span>
                             )}
                           </div>
-                          <div className="text-xs font-bold text-slate-400 italic truncate" title={log.rejection_reason || '-'}>
-                            {log.rejection_reason || '-'}
+                          <div className="text-xs font-bold text-slate-400 space-y-1">
+                            <p className="truncate italic" title={log.rejection_reason || '-'}>
+                              {log.rejection_reason || '-'}
+                            </p>
+                            <p className="truncate" title={`Código: ${log.reason_code || '—'}`}>
+                              Código: {log.reason_code || '—'}
+                            </p>
+                            <p className="truncate" title={kioskReasonMessages[log.reason_code] || '—'}>
+                              Motivo: {kioskReasonMessages[log.reason_code] || '—'}
+                            </p>
+                            <p className="truncate" title={`Slot: ${log.weekly_schedule_id || '—'}`}>
+                              Slot: {log.weekly_schedule_id || '—'}
+                            </p>
+                            <p>
+                              Saldo: {typeof log.remaining_sessions === 'number' ? log.remaining_sessions : '—'}
+                            </p>
                           </div>
                         </div>
                       ))

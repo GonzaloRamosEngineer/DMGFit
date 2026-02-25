@@ -105,3 +105,16 @@ npm run build
 - Styled with Tailwind CSS
 
 Built with ❤️ on Rocket.new
+
+## 🛡️ Kiosk RPC Feature Flag (Rollback)
+
+- `VITE_KIOSK_RPC_ENABLED` controls kiosk check-in mode.
+- Default behavior: enabled (`true`) so kiosk uses atomic DB RPC (`kiosk_check_in`).
+- If set to `false`, kiosk enters controlled maintenance mode (check-in blocked safely, no legacy client-side decisioning).
+
+### Rollback Procedure
+
+1. Set environment variable `VITE_KIOSK_RPC_ENABLED=false`.
+2. Deploy frontend.
+3. Verify `/access-control` shows maintenance/degraded message and no check-ins are processed from UI.
+4. After incident resolution, set `VITE_KIOSK_RPC_ENABLED=true` and redeploy.
