@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { supabase } from "../../lib/supabaseClient";
+import { fetchKioskRemaining } from "../../services/kiosk";
 
 // Context
 import { useAuth } from "../../contexts/AuthContext";
@@ -91,6 +92,7 @@ const IndividualAthleteProfile = () => {
     payments: [],
     notes: [],
     sessions: [],
+    kioskRemaining: null,
   });
 
   // --- CARGA DE DATOS ---
@@ -120,7 +122,7 @@ const IndividualAthleteProfile = () => {
         if (athleteError) throw athleteError;
 
         // 2. Cargas Paralelas
-        const [metricsRes, attendanceRes, paymentsRes, notesRes, sessionsRes, accessLogsRes] =
+        const [metricsRes, attendanceRes, paymentsRes, notesRes, sessionsRes, accessLogsRes, kioskRemainingRes] =
           await Promise.all([
             // Métricas
             supabase.from("metrics").select("*").eq("athlete_id", athleteId).order("date", { ascending: true }),
@@ -139,7 +141,8 @@ const IndividualAthleteProfile = () => {
               .select("*")
               .eq("athlete_id", athleteId)
               .order("check_in_time", { ascending: false })
-              .limit(20)
+              .limit(20),
+            fetchKioskRemaining({ athleteId }).catch(() => null)
           ]);
 
         // 3. Procesar Métricas de Salud
@@ -187,6 +190,7 @@ const IndividualAthleteProfile = () => {
           payments: paymentsRes.data || [],
           notes: notesRes.data || [],
           sessions: upcoming,
+          kioskRemaining: kioskRemainingRes,
         });
       } catch (error) {
         console.error("Error cargando perfil:", error);
@@ -226,8 +230,17 @@ const IndividualAthleteProfile = () => {
         icon: "LogIn",
         iconColor: "var(--color-success)",
       },
+      {
+        title: "Saldo Sesiones (Actual)",
+        value: profileData.kioskRemaining?.remaining ?? "—",
+        unit: "ses.",
+        change: profileData.kioskRemaining?.period_end || "Sin período",
+        changeType: "neutral",
+        icon: "Wallet",
+        iconColor: "var(--color-accent)",
+      },
     ];
-  }, [profileData.attendance, profileData.accessLogs]);
+  }, [profileData.attendance, profileData.accessLogs, profileData.kioskRemaining]);
 
   const isInternalEmail = (email = "") =>
     email.includes("@dmg.internal") || email.includes("@vcfit.internal");

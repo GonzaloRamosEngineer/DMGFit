@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { runKioskCheckIn } from '../../services/kiosk';
 import { defaultKioskErrorMessage, kioskReasonMessages } from '../../data/kioskReasonMessages';
 import Icon from '../../components/AppIcon';
+import { featureFlags } from '../../lib/featureFlags';
 
 const AccessControl = () => {
   const [dni, setDni] = useState('');
@@ -21,22 +22,45 @@ const AccessControl = () => {
     setStatus('loading');
 
     try {
+      if (!featureFlags.kioskRpcEnabled) {
+        throw new Error('Kiosco en modo mantenimiento. Intenta nuevamente en unos minutos.');
+      }
+
       const result = await runKioskCheckIn({ dni });
       const reasonMessage = kioskReasonMessages[result.reason_code] || result.message || defaultKioskErrorMessage;
 
+      const hasIdentity = Boolean(result.athleteName || result.planName || result.avatarUrl);
+      if (hasIdentity) {
+        setAthleteData({
+          name: result.athleteName || 'Atleta',
+          plan: result.planName || 'Plan',
+          photo: result.avatarUrl || null
+        });
+      }
+
       if (!result.allowed) {
-        throw new Error(reasonMessage);
+        setStatus('error');
+        setMessage(reasonMessage);
+
+        setTimeout(() => {
+          setStatus('idle');
+          setDni('');
+          setAthleteData(null);
+        }, 4000);
+        return;
       }
 
       const displayMessage = typeof result.remaining === 'number'
         ? `Te quedan ${result.remaining} accesos disponibles.`
         : reasonMessage;
 
-      setAthleteData({
-        name: 'Atleta',
-        plan: 'Control por kiosco',
-        photo: null
-      });
+      if (!hasIdentity) {
+        setAthleteData({
+          name: 'Atleta',
+          plan: 'Plan',
+          photo: null
+        });
+      }
       setMessage(displayMessage);
       setStatus('success');
 

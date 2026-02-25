@@ -23,6 +23,22 @@ export async function runKioskCheckIn({ dni, phone }) {
     message: data?.message || null,
     remaining: data?.remaining,
     athleteId: data?.athlete_id || null,
-    weeklyScheduleId: data?.weekly_schedule_id || null
+    weeklyScheduleId: data?.weekly_schedule_id || null,
+    athleteName: data?.athlete_name || null,
+    planName: data?.plan_name || null,
+    avatarUrl: data?.avatar_url || null
   };
+}
+
+export async function fetchKioskRemaining({ athleteId }) {
+  if (!athleteId) return null;
+
+  const { data, error } = await supabase.rpc('kiosk_remaining', {
+    p_athlete_id: athleteId,
+    p_now: new Date().toISOString(),
+    p_timezone: 'America/Argentina/Buenos_Aires'
+  });
+
+  if (error) throw error;
+  return data || null;
 }
