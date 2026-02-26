@@ -81,6 +81,10 @@ const IndividualAthleteProfile = () => {
 
   const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
   const [enableTarget, setEnableTarget] = useState(null);
+  const [availablePlans, setAvailablePlans] = useState([]);
+  const [availablePlanOptions, setAvailablePlanOptions] = useState([]);
+  const [membershipForm, setMembershipForm] = useState({ planId: '', planOption: '' });
+  const [savingMembership, setSavingMembership] = useState(false);
 
   // Estado unificado de datos
   const [profileData, setProfileData] = useState({
@@ -113,7 +117,9 @@ const IndividualAthleteProfile = () => {
             membership_type, 
             phone, 
             plan_id,
+            plan_option,
             profile_id,
+            plans:plan_id ( name ),
             profiles:profile_id ( full_name, email, avatar_url )
           `)
           .eq("id", athleteId)
@@ -181,7 +187,9 @@ const IndividualAthleteProfile = () => {
             email: athlete.profiles?.email,
             photo: athlete.profiles?.avatar_url,
             dni: athlete.dni,
-            profile_id: athlete.profile_id
+            profile_id: athlete.profile_id,
+            planName: athlete.plans?.name || 'Sin Plan',
+            planOption: athlete.plan_option || null,
           },
           metrics: metricsList,
           latestMetrics: latestValues,
@@ -201,6 +209,115 @@ const IndividualAthleteProfile = () => {
 
     fetchProfileData();
   }, [athleteId, refreshKey]);
+
+  useEffect(() => {
+    if (!profileData.athlete) return;
+
+    setMembershipForm({
+      planId: profileData.athlete.plan_id || '',
+      planOption: profileData.athlete.plan_option || '',
+    });
+  }, [profileData.athlete]);
+
+  const canManageMembership = currentUser?.role && currentUser.role !== 'atleta';
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      if (!canManageMembership) return;
+
+      const { data, error } = await supabase
+        .from('plans')
+        .select('id, name')
+        .eq('status', 'active')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error cargando planes para edición:', error);
+        return;
+      }
+
+      setAvailablePlans(data || []);
+    };
+
+    fetchPlans();
+  }, [canManageMembership]);
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      if (!membershipForm.planId) {
+        setAvailablePlanOptions([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('plan_features')
+        .select('feature')
+        .eq('plan_id', membershipForm.planId);
+
+      if (error) {
+        console.error('Error cargando opciones de plan para edición:', error);
+        setAvailablePlanOptions([]);
+        return;
+      }
+
+      const normalized = Array.from(
+        new Set(
+          (data || [])
+            .map((item) => (typeof item.feature === 'string' ? item.feature.trim() : ''))
+            .filter(Boolean)
+        )
+      );
+      setAvailablePlanOptions(normalized);
+
+      if (membershipForm.planOption && !normalized.includes(membershipForm.planOption)) {
+        setMembershipForm((prev) => ({ ...prev, planOption: '' }));
+      }
+    };
+
+    fetchOptions();
+  }, [membershipForm.planId]);
+
+  const handleMembershipChange = (event) => {
+    const { name, value } = event.target;
+
+    if (name === 'planId') {
+      setMembershipForm((prev) => ({ ...prev, planId: value, planOption: '' }));
+      return;
+    }
+
+    setMembershipForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveMembership = async () => {
+    if (!profileData.athlete?.id || !membershipForm.planId) {
+      alert('Selecciona un plan válido antes de guardar.');
+      return;
+    }
+
+    if (membershipForm.planOption && !availablePlanOptions.includes(membershipForm.planOption)) {
+      alert('La opción seleccionada no pertenece al plan elegido.');
+      return;
+    }
+
+    setSavingMembership(true);
+    try {
+      const { error } = await supabase
+        .from('athletes')
+        .update({
+          plan_id: membershipForm.planId,
+          plan_option: membershipForm.planOption || null,
+        })
+        .eq('id', profileData.athlete.id);
+
+      if (error) throw error;
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error('Error actualizando plan del atleta:', error);
+      alert(error.message || 'No se pudo actualizar el plan del atleta.');
+    } finally {
+      setSavingMembership(false);
+    }
+  };
 
   // --- KPIs CALCULADOS ---
   const kpiStats = useMemo(() => {
@@ -316,6 +433,64 @@ const IndividualAthleteProfile = () => {
             canEnable={currentUser?.role === "admin"}
             onEnableAccess={handleEnableAccess}
           />
+
+          {canManageMembership && profileData.athlete && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">Plan y Opción / Variante</h3>
+                  <p className="text-xs text-slate-500">Gestiona la asignación actual del atleta.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveMembership}
+                  disabled={savingMembership}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors ${savingMembership ? 'bg-slate-400 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'}`}
+                >
+                  {savingMembership ? 'Guardando...' : 'Guardar asignación'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Plan</label>
+                  <select
+                    name="planId"
+                    value={membershipForm.planId}
+                    onChange={handleMembershipChange}
+                    className="mt-1 w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {availablePlans.map((plan) => (
+                      <option key={plan.id} value={plan.id}>{plan.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Opción / Variante</label>
+                  <select
+                    name="planOption"
+                    value={membershipForm.planOption}
+                    onChange={handleMembershipChange}
+                    disabled={!membershipForm.planId || availablePlanOptions.length === 0}
+                    className="mt-1 w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm disabled:opacity-60"
+                  >
+                    <option value="">{membershipForm.planId ? 'Sin opción' : 'Selecciona un plan primero'}</option>
+                    {availablePlanOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Asignación actual</label>
+                  <p className="mt-1 text-sm font-semibold text-slate-700">{profileData.athlete.planName || 'Sin Plan'}</p>
+                  <p className="text-xs text-slate-500">{profileData.athlete.planOption || '—'}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* KPI STRIP */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

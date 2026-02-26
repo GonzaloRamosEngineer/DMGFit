@@ -151,7 +151,10 @@ const PlanManagement = () => {
         planId = data.id;
       }
 
-      const featuresInsert = planData.features.map(f => ({ plan_id: planId, feature: f }));
+      const normalizedFeatures = Array.from(
+        new Set((planData.features || []).map((feature) => feature.trim()).filter(Boolean))
+      );
+      const featuresInsert = normalizedFeatures.map((feature) => ({ plan_id: planId, feature }));
       const scheduleInsert = planData.schedule.map(s => ({ plan_id: planId, day: s.day, time: s.time }));
       const coachesInsert = planData.professorIds?.map(coachId => ({ plan_id: planId, coach_id: coachId })) || [];
 

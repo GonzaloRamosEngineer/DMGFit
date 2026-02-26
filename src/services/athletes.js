@@ -103,6 +103,7 @@ export const createFullAthlete = async (athleteData) => {
       dni: athleteData.dni,
       phone: athleteData.phone,
       plan_id: athleteData.plan_id, // Obligatorio según SQL
+      plan_option: athleteData.plan_option?.trim() || null,
       coach_id: athleteData.coach_id,
       status: 'active',
       gender: athleteData.gender,
@@ -128,6 +129,18 @@ export const createFullAthlete = async (athleteData) => {
     return { success: true, data: newAthlete };
   } catch (error) {
     console.error("❌ Error en createFullAthlete:", error);
+
+    const isPolicyError =
+      error?.code === '42501' ||
+      String(error?.message || '').toLowerCase().includes('row-level security');
+
+    if (isPolicyError) {
+      return {
+        success: false,
+        error: 'No tienes permisos para crear atletas. Verifica tu rol o las políticas de seguridad.',
+      };
+    }
+
     return { success: false, error: error.message };
   }
 };
