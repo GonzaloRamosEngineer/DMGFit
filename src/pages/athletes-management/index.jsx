@@ -65,6 +65,7 @@ const AthletesManagement = () => {
             profile_id,
             profiles:profile_id ( full_name, email, avatar_url ),
             coaches:coach_id ( id, profiles:profile_id ( full_name ) ),
+            plan_option,
             plans ( name, price )
           `);
 
@@ -118,6 +119,7 @@ const AthletesManagement = () => {
             avatar: athlete.profiles?.avatar_url,
             planName: planData?.name || "Sin Plan",
             planPrice: planData?.price || 0,
+            planOption: athlete.plan_option || null,
             coach: athlete.coaches?.profiles?.full_name || "Sin Asignar",
             isActive: athlete.status === "active",
             attendanceRate,

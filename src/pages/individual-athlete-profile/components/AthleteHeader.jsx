@@ -191,7 +191,7 @@ const AthleteHeader = ({
 
       {showDetails && (
         <div className="border-t border-border bg-muted/20 p-4 animate-in slide-in-from-top duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
             <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
               <Icon name="Fingerprint" size={16} className="text-primary" />
               <div className="flex-1 min-w-0">
@@ -217,6 +217,15 @@ const AthleteHeader = ({
                 <p className="text-sm font-bold text-foreground">
                   {new Date(athlete.join_date || athlete.joinDate).toLocaleDateString('es-ES')}
                 </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
+              <Icon name="CreditCard" size={16} className="text-secondary" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground uppercase font-medium">Plan / Variante</p>
+                <p className="text-sm font-bold text-foreground truncate">{athlete.planName || 'Sin Plan'}</p>
+                <p className="text-xs text-muted-foreground truncate">{athlete.planOption || '—'}</p>
               </div>
             </div>
           </div>

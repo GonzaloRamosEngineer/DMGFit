@@ -7,6 +7,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState([]);
   const [coaches, setCoaches] = useState([]);
+  const [planOptions, setPlanOptions] = useState([]);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -22,6 +23,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     medicalConditions: "",
     planId: "",
     coachId: "",
+    planOption: "",
     joinDate: new Date().toISOString().split("T")[0],
     amount: "", 
   });
@@ -50,20 +52,48 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     fetchResources();
   }, []);
 
+  useEffect(() => {
+    const fetchPlanOptions = async () => {
+      if (!formData.planId) {
+        setPlanOptions([]);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("plan_features")
+          .select("feature")
+          .eq("plan_id", formData.planId);
+
+        if (error) throw error;
+        const options = (data || [])
+          .map((item) => (typeof item.feature === "string" ? item.feature.trim() : ""))
+          .filter((option) => option !== "");
+        setPlanOptions(Array.from(new Set(options)));
+      } catch (error) {
+        console.error("Error cargando opciones del plan:", error);
+        setPlanOptions([]);
+      }
+    };
+
+    fetchPlanOptions();
+  }, [formData.planId]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
 
     if (name === "planId") {
       const selectedPlan = plans.find((p) => p.id === value);
-      if (selectedPlan) {
-        setFormData((prev) => ({
-          ...prev,
-          planId: value,
-          amount: selectedPlan.price,
-        }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        planId: value,
+        planOption: "",
+        amount: selectedPlan?.price || "",
+      }));
+      return;
     }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -74,6 +104,13 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       const cleanDni = formData.dni.trim().replace(/\D/g, '');
       if (!cleanDni) throw new Error("El DNI es obligatorio.");
 
+      const normalizedPlanOption = formData.planOption.trim();
+      const selectedPlanOption = normalizedPlanOption === "" ? null : normalizedPlanOption;
+
+      if (selectedPlanOption && !planOptions.includes(selectedPlanOption)) {
+        throw new Error("La opción seleccionada no corresponde al plan elegido.");
+      }
+
       const result = await createFullAthlete({
         full_name: formData.fullName,
         email: formData.email.trim(),
@@ -81,6 +118,8 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
         phone: formData.phone,
         plan_id: formData.planId,
         coach_id: formData.coachId || null,
+        plan_option: selectedPlanOption,
+        join_date: formData.joinDate || null,
         birth_date: formData.birthDate,
         gender: formData.gender !== "select" ? formData.gender : null,
         address: formData.address,
@@ -278,6 +317,24 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                     </div>
                   </div>
                   
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Opción / Variante</label>
+                      <select
+                        name="planOption"
+                        value={formData.planOption}
+                        onChange={handleChange}
+                        className={`${inputClasses} appearance-none cursor-pointer bg-white`}
+                        disabled={!formData.planId || planOptions.length === 0}
+                      >
+                        <option value="">{!formData.planId ? "Selecciona un plan primero" : "Sin opción"}</option>
+                        {planOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className={labelClasses}>Fecha de Inicio</label>
