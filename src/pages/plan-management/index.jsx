@@ -4,7 +4,7 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
-import { fetchPlanPricing, fetchPlanSlots, upsertPlanPricing, upsertPlanSlots } from '../../services/plans';
+import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, upsertPlanPricing, upsertPlanSlots, upsertPlanAvailabilityWindows, expandWindowsToSlots } from '../../services/plans';
 
 // Componentes Hijos
 import PlanCard from './components/PlanCard';
@@ -67,9 +67,10 @@ const PlanManagement = () => {
       // 3. Formatear datos
       const formattedPlans = await Promise.all(plansData.map(async (p) => {
         const enrolledCount = p.enrollments?.length || 0;
-        const [pricingTiers, slotAvailability] = await Promise.all([
+        const [pricingTiers, slotAvailability, availabilityWindows] = await Promise.all([
           fetchPlanPricing(p.id).catch(() => []),
           fetchPlanSlots(p.id).catch(() => []),
+          fetchPlanAvailabilityWindows(p.id).catch(() => []),
         ]);
 
         const schedule = slotAvailability.length > 0
@@ -92,9 +93,11 @@ const PlanManagement = () => {
           price: Number(p.price),
           capacity: p.capacity,
           status: p.status,
+          sessionDurationMin: Number(p.session_duration_min || 60),
           enrolled: enrolledCount,
           features: p.plan_features?.map(f => f.feature) || [],
           pricingTiers,
+          availabilityWindows,
           schedule,
           professors: p.plan_coaches?.map(pc => pc.coaches?.profiles?.full_name).filter(Boolean) || [],
           professorIds: p.plan_coaches?.map(pc => pc.coach_id) || []
@@ -150,7 +153,8 @@ const PlanManagement = () => {
         description: planData.description,
         price: planData.price,
         capacity: planData.capacity,
-        status: planData.status || 'active'
+        status: planData.status || 'active',
+        session_duration_min: Number(planData.sessionDurationMin || 60),
       };
 
       let planId = planData.id;
@@ -182,7 +186,8 @@ const PlanManagement = () => {
         scheduleInsert.length > 0 && supabase.from('plan_schedule').insert(scheduleInsert),
         coachesInsert.length > 0 && supabase.from('plan_coaches').insert(coachesInsert),
         upsertPlanPricing(planId, planData.pricingTiers || []),
-        upsertPlanSlots(planId, planData.scheduleSlots || []),
+        upsertPlanAvailabilityWindows(planId, planData.availabilityWindows || []),
+        upsertPlanSlots(planId, expandWindowsToSlots(planData.availabilityWindows || [], planData.sessionDurationMin || 60)),
       ]);
 
       await fetchData(); 

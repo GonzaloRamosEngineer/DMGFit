@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
+import { expandWindowsToSlots } from '../../../services/plans';
+
+const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+const defaultTiers = [1, 2, 3, 4, 5].map((v) => ({ visits_per_week: v, price: '' }));
 
 const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
   const [formData, setFormData] = useState({
@@ -8,153 +13,143 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
     price: '',
     capacity: '',
     status: 'active',
-    schedule: [],
-    scheduleSlots: [{ day_of_week: 1, start_time: '', end_time: '', capacity: 0 }],
-    pricingTiers: [
-      { visits_per_week: 1, price: '' },
-      { visits_per_week: 2, price: '' },
-      { visits_per_week: 3, price: '' },
-      { visits_per_week: 4, price: '' },
-      { visits_per_week: 5, price: '' },
-    ],
-    professorIds: [], 
-    features: ['']
+    sessionDurationMin: 60,
+    availabilityWindows: [{ day_of_week: 1, start_time: '09:00', end_time: '13:00', capacity: 10 }],
+    pricingTiers: defaultTiers,
+    professorIds: [],
+    features: [''],
   });
 
   useEffect(() => {
-    if (plan) {
-      setFormData({
-        ...plan,
-        schedule: plan.schedule?.length ? plan.schedule : [],
-        scheduleSlots: plan.schedule?.length
-          ? plan.schedule
-              .filter((slot) => slot.day_of_week !== undefined)
-              .map((slot) => ({
-                day_of_week: Number(slot.day_of_week),
-                start_time: String(slot.start_time || slot.time?.split(' - ')[0] || ''),
-                end_time: String(slot.end_time || slot.time?.split(' - ')[1] || ''),
-                capacity: Number(slot.capacity || 0),
-              }))
-          : [{ day_of_week: 1, start_time: '', end_time: '', capacity: 0 }],
-        pricingTiers: plan.pricingTiers?.length
-          ? plan.pricingTiers.map((tier) => ({
-              visits_per_week: Number(tier.visits_per_week),
-              price: Number(tier.price),
-            }))
-          : [
-              { visits_per_week: 1, price: '' },
-              { visits_per_week: 2, price: '' },
-              { visits_per_week: 3, price: '' },
-              { visits_per_week: 4, price: '' },
-              { visits_per_week: 5, price: '' },
-            ],
-        features: plan.features?.length ? plan.features : [''],
-        professorIds: plan.professorIds || []
-      });
-    }
+    if (!plan) return;
+
+    setFormData({
+      ...plan,
+      sessionDurationMin: Number(plan.sessionDurationMin || 60),
+      availabilityWindows: plan.availabilityWindows?.length
+        ? plan.availabilityWindows.map((window) => ({
+            day_of_week: Number(window.day_of_week),
+            start_time: String(window.start_time || '').slice(0, 5),
+            end_time: String(window.end_time || '').slice(0, 5),
+            capacity: Number(window.capacity || 0),
+          }))
+        : [{ day_of_week: 1, start_time: '09:00', end_time: '13:00', capacity: 10 }],
+      pricingTiers: plan.pricingTiers?.length
+        ? plan.pricingTiers.map((tier) => ({ visits_per_week: Number(tier.visits_per_week), price: Number(tier.price) }))
+        : defaultTiers,
+      features: plan.features?.length ? plan.features : [''],
+      professorIds: plan.professorIds || [],
+    });
   }, [plan]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const generatedSlots = useMemo(
+    () => expandWindowsToSlots(formData.availabilityWindows, formData.sessionDurationMin),
+    [formData.availabilityWindows, formData.sessionDurationMin]
+  );
+
+  const enabledDays = useMemo(
+    () => Array.from(new Set(formData.availabilityWindows.map((window) => window.day_of_week))),
+    [formData.availabilityWindows]
+  );
+
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleScheduleSlotChange = (index, field, value) => {
-    const next = [...formData.scheduleSlots];
-    next[index] = {
-      ...next[index],
-      [field]: field === 'day_of_week' || field === 'capacity' ? Number(value) : value,
-    };
-    setFormData((prev) => ({ ...prev, scheduleSlots: next }));
+  const toggleDay = (day) => {
+    setFormData((prev) => {
+      const hasDay = prev.availabilityWindows.some((window) => window.day_of_week === day);
+      if (hasDay) {
+        const nextWindows = prev.availabilityWindows.filter((window) => window.day_of_week !== day);
+        return {
+          ...prev,
+          availabilityWindows: nextWindows.length > 0 ? nextWindows : [{ day_of_week: 1, start_time: '09:00', end_time: '13:00', capacity: 10 }],
+        };
+      }
+
+      return {
+        ...prev,
+        availabilityWindows: [...prev.availabilityWindows, { day_of_week: day, start_time: '09:00', end_time: '13:00', capacity: 10 }],
+      };
+    });
   };
 
-  const addScheduleSlot = () => {
+  const addWindow = (dayOfWeek) => {
     setFormData((prev) => ({
       ...prev,
-      scheduleSlots: [...prev.scheduleSlots, { day_of_week: 1, start_time: '', end_time: '', capacity: 0 }],
+      availabilityWindows: [...prev.availabilityWindows, { day_of_week: dayOfWeek, start_time: '17:00', end_time: '21:00', capacity: 10 }],
     }));
   };
 
-  const removeScheduleSlot = (index) => {
+  const updateWindow = (index, field, value) => {
+    setFormData((prev) => {
+      const next = [...prev.availabilityWindows];
+      next[index] = { ...next[index], [field]: field === 'day_of_week' || field === 'capacity' ? Number(value) : value };
+      return { ...prev, availabilityWindows: next };
+    });
+  };
+
+  const removeWindow = (index) => {
     setFormData((prev) => ({
       ...prev,
-      scheduleSlots: prev.scheduleSlots.filter((_, i) => i !== index),
+      availabilityWindows: prev.availabilityWindows.filter((_, currentIndex) => currentIndex !== index),
     }));
   };
 
   const handleTierChange = (index, field, value) => {
-    const next = [...formData.pricingTiers];
-    next[index] = {
-      ...next[index],
-      [field]: field === 'visits_per_week' || field === 'price' ? Number(value) : value,
-    };
-    setFormData((prev) => ({ ...prev, pricingTiers: next }));
+    setFormData((prev) => {
+      const next = [...prev.pricingTiers];
+      next[index] = { ...next[index], [field]: Number(value) };
+      return { ...prev, pricingTiers: next };
+    });
   };
 
-  const addPricingTier = () => {
-    setFormData((prev) => ({
-      ...prev,
-      pricingTiers: [...prev.pricingTiers, { visits_per_week: 1, price: '' }],
-    }));
+  const addTier = () => {
+    setFormData((prev) => ({ ...prev, pricingTiers: [...prev.pricingTiers, { visits_per_week: 1, price: 0 }] }));
   };
 
-  const removePricingTier = (index) => {
+  const removeTier = (index) => {
+    setFormData((prev) => ({ ...prev, pricingTiers: prev.pricingTiers.filter((_, i) => i !== index) }));
+  };
+
+  const toggleProfessor = (profId) => {
     setFormData((prev) => ({
       ...prev,
-      pricingTiers: prev.pricingTiers.filter((_, i) => i !== index),
+      professorIds: prev.professorIds.includes(profId)
+        ? prev.professorIds.filter((id) => id !== profId)
+        : [...prev.professorIds, profId],
     }));
   };
 
   const handleFeatureChange = (index, value) => {
-    const newFeatures = [...formData.features];
-    newFeatures[index] = value;
-    setFormData(prev => ({ ...prev, features: newFeatures }));
+    setFormData((prev) => {
+      const next = [...prev.features];
+      next[index] = value;
+      return { ...prev, features: next };
+    });
   };
 
-  const addFeature = () => {
-    setFormData(prev => ({ ...prev, features: [...prev.features, ''] }));
-  };
+  const addFeature = () => setFormData((prev) => ({ ...prev, features: [...prev.features, ''] }));
+  const removeFeature = (index) => setFormData((prev) => ({ ...prev, features: prev.features.filter((_, i) => i !== index) }));
 
-  const removeFeature = (index) => {
-    setFormData(prev => ({ ...prev, features: prev.features.filter((_, i) => i !== index) }));
-  };
+  const handleSubmit = (event) => {
+    event.preventDefault();
 
-  const toggleProfessor = (profId) => {
-    setFormData(prev => ({
-      ...prev,
-      professorIds: prev.professorIds.includes(profId)
-        ? prev.professorIds.filter(id => id !== profId)
-        : [...prev.professorIds, profId]
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    const normalizedFeatures = Array.from(
-      new Set(
-        formData.features
-          .map((feature) => feature.trim())
-          .filter((feature) => feature !== '')
-      )
-    );
-
-    const normalizedScheduleSlots = formData.scheduleSlots
-      .map((slot) => ({
-        day_of_week: Number(slot.day_of_week),
-        start_time: String(slot.start_time || '').slice(0, 5),
-        end_time: String(slot.end_time || '').slice(0, 5),
-        capacity: Number(slot.capacity || 0),
+    const normalizedFeatures = Array.from(new Set(formData.features.map((feature) => feature.trim()).filter(Boolean)));
+    const normalizedWindows = formData.availabilityWindows
+      .map((window) => ({
+        day_of_week: Number(window.day_of_week),
+        start_time: String(window.start_time || '').slice(0, 5),
+        end_time: String(window.end_time || '').slice(0, 5),
+        capacity: Math.max(0, Number(window.capacity || 0)),
       }))
-      .filter((slot) => slot.start_time && slot.end_time);
+      .filter((window) => window.end_time > window.start_time);
 
-    const normalizedPricingTiers = Array.from(
+    const normalizedPricing = Array.from(
       new Map(
         formData.pricingTiers
-          .map((tier) => ({
-            visits_per_week: Number(tier.visits_per_week),
-            price: Number(tier.price),
-          }))
+          .map((tier) => ({ visits_per_week: Number(tier.visits_per_week), price: Number(tier.price) }))
           .filter((tier) => tier.visits_per_week > 0 && Number.isFinite(tier.price))
           .map((tier) => [tier.visits_per_week, tier])
       ).values()
@@ -164,326 +159,165 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
       ...formData,
       price: Number(formData.price),
       capacity: Number(formData.capacity),
+      sessionDurationMin: Number(formData.sessionDurationMin || 60),
       features: normalizedFeatures,
-      pricingTiers: normalizedPricingTiers,
-      scheduleSlots: normalizedScheduleSlots,
-      schedule: normalizedScheduleSlots.map((slot) => ({
-        day: days[slot.day_of_week] || 'Día',
+      pricingTiers: normalizedPricing,
+      availabilityWindows: normalizedWindows,
+      scheduleSlots: expandWindowsToSlots(normalizedWindows, Number(formData.sessionDurationMin || 60)),
+      schedule: expandWindowsToSlots(normalizedWindows, Number(formData.sessionDurationMin || 60)).map((slot) => ({
+        day: DAYS[slot.day_of_week],
         time: `${slot.start_time} - ${slot.end_time}`,
       })),
     });
   };
 
-  const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-
-  // Clases Reutilizables estilo SaaS
-  const inputClasses = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400";
-  const labelClasses = "text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-2 block";
-  const sectionCardClasses = "bg-white border border-slate-100 rounded-[1.5rem] p-6 shadow-sm";
+  const inputClasses = 'w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400';
+  const labelClasses = 'text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block';
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      
-      {/* Modal Container */}
-      <div className="bg-slate-50 border border-slate-200 rounded-[2rem] w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
-        
-        {/* Header */}
-        <div className="px-8 py-6 bg-white border-b border-slate-100 flex items-center justify-between shrink-0 z-10">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6">
+      <div className="bg-white border border-slate-100 rounded-[2rem] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/50">
-              <Icon name={plan ? "Edit" : "PlusCircle"} size={24} />
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
+              <Icon name={plan ? 'Edit' : 'PlusCircle'} size={20} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-                {plan ? 'Editar Plan' : 'Crear Nuevo Plan'}
-              </h2>
-              <p className="text-sm font-medium text-slate-400 mt-0.5">
-                Configura los detalles comerciales y operativos
-              </p>
+              <h2 className="text-xl font-black text-slate-800 tracking-tight">{plan ? 'Editar Plan' : 'Crear Nuevo Plan'}</h2>
+              <p className="text-xs font-bold text-slate-400 mt-0.5">Define disponibilidad semanal, cupos y precios por visitas.</p>
             </div>
           </div>
-          <button 
-            onClick={onClose} 
-            className="w-10 h-10 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-          >
-            <Icon name="X" size={20} />
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+            <Icon name="X" size={18} />
           </button>
         </div>
 
-        {/* Formulario con Scroll Vertical */}
-        <form id="plan-form" onSubmit={handleSubmit} className="overflow-y-auto p-4 md:p-8 custom-scrollbar flex-1 space-y-8">
-          
-          {/* SECCIÓN 1: IDENTIDAD DEL PLAN */}
-          <div className={sectionCardClasses}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                <Icon name="FileText" size={16} />
-              </div>
-              <h3 className="font-bold text-slate-800 text-lg">Identidad del Plan</h3>
+        <form id="plan-form" onSubmit={handleSubmit} className="overflow-y-auto p-6 custom-scrollbar flex-1 space-y-8">
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClasses}>Nombre del Plan *</label>
+              <input name="name" value={formData.name} onChange={handleInputChange} className={inputClasses} required />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              <div className="md:col-span-8">
-                <label className={labelClasses}>Nombre Comercial <span className="text-rose-500">*</span></label>
-                <input name="name" value={formData.name} onChange={handleInputChange} placeholder="Ej: Plan Elite Crossfit" required className={inputClasses} autoFocus />
-              </div>
-              <div className="md:col-span-4">
-                <label className={labelClasses}>Estado</label>
-                <select name="status" value={formData.status} onChange={handleInputChange} className={`${inputClasses} appearance-none cursor-pointer`}>
-                  <option value="active">🟢 Activo (Visible)</option>
-                  <option value="inactive">🔴 Inactivo (Oculto)</option>
-                </select>
-              </div>
-              <div className="md:col-span-12">
-                <label className={labelClasses}>Descripción <span className="text-rose-500">*</span></label>
-                <textarea 
-                  name="description" 
-                  value={formData.description} 
-                  onChange={handleInputChange} 
-                  placeholder="Describe los beneficios principales de este plan..." 
-                  rows={2} 
-                  className={`${inputClasses} resize-none`} 
-                  required 
-                />
-              </div>
+            <div>
+              <label className={labelClasses}>Estado</label>
+              <select name="status" value={formData.status} onChange={handleInputChange} className={`${inputClasses} appearance-none`}>
+                <option value="active">Activo</option>
+                <option value="inactive">Inactivo</option>
+              </select>
             </div>
-          </div>
-
-          {/* GRID DE 2 COLUMNAS PARA PRECIOS Y PROFESORES */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            {/* SECCIÓN 2: VALORES BASE */}
-            <div className={`${sectionCardClasses} flex flex-col`}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-                  <Icon name="DollarSign" size={16} />
-                </div>
-                <h3 className="font-bold text-slate-800 text-lg">Valores Base</h3>
-              </div>
-              
-              <div className="space-y-6 flex-1">
-                <div>
-                  <label className={labelClasses}>Precio Mensual Referencia <span className="text-rose-500">*</span></label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">$</span>
-                    <input name="price" type="number" value={formData.price} onChange={handleInputChange} placeholder="0.00" required className={`${inputClasses} pl-9 text-lg font-bold`} />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelClasses}>Capacidad Máxima General <span className="text-rose-500">*</span></label>
-                  <input name="capacity" type="number" value={formData.capacity} onChange={handleInputChange} placeholder="Ej: 25 atletas" required className={inputClasses} />
-                </div>
-              </div>
+            <div className="lg:col-span-2">
+              <label className={labelClasses}>Descripción *</label>
+              <textarea name="description" value={formData.description} onChange={handleInputChange} rows={2} className={`${inputClasses} resize-none`} required />
             </div>
-
-            {/* SECCIÓN 3: PROFESORES */}
-            <div className={`${sectionCardClasses} flex flex-col`}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-violet-50 text-violet-600 rounded-lg">
-                  <Icon name="Users" size={16} />
-                </div>
-                <h3 className="font-bold text-slate-800 text-lg">Profesores a Cargo</h3>
-              </div>
-              
-              <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-100 max-h-[180px] overflow-y-auto custom-scrollbar">
-                <div className="flex flex-wrap gap-2">
-                  {professors.length > 0 ? professors.map((prof) => {
-                    const isSelected = formData.professorIds.includes(prof.id);
-                    return (
-                      <button
-                        key={prof.id}
-                        type="button"
-                        onClick={() => toggleProfessor(prof.id)}
-                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border ${
-                          isSelected
-                            ? 'bg-violet-600 text-white border-violet-600 shadow-md'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-violet-300 hover:bg-violet-50'
-                        }`}
-                      >
-                        {isSelected && <Icon name="Check" size={12} />}
-                        {prof.name}
-                      </button>
-                    );
-                  }) : <p className="text-sm text-slate-400 font-medium py-4 text-center w-full">No hay profesores registrados.</p>}
-                </div>
-              </div>
+            <div>
+              <label className={labelClasses}>Precio base legacy (opcional)</label>
+              <input name="price" type="number" value={formData.price} onChange={handleInputChange} className={inputClasses} />
             </div>
-          </div>
-
-          {/* SECCIÓN 4: HORARIOS Y CUPOS */}
-          <div className={sectionCardClasses}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
-                  <Icon name="Calendar" size={16} />
-                </div>
-                <h3 className="font-bold text-slate-800 text-lg">Grilla de Horarios</h3>
-              </div>
-              <button type="button" onClick={addScheduleSlot} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
-                <Icon name="Plus" size={14} /> Nueva Ventana
-              </button>
+            <div>
+              <label className={labelClasses}>Duración de sesión (min) *</label>
+              <input name="sessionDurationMin" type="number" min="15" step="15" value={formData.sessionDurationMin} onChange={handleInputChange} className={inputClasses} required />
             </div>
-            
-            <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden">
-              
-              {/* Header de Tabla (Ajustado para darle más espacio al Cupo) */}
-              <div className="grid grid-cols-12 gap-3 px-6 py-3 border-b border-slate-200 bg-slate-100/50 hidden md:grid">
-                <div className="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Día</div>
-                <div className="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Inicio</div>
-                <div className="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fin</div>
-                <div className="col-span-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Cupo</div>
-                <div className="col-span-1"></div>
-              </div>
+          </section>
 
-              {/* Filas de la Grilla */}
-              <div className="p-3 space-y-3">
-                {formData.scheduleSlots.map((slot, index) => (
-                  <div key={index} className="grid grid-cols-2 md:grid-cols-12 gap-3 items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-blue-200">
-                    
-                    {/* Día */}
-                    <div className="col-span-2 md:col-span-3">
-                      <select value={slot.day_of_week} onChange={(e) => handleScheduleSlotChange(index, 'day_of_week', e.target.value)} className={inputClasses}>
-                        {days.map((day, dayIndex) => <option key={day} value={dayIndex}>{day}</option>)}
-                      </select>
-                    </div>
-                    
-                    {/* Inicio */}
-                    <div className="col-span-1 md:col-span-3">
-                      <input type="time" value={slot.start_time} onChange={(e) => handleScheduleSlotChange(index, 'start_time', e.target.value)} className={inputClasses} />
-                    </div>
-                    
-                    {/* Fin */}
-                    <div className="col-span-1 md:col-span-3">
-                      <input type="time" value={slot.end_time} onChange={(e) => handleScheduleSlotChange(index, 'end_time', e.target.value)} className={inputClasses} />
-                    </div>
-                    
-                    {/* Cupo (Ahora tiene el doble de espacio) */}
-                    <div className="col-span-1 md:col-span-2">
-                      <input 
-                        type="number" 
-                        min="0" 
-                        value={slot.capacity} 
-                        onChange={(e) => handleScheduleSlotChange(index, 'capacity', e.target.value)} 
-                        placeholder="0" 
-                        className={`${inputClasses} text-center px-2 font-bold text-blue-600`} 
-                      />
-                    </div>
-                    
-                    {/* Borrar */}
-                    <div className="col-span-1 md:col-span-1 flex justify-end md:justify-center">
-                      <button type="button" onClick={() => removeScheduleSlot(index)} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">
-                        <Icon name="Trash2" size={18} />
-                      </button>
-                    </div>
-
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* GRID DE 2 COLUMNAS PARA PRECIOS ESCALONADOS Y FEATURES */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            {/* SECCIÓN 5: PRECIOS ESCALONADOS */}
-            <div className={sectionCardClasses}>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg">
-                    <Icon name="Layers" size={16} />
-                  </div>
-                  <h3 className="font-bold text-slate-800 text-lg">Precios Escalonados</h3>
-                </div>
-                <button type="button" onClick={addPricingTier} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
-                  <Icon name="Plus" size={12} /> Añadir
+          <section>
+            <h3 className="text-sm font-black text-slate-800 mb-3">Días habilitados</h3>
+            <div className="flex flex-wrap gap-2">
+              {DAYS.map((day, index) => (
+                <button key={day} type="button" onClick={() => toggleDay(index)} className={`px-3 py-1.5 rounded-full text-xs font-bold border ${enabledDays.includes(index) ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  {day}
                 </button>
-              </div>
-              
-              <div className="space-y-3">
-                {formData.pricingTiers.map((tier, index) => (
-                  <div key={index} className="flex gap-3 items-center">
-                    <div className="relative w-1/3">
-                      <input type="number" min="1" max="7" value={tier.visits_per_week} onChange={(e) => handleTierChange(index, 'visits_per_week', e.target.value)} className={`${inputClasses} pr-8`} />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Días</span>
-                    </div>
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">$</span>
-                      <input type="number" min="0" value={tier.price} onChange={(e) => handleTierChange(index, 'price', e.target.value)} className={`${inputClasses} pl-8`} placeholder="Precio" />
-                    </div>
-                    {formData.pricingTiers.length > 1 && (
-                      <button type="button" onClick={() => removePricingTier(index)} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0">
-                        <Icon name="Trash2" size={18} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
+          </section>
 
-            {/* SECCIÓN 6: CARACTERÍSTICAS */}
-            <div className={sectionCardClasses}>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-pink-50 text-pink-600 rounded-lg">
-                    <Icon name="List" size={16} />
-                  </div>
-                  <h3 className="font-bold text-slate-800 text-lg">¿Qué incluye?</h3>
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-black text-slate-800">Rangos horarios por día + cupo</h3>
+            </div>
+            <div className="space-y-2">
+              {formData.availabilityWindows.map((window, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                  <select value={window.day_of_week} onChange={(e) => updateWindow(index, 'day_of_week', e.target.value)} className={`${inputClasses} col-span-3 px-3 py-2`}>
+                    {DAYS.map((day, dayIndex) => <option key={day} value={dayIndex}>{day}</option>)}
+                  </select>
+                  <input type="time" value={window.start_time} onChange={(e) => updateWindow(index, 'start_time', e.target.value)} className={`${inputClasses} col-span-3 px-3 py-2`} />
+                  <input type="time" value={window.end_time} onChange={(e) => updateWindow(index, 'end_time', e.target.value)} className={`${inputClasses} col-span-3 px-3 py-2`} />
+                  <input type="number" min="0" value={window.capacity} onChange={(e) => updateWindow(index, 'capacity', e.target.value)} className={`${inputClasses} col-span-2 px-2 py-2`} placeholder="Cupo" />
+                  <button type="button" onClick={() => removeWindow(index)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                    <Icon name="Trash2" size={16} />
+                  </button>
                 </div>
-                <button type="button" onClick={addFeature} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
-                  <Icon name="Plus" size={12} /> Añadir
-                </button>
-              </div>
-              
-              <div className="space-y-3">
-                {formData.features.map((feature, index) => (
-                  <div key={index} className="flex gap-2 items-center">
-                    <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                      <Icon name="Check" size={14} className="text-emerald-500" />
-                    </div>
-                    <input 
-                      value={feature} 
-                      onChange={(e) => handleFeatureChange(index, e.target.value)} 
-                      placeholder="Ej: Acceso a duchas" 
-                      className={`${inputClasses} flex-1`} 
-                    />
-                    {formData.features.length > 1 && (
-                      <button type="button" onClick={() => removeFeature(index)} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0">
-                        <Icon name="X" size={18} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {enabledDays.map((day) => (
+                <button key={day} type="button" onClick={() => addWindow(day)} className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1">
+                  <Icon name="Plus" size={10} /> Agregar ventana {DAYS[day]}
+                </button>
+              ))}
+            </div>
+          </section>
 
-          </div>
+          <section>
+            <h3 className="text-sm font-black text-slate-800 mb-3">Vista previa de slots generados ({generatedSlots.length})</h3>
+            <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1">
+              {generatedSlots.length === 0 ? <p className="text-xs text-slate-400">Sin slots válidos.</p> : generatedSlots.map((slot, idx) => (
+                <p key={`${slot.day_of_week}-${slot.start_time}-${idx}`} className="text-xs font-semibold text-slate-600">
+                  {DAYS[slot.day_of_week]} {slot.start_time}-{slot.end_time} (cupo {slot.capacity})
+                </p>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-black text-slate-800">Precios por visitas/semana</h3>
+              <button type="button" onClick={addTier} className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"><Icon name="Plus" size={10} /> Agregar</button>
+            </div>
+            <div className="space-y-2">
+              {formData.pricingTiers.map((tier, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                  <input type="number" min="1" max="7" value={tier.visits_per_week} onChange={(e) => handleTierChange(index, 'visits_per_week', e.target.value)} className={`${inputClasses} col-span-4 px-3 py-2`} />
+                  <input type="number" min="0" value={tier.price} onChange={(e) => handleTierChange(index, 'price', e.target.value)} className={`${inputClasses} col-span-7 px-3 py-2`} />
+                  {formData.pricingTiers.length > 1 && <button type="button" onClick={() => removeTier(index)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Icon name="Trash2" size={16} /></button>}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-black text-slate-800 mb-3">Opciones / Variantes del Plan</h3>
+            <div className="space-y-2">
+              {formData.features.map((feature, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <input value={feature} onChange={(e) => handleFeatureChange(index, e.target.value)} placeholder="Ej: Turno mañana, 3 días, etc." className={`${inputClasses} flex-1 px-3 py-2`} />
+                  {formData.features.length > 1 && <button type="button" onClick={() => removeFeature(index)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Icon name="Trash2" size={16} /></button>}
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addFeature} className="mt-3 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"><Icon name="Plus" size={10} /> Agregar opción</button>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-black text-slate-800 mb-3">Profesores asignados</h3>
+            <div className="flex flex-wrap gap-2">
+              {professors.length > 0 ? professors.map((prof) => {
+                const isSelected = formData.professorIds.includes(prof.id);
+                return <button key={prof.id} type="button" onClick={() => toggleProfessor(prof.id)} className={`px-3 py-1.5 rounded-full text-xs font-bold border ${isSelected ? 'bg-violet-50 text-violet-700 border-violet-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{prof.name}</button>;
+              }) : <p className="text-sm text-slate-400 font-medium">No hay profesores registrados.</p>}
+            </div>
+          </section>
         </form>
 
-        {/* Footer */}
-        <div className="px-8 py-5 bg-white border-t border-slate-100 flex items-center justify-between shrink-0 z-10">
-          <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
-            <Icon name="Info" size={14} />
-            Campos obligatorios <span className="text-rose-500 text-lg leading-none">*</span>
-          </p>
-          <div className="flex items-center gap-3">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              className="px-6 py-3 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-100 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button 
-              form="plan-form"
-              type="submit" 
-              className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm text-white bg-slate-900 hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all hover:-translate-y-0.5"
-            >
-              <Icon name="Save" size={16} />
-              {plan ? 'Guardar Cambios' : 'Crear Plan'}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 rounded-b-[2rem]">
+          <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest"><Icon name="Info" size={12} /> Obligatorio <span className="text-rose-500">*</span></p>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200/50 transition-colors">Cancelar</button>
+            <button form="plan-form" type="submit" className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5">
+              <Icon name="Save" size={16} />{plan ? 'Guardar Cambios' : 'Crear Plan'}
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
