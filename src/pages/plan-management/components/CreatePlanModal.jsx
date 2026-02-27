@@ -8,7 +8,15 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
     price: '',
     capacity: '',
     status: 'active',
-    schedule: [{ day: 'Lunes', time: '' }],
+    schedule: [],
+    scheduleSlots: [{ day_of_week: 1, start_time: '', end_time: '', capacity: 0 }],
+    pricingTiers: [
+      { visits_per_week: 1, price: '' },
+      { visits_per_week: 2, price: '' },
+      { visits_per_week: 3, price: '' },
+      { visits_per_week: 4, price: '' },
+      { visits_per_week: 5, price: '' },
+    ],
     professorIds: [], 
     features: ['']
   });
@@ -17,7 +25,29 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
     if (plan) {
       setFormData({
         ...plan,
-        schedule: plan.schedule?.length ? plan.schedule : [{ day: 'Lunes', time: '' }],
+        schedule: plan.schedule?.length ? plan.schedule : [],
+        scheduleSlots: plan.schedule?.length
+          ? plan.schedule
+              .filter((slot) => slot.day_of_week !== undefined)
+              .map((slot) => ({
+                day_of_week: Number(slot.day_of_week),
+                start_time: String(slot.start_time || slot.time?.split(' - ')[0] || ''),
+                end_time: String(slot.end_time || slot.time?.split(' - ')[1] || ''),
+                capacity: Number(slot.capacity || 0),
+              }))
+          : [{ day_of_week: 1, start_time: '', end_time: '', capacity: 0 }],
+        pricingTiers: plan.pricingTiers?.length
+          ? plan.pricingTiers.map((tier) => ({
+              visits_per_week: Number(tier.visits_per_week),
+              price: Number(tier.price),
+            }))
+          : [
+              { visits_per_week: 1, price: '' },
+              { visits_per_week: 2, price: '' },
+              { visits_per_week: 3, price: '' },
+              { visits_per_week: 4, price: '' },
+              { visits_per_week: 5, price: '' },
+            ],
         features: plan.features?.length ? plan.features : [''],
         professorIds: plan.professorIds || []
       });
@@ -29,18 +59,50 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleScheduleChange = (index, field, value) => {
-    const newSchedule = [...formData.schedule];
-    newSchedule[index] = { ...newSchedule[index], [field]: value };
-    setFormData(prev => ({ ...prev, schedule: newSchedule }));
+  const handleScheduleSlotChange = (index, field, value) => {
+    const next = [...formData.scheduleSlots];
+    next[index] = {
+      ...next[index],
+      [field]: field === 'day_of_week' || field === 'capacity' ? Number(value) : value,
+    };
+    setFormData((prev) => ({ ...prev, scheduleSlots: next }));
   };
 
   const addScheduleSlot = () => {
-    setFormData(prev => ({ ...prev, schedule: [...prev.schedule, { day: 'Lunes', time: '' }] }));
+    setFormData((prev) => ({
+      ...prev,
+      scheduleSlots: [...prev.scheduleSlots, { day_of_week: 1, start_time: '', end_time: '', capacity: 0 }],
+    }));
   };
 
   const removeScheduleSlot = (index) => {
-    setFormData(prev => ({ ...prev, schedule: prev.schedule.filter((_, i) => i !== index) }));
+    setFormData((prev) => ({
+      ...prev,
+      scheduleSlots: prev.scheduleSlots.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleTierChange = (index, field, value) => {
+    const next = [...formData.pricingTiers];
+    next[index] = {
+      ...next[index],
+      [field]: field === 'visits_per_week' || field === 'price' ? Number(value) : value,
+    };
+    setFormData((prev) => ({ ...prev, pricingTiers: next }));
+  };
+
+  const addPricingTier = () => {
+    setFormData((prev) => ({
+      ...prev,
+      pricingTiers: [...prev.pricingTiers, { visits_per_week: 1, price: '' }],
+    }));
+  };
+
+  const removePricingTier = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      pricingTiers: prev.pricingTiers.filter((_, i) => i !== index),
+    }));
   };
 
   const handleFeatureChange = (index, value) => {
@@ -77,15 +139,42 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
       )
     );
 
+    const normalizedScheduleSlots = formData.scheduleSlots
+      .map((slot) => ({
+        day_of_week: Number(slot.day_of_week),
+        start_time: String(slot.start_time || '').slice(0, 5),
+        end_time: String(slot.end_time || '').slice(0, 5),
+        capacity: Number(slot.capacity || 0),
+      }))
+      .filter((slot) => slot.start_time && slot.end_time);
+
+    const normalizedPricingTiers = Array.from(
+      new Map(
+        formData.pricingTiers
+          .map((tier) => ({
+            visits_per_week: Number(tier.visits_per_week),
+            price: Number(tier.price),
+          }))
+          .filter((tier) => tier.visits_per_week > 0 && Number.isFinite(tier.price))
+          .map((tier) => [tier.visits_per_week, tier])
+      ).values()
+    ).sort((a, b) => a.visits_per_week - b.visits_per_week);
+
     onSave({
       ...formData,
       price: Number(formData.price),
       capacity: Number(formData.capacity),
       features: normalizedFeatures,
+      pricingTiers: normalizedPricingTiers,
+      scheduleSlots: normalizedScheduleSlots,
+      schedule: normalizedScheduleSlots.map((slot) => ({
+        day: days[slot.day_of_week] || 'Día',
+        time: `${slot.start_time} - ${slot.end_time}`,
+      })),
     });
   };
 
-  const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
   // Clases Reutilizables
   const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400";
@@ -215,47 +304,56 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
             {/* --- COLUMNA DERECHA --- */}
             <div className="space-y-8">
               
-              {/* Sección 3: Horarios */}
+              {/* Sección 3: Horarios y Cupos */}
               <section>
                 <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded bg-emerald-50 text-emerald-500 flex items-center justify-center">
                       <Icon name="Clock" size={12} />
                     </div>
-                    <h3 className="text-sm font-black text-slate-800">Grilla de Horarios</h3>
+                    <h3 className="text-sm font-black text-slate-800">Días / Ventanas / Cupos</h3>
                   </div>
-                  <button 
-                    type="button" 
-                    onClick={addScheduleSlot}
-                    className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"
-                  >
+                  <button type="button" onClick={addScheduleSlot} className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1">
                     <Icon name="Plus" size={10} /> Agregar
                   </button>
                 </div>
-                
                 <div className="space-y-3">
-                  {formData.schedule.map((slot, index) => (
-                    <div key={index} className="flex gap-2 items-center group">
-                      <select
-                        value={slot.day}
-                        onChange={(e) => handleScheduleChange(index, 'day', e.target.value)}
-                        className={`${inputClasses} w-1/3 appearance-none cursor-pointer px-3 py-2`}
-                      >
-                        {days.map(day => <option key={day} value={day}>{day}</option>)}
+                  {formData.scheduleSlots.map((slot, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                      <select value={slot.day_of_week} onChange={(e) => handleScheduleSlotChange(index, 'day_of_week', e.target.value)} className={`${inputClasses} col-span-4 px-3 py-2`}>
+                        {days.map((day, dayIndex) => <option key={day} value={dayIndex}>{day}</option>)}
                       </select>
-                      <input 
-                        value={slot.time} 
-                        onChange={(e) => handleScheduleChange(index, 'time', e.target.value)} 
-                        placeholder="Ej: 08:00 - 09:00" 
-                        className={`${inputClasses} flex-1 px-3 py-2`} 
-                      />
-                      {formData.schedule.length > 1 && (
-                        <button 
-                          type="button" 
-                          onClick={() => removeScheduleSlot(index)} 
-                          className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0"
-                          title="Eliminar horario"
-                        >
+                      <input type="time" value={slot.start_time} onChange={(e) => handleScheduleSlotChange(index, 'start_time', e.target.value)} className={`${inputClasses} col-span-3 px-3 py-2`} />
+                      <input type="time" value={slot.end_time} onChange={(e) => handleScheduleSlotChange(index, 'end_time', e.target.value)} className={`${inputClasses} col-span-3 px-3 py-2`} />
+                      <input type="number" min="0" value={slot.capacity} onChange={(e) => handleScheduleSlotChange(index, 'capacity', e.target.value)} placeholder="Cupo" className={`${inputClasses} col-span-1 px-2 py-2 text-center`} />
+                      <button type="button" onClick={() => removeScheduleSlot(index)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Eliminar ventana">
+                        <Icon name="Trash2" size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Sección 4: Precios por Semana */}
+              <section>
+                <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded bg-cyan-50 text-cyan-500 flex items-center justify-center">
+                      <Icon name="DollarSign" size={12} />
+                    </div>
+                    <h3 className="text-sm font-black text-slate-800">Precios por Semana</h3>
+                  </div>
+                  <button type="button" onClick={addPricingTier} className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1">
+                    <Icon name="Plus" size={10} /> Agregar
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {formData.pricingTiers.map((tier, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                      <input type="number" min="1" max="7" value={tier.visits_per_week} onChange={(e) => handleTierChange(index, 'visits_per_week', e.target.value)} className={`${inputClasses} col-span-4 px-3 py-2`} />
+                      <input type="number" min="0" value={tier.price} onChange={(e) => handleTierChange(index, 'price', e.target.value)} className={`${inputClasses} col-span-7 px-3 py-2`} placeholder="Precio" />
+                      {formData.pricingTiers.length > 1 && (
+                        <button type="button" onClick={() => removePricingTier(index)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Eliminar precio">
                           <Icon name="Trash2" size={16} />
                         </button>
                       )}
@@ -264,7 +362,7 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
                 </div>
               </section>
 
-              {/* Sección 4: Características */}
+              {/* Sección 5: Características */}
               <section>
                 <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
                   <div className="flex items-center gap-2">

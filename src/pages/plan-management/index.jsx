@@ -4,6 +4,7 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
+import { fetchPlanPricing, fetchPlanSlots, upsertPlanPricing, upsertPlanSlots } from '../../services/plans';
 
 // Componentes Hijos
 import PlanCard from './components/PlanCard';
@@ -64,8 +65,25 @@ const PlanManagement = () => {
       if (error) throw error;
 
       // 3. Formatear datos
-      const formattedPlans = plansData.map(p => {
-        const enrolledCount = p.enrollments?.length || 0; 
+      const formattedPlans = await Promise.all(plansData.map(async (p) => {
+        const enrolledCount = p.enrollments?.length || 0;
+        const [pricingTiers, slotAvailability] = await Promise.all([
+          fetchPlanPricing(p.id).catch(() => []),
+          fetchPlanSlots(p.id).catch(() => []),
+        ]);
+
+        const schedule = slotAvailability.length > 0
+          ? slotAvailability.map((slot) => ({
+              weeklyScheduleId: slot.weekly_schedule_id,
+              day_of_week: slot.day_of_week,
+              day: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][slot.day_of_week] || 'Día',
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+              time: `${String(slot.start_time).slice(0, 5)} - ${String(slot.end_time).slice(0, 5)}`,
+              capacity: slot.capacity,
+              remaining: slot.remaining,
+            }))
+          : (p.plan_schedule?.map(s => ({ day: s.day, time: s.time })) || []);
 
         return {
           id: p.id,
@@ -76,11 +94,12 @@ const PlanManagement = () => {
           status: p.status,
           enrolled: enrolledCount,
           features: p.plan_features?.map(f => f.feature) || [],
-          schedule: p.plan_schedule?.map(s => ({ day: s.day, time: s.time })) || [],
+          pricingTiers,
+          schedule,
           professors: p.plan_coaches?.map(pc => pc.coaches?.profiles?.full_name).filter(Boolean) || [],
           professorIds: p.plan_coaches?.map(pc => pc.coach_id) || []
         };
-      });
+      }));
 
       setPlans(formattedPlans);
       calculateMetrics(formattedPlans);
@@ -161,7 +180,9 @@ const PlanManagement = () => {
       await Promise.all([
         featuresInsert.length > 0 && supabase.from('plan_features').insert(featuresInsert),
         scheduleInsert.length > 0 && supabase.from('plan_schedule').insert(scheduleInsert),
-        coachesInsert.length > 0 && supabase.from('plan_coaches').insert(coachesInsert)
+        coachesInsert.length > 0 && supabase.from('plan_coaches').insert(coachesInsert),
+        upsertPlanPricing(planId, planData.pricingTiers || []),
+        upsertPlanSlots(planId, planData.scheduleSlots || []),
       ]);
 
       await fetchData(); 
