@@ -17,11 +17,17 @@ export const fetchAthleteById = async (athleteId) => {
 /**
  * Consulta atletas asignados a un profesor
  */
-export const fetchAthletesByCoach = async (coachId) => {
-  const { data, error } = await supabase
+export const fetchAthletesByCoach = async (coachId, { status = 'active' } = {}) => {
+  let query = supabase
     .from('athletes')
     .select('*')
     .eq('coach_id', coachId);
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data ?? [];
@@ -157,4 +163,26 @@ export const createFullAthlete = async (athleteData) => {
 
     return { success: false, error: error.message };
   }
+};
+
+
+export const deactivateAthlete = async (athleteId) => {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { error: athleteError } = await supabase
+    .from('athletes')
+    .update({ status: 'inactive' })
+    .eq('id', athleteId);
+
+  if (athleteError) throw athleteError;
+
+  const { error: assignmentError } = await supabase
+    .from('athlete_slot_assignments')
+    .update({ is_active: false, ends_on: today })
+    .eq('athlete_id', athleteId)
+    .eq('is_active', true);
+
+  if (assignmentError) throw assignmentError;
+
+  return { success: true };
 };

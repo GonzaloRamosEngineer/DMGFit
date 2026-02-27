@@ -8,6 +8,7 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = fa
     coach: '',
     performanceTier: '',
     paymentStatus: '',
+    status: 'active',
     attendanceRange: ''
   });
 
@@ -24,6 +25,13 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = fa
     { value: 'paid', label: 'Pagado' },
     { value: 'pending', label: 'Pendiente' },
     { value: 'overdue', label: 'Vencido' }
+  ];
+
+
+  const statusOptions = [
+    { value: 'active', label: 'Activos' },
+    { value: 'inactive', label: 'Inactivos' },
+    { value: 'all', label: 'Todos' }
   ];
 
   const handleSearchChange = (e) => {
@@ -43,6 +51,7 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = fa
       coach: '',
       performanceTier: '',
       paymentStatus: '',
+      status: 'active',
       attendanceRange: ''
     };
     setFilters(clearedFilters);
@@ -51,7 +60,7 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = fa
     onSearch('');
   };
 
-  const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
+  const activeFilterCount = Object.entries(filters).filter(([key, value]) => value !== '' && !(key === 'status' && value === 'active')).length;
 
   return (
     <div className="bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-[2rem] p-4 shadow-sm mb-6 transition-all">
@@ -142,6 +151,23 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = fa
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium appearance-none cursor-pointer"
             >
               {paymentStatusOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Select: Estado del Atleta */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+              Estado del Atleta
+            </label>
+            <select
+              value={filters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              disabled={loading}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium appearance-none cursor-pointer"
+            >
+              {statusOptions.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>

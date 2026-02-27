@@ -4,7 +4,7 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
 // PASO 1: Importar el cliente de Supabase
-import { supabase } from '../../../lib/supabaseClient';
+import { deactivateAthlete } from '../../../services/athletes';
 
 // MEJORA: Centralizar dominios internos para consistencia
 const INTERNAL_DOMAINS = ["@dmg.internal", "@vcfit.internal"];
@@ -19,7 +19,7 @@ const AthleteHeader = ({
   onEnableAccess,
   canEnable = false,
 }) => {
-  const [deleting, setDeleting] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
   // Mantenemos la detección de dominio corregida
@@ -32,43 +32,33 @@ const AthleteHeader = ({
     { id: 'export', label: 'Exportar Informe PDF', icon: 'Download', action: 'export' }
   ];
 
-  const handleDeleteAthlete = async () => {
-    const confirmFirst = window.confirm(`¿Estás COMPLETAMENTE seguro de eliminar a ${athlete.name}?`);
-    if (!confirmFirst) return;
+  const handleToggleAthleteStatus = async () => {
+    const isActive = athlete.status === 'active';
 
-    const confirmSecond = window.confirm("Esta acción eliminará permanentemente todos sus registros (pagos, asistencias, métricas) y su perfil de acceso. No se puede deshacer. ¿Continuar?");
-    if (!confirmSecond) return;
+    if (isActive) {
+      const confirmFirst = window.confirm(`¿Deseas desactivar a ${athlete.name}?`);
+      if (!confirmFirst) return;
 
-    setDeleting(true);
+      const confirmSecond = window.confirm(
+        'El atleta quedará sin acceso operativo, se cerrarán sus asignaciones semanales activas y se conservará todo el historial (pagos, asistencias, notas y accesos).'
+      );
+      if (!confirmSecond) return;
+    }
+
+    setProcessingStatus(true);
     try {
-      const athleteId = athlete.id;
-      const profileId = athlete.profile_id || athlete.profileId;
-
-      /**
-       * PASO 2: Optimización mediante CASCADE
-       * Si configuramos correctamente las FK con ON DELETE CASCADE, 
-       * al borrar el PROFILE se borra el ATHLETE y todas sus tablas hijas automáticamente.
-       * Si el profileId no existe (atleta huérfano), borramos solo el atleta.
-       */
-      
-      if (profileId) {
-        // Al borrar el perfil, el CASCADE se encarga de 'athletes', 'payments', 'attendance', etc.
-        const { error: profileError } = await supabase.from('profiles').delete().eq('id', profileId);
-        if (profileError) throw profileError;
+      if (isActive) {
+        await deactivateAthlete(athlete.id);
+        alert('Atleta desactivado correctamente.');
       } else {
-        // Fallback: Si por alguna razón no tiene perfil, borramos el atleta
-        const { error: athleteError } = await supabase.from('athletes').delete().eq('id', athleteId);
-        if (athleteError) throw athleteError;
+        alert('Este atleta ya está inactivo.');
       }
-
-      alert("Atleta y todos sus registros eliminados correctamente.");
-      window.location.href = '/athletes-management'; 
-
+      window.location.reload();
     } catch (error) {
-      console.error("Error en la eliminación completa:", error);
-      alert("Error al intentar eliminar: " + (error.message || "Error desconocido"));
+      console.error('Error actualizando estado del atleta:', error);
+      alert('No se pudo actualizar el estado: ' + (error.message || 'Error desconocido'));
     } finally {
-      setDeleting(false);
+      setProcessingStatus(false);
     }
   };
 
@@ -234,12 +224,12 @@ const AthleteHeader = ({
             <Button
               variant="outline"
               size="sm"
-              iconName="Trash2"
-              onClick={handleDeleteAthlete}
-              loading={deleting}
-              className="border-error/30 text-error hover:bg-error/5"
+              iconName="UserX"
+              onClick={handleToggleAthleteStatus}
+              loading={processingStatus}
+              className="border-amber-300 text-amber-700 hover:bg-amber-50"
             >
-              Eliminar Atleta
+              {athlete.status === 'active' ? 'Desactivar Atleta' : 'Atleta Inactivo'}
             </Button>
           </div>
         </div>
