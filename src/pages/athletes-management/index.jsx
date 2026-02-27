@@ -18,7 +18,7 @@ const AthletesManagement = () => {
   const { currentUser } = useAuth();
   const [selectedAthletes, setSelectedAthletes] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState({});
+  const [activeFilters, setActiveFilters] = useState({ status: "active" });
   const [sortConfig, setSortConfig] = useState({
     key: "name",
     direction: "asc",
@@ -65,6 +65,7 @@ const AthletesManagement = () => {
             profile_id,
             profiles:profile_id ( full_name, email, avatar_url ),
             coaches:coach_id ( id, profiles:profile_id ( full_name ) ),
+            plan_option,
             plans ( name, price )
           `);
 
@@ -118,7 +119,9 @@ const AthletesManagement = () => {
             avatar: athlete.profiles?.avatar_url,
             planName: planData?.name || "Sin Plan",
             planPrice: planData?.price || 0,
+            planOption: athlete.plan_option || null,
             coach: athlete.coaches?.profiles?.full_name || "Sin Asignar",
+            status: athlete.status || 'active',
             isActive: athlete.status === "active",
             attendanceRate,
             performanceScore: Math.round(latestMetric),
@@ -214,6 +217,9 @@ const AthletesManagement = () => {
     }
     if (activeFilters.paymentStatus) {
       result = result.filter((a) => a.paymentStatus === activeFilters.paymentStatus);
+    }
+    if (activeFilters.status && activeFilters.status !== 'all') {
+      result = result.filter((a) => a.status === activeFilters.status);
     }
     result.sort((a, b) => {
       const valA = a[sortConfig.key];

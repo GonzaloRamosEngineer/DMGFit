@@ -17,11 +17,17 @@ export const fetchAthleteById = async (athleteId) => {
 /**
  * Consulta atletas asignados a un profesor
  */
-export const fetchAthletesByCoach = async (coachId) => {
-  const { data, error } = await supabase
+export const fetchAthletesByCoach = async (coachId, { status = 'active' } = {}) => {
+  let query = supabase
     .from('athletes')
     .select('*')
     .eq('coach_id', coachId);
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data ?? [];
@@ -103,7 +109,10 @@ export const createFullAthlete = async (athleteData) => {
       dni: athleteData.dni,
       phone: athleteData.phone,
       plan_id: athleteData.plan_id, // Obligatorio según SQL
+      plan_option: athleteData.plan_option?.trim() || null,
       coach_id: athleteData.coach_id,
+      visits_per_week: athleteData.visits_per_week || null,
+      plan_tier_price: athleteData.tier_price || null,
       status: 'active',
       gender: athleteData.gender,
       city: athleteData.city,
@@ -113,12 +122,24 @@ export const createFullAthlete = async (athleteData) => {
 
     if (aErr) throw aErr;
 
+    if (Array.isArray(athleteData.selected_weekly_schedule_ids) && athleteData.selected_weekly_schedule_ids.length > 0) {
+      const assignments = athleteData.selected_weekly_schedule_ids.map((weeklyScheduleId) => ({
+        athlete_id: newAthlete.id,
+        weekly_schedule_id: weeklyScheduleId,
+        starts_on: athleteData.join_date || new Date().toISOString().split('T')[0],
+        is_active: true,
+      }));
+
+      const { error: assignmentError } = await supabase.from('athlete_slot_assignments').insert(assignments);
+      if (assignmentError) throw assignmentError;
+    }
+
     // 5. Generar Deuda Inicial
     const { data: plan } = await supabase.from('plans').select('price, name').eq('id', athleteData.plan_id).single();
     if (plan) {
       await supabase.from('payments').insert({
         athlete_id: newAthlete.id,
-        amount: plan.price,
+        amount: athleteData.tier_price ?? plan.price,
         status: 'pending',
         concept: `Inscripción inicial - ${plan.name}`,
         payment_date: new Date().toISOString().split('T')[0]
@@ -128,6 +149,40 @@ export const createFullAthlete = async (athleteData) => {
     return { success: true, data: newAthlete };
   } catch (error) {
     console.error("❌ Error en createFullAthlete:", error);
+
+    const isPolicyError =
+      error?.code === '42501' ||
+      String(error?.message || '').toLowerCase().includes('row-level security');
+
+    if (isPolicyError) {
+      return {
+        success: false,
+        error: 'No tienes permisos para crear atletas. Verifica tu rol o las políticas de seguridad.',
+      };
+    }
+
     return { success: false, error: error.message };
   }
+};
+
+
+export const deactivateAthlete = async (athleteId) => {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { error: athleteError } = await supabase
+    .from('athletes')
+    .update({ status: 'inactive' })
+    .eq('id', athleteId);
+
+  if (athleteError) throw athleteError;
+
+  const { error: assignmentError } = await supabase
+    .from('athlete_slot_assignments')
+    .update({ is_active: false, ends_on: today })
+    .eq('athlete_id', athleteId)
+    .eq('is_active', true);
+
+  if (assignmentError) throw assignmentError;
+
+  return { success: true };
 };
