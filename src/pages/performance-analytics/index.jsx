@@ -44,7 +44,8 @@ const PerformanceAnalytics = () => {
         // A. Total Atletas
         const { count: totalAthletes } = await supabase
           .from('athletes')
-          .select('*', { count: 'exact', head: true });
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'active');
 
         // B. Calcular Asistencia Promedio (Muestra de últimos 100 registros)
         const { data: attendanceSample } = await supabase

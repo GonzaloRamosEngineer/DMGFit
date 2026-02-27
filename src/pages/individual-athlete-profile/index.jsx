@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { supabase } from "../../lib/supabaseClient";
+import { fetchKioskRemaining } from "../../services/kiosk";
+import { fetchPlanSlots } from "../../services/plans";
+import { fetchAthleteAssignedSlots, reassignAthleteSlots } from "../../services/athletes";
 
 // Context
 import { useAuth } from "../../contexts/AuthContext";
@@ -18,6 +21,7 @@ import AttendanceCalendar from "./components/AttendanceCalendar";
 import PaymentHistory from "./components/PaymentHistory";
 import CoachNotes from "./components/CoachNotes";
 import UpcomingSessions from "./components/UpcomingSessions";
+import ModifyAthleteScheduleModal from "./components/ModifyAthleteScheduleModal";
 import HealthMetrics from "./components/HealthMetrics";
 import { generateAthletePDF } from "../../utils/pdfExport";
 import EnableAccountModal from "../../components/EnableAccountModal";
@@ -69,6 +73,39 @@ const AthleteAccessLog = ({ logs }) => {
   );
 };
 
+
+const buildUpcomingFromAssignments = (assignments = []) => {
+  const now = new Date();
+  const currentDay = now.getDay();
+  const sessions = (assignments || []).map((assignment) => {
+    const ws = assignment.weekly_schedule || {};
+    const targetDay = Number(ws.day_of_week || 0);
+    const delta = (targetDay - currentDay + 7) % 7;
+    const next = new Date(now);
+    next.setDate(now.getDate() + delta);
+
+    return {
+      id: assignment.id,
+      type: 'Horario asignado',
+      session_date: next.toISOString().split('T')[0],
+      time: ws.start_time,
+      location: 'Plan actual',
+      weekly_schedule_id: assignment.weekly_schedule_id,
+      day_of_week: ws.day_of_week,
+      end_time: ws.end_time,
+      capacity: ws.capacity,
+    };
+  });
+
+  return sessions
+    .sort((a, b) => {
+      const ad = new Date(`${a.session_date}T${a.time || '00:00:00'}`);
+      const bd = new Date(`${b.session_date}T${b.time || '00:00:00'}`);
+      return ad - bd;
+    })
+    .slice(0, 6);
+};
+
 // --- COMPONENTE PRINCIPAL ---
 const IndividualAthleteProfile = () => {
   const { id: athleteId } = useParams();
@@ -80,6 +117,14 @@ const IndividualAthleteProfile = () => {
 
   const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
   const [enableTarget, setEnableTarget] = useState(null);
+  const [availablePlans, setAvailablePlans] = useState([]);
+  const [availablePlanOptions, setAvailablePlanOptions] = useState([]);
+  const [membershipForm, setMembershipForm] = useState({ planId: '', planOption: '' });
+  const [savingMembership, setSavingMembership] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [assignedSlots, setAssignedSlots] = useState([]);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   // Estado unificado de datos
   const [profileData, setProfileData] = useState({
@@ -91,6 +136,7 @@ const IndividualAthleteProfile = () => {
     payments: [],
     notes: [],
     sessions: [],
+    kioskRemaining: null,
   });
 
   // --- CARGA DE DATOS ---
@@ -111,7 +157,11 @@ const IndividualAthleteProfile = () => {
             membership_type, 
             phone, 
             plan_id,
+            plan_option,
+            visits_per_week,
+            plan_tier_price,
             profile_id,
+            plans:plan_id ( name ),
             profiles:profile_id ( full_name, email, avatar_url )
           `)
           .eq("id", athleteId)
@@ -120,26 +170,19 @@ const IndividualAthleteProfile = () => {
         if (athleteError) throw athleteError;
 
         // 2. Cargas Paralelas
-        const [metricsRes, attendanceRes, paymentsRes, notesRes, sessionsRes, accessLogsRes] =
+        const [metricsRes, attendanceRes, paymentsRes, notesRes, assignedSlotsRes, accessLogsRes, kioskRemainingRes] =
           await Promise.all([
-            // Métricas
             supabase.from("metrics").select("*").eq("athlete_id", athleteId).order("date", { ascending: true }),
-            // Asistencia (Clases)
             supabase.from("attendance").select("*").eq("athlete_id", athleteId).order("date", { ascending: false }),
-            // Pagos
             supabase.from("payments").select("*").eq("athlete_id", athleteId).order("payment_date", { ascending: false }),
-            // Notas
             supabase.from("notes").select("*").eq("athlete_id", athleteId).order("date", { ascending: false }),
-            // Próximas Sesiones
-            supabase.from("session_attendees")
-              .select(`session:session_id (id, session_date, time, type, location)`)
-              .eq("athlete_id", athleteId),
-            // Access Logs (Molinete)
+            fetchAthleteAssignedSlots(athleteId).catch(() => []),
             supabase.from("access_logs")
               .select("*")
               .eq("athlete_id", athleteId)
               .order("check_in_time", { ascending: false })
-              .limit(20)
+              .limit(20),
+            fetchKioskRemaining({ athleteId }).catch(() => null)
           ]);
 
         // 3. Procesar Métricas de Salud
@@ -163,13 +206,12 @@ const IndividualAthleteProfile = () => {
           }
         }
 
-        // 4. Formatear Sesiones
-        const today = new Date().toISOString().split("T")[0];
-        const upcoming = (sessionsRes.data || [])
-          .map((item) => item.session)
-          .filter((s) => s && s.session_date >= today)
-          .sort((a, b) => new Date(a.session_date) - new Date(b.session_date))
-          .slice(0, 3);
+        const activeAssignments = assignedSlotsRes || [];
+        const upcoming = buildUpcomingFromAssignments(activeAssignments);
+
+        setAssignedSlots(activeAssignments);
+        const planSlots = athlete.plan_id ? await fetchPlanSlots(athlete.plan_id).catch(() => []) : [];
+        setAvailableSlots(planSlots || []);
 
         setProfileData({
           athlete: {
@@ -178,7 +220,11 @@ const IndividualAthleteProfile = () => {
             email: athlete.profiles?.email,
             photo: athlete.profiles?.avatar_url,
             dni: athlete.dni,
-            profile_id: athlete.profile_id
+            profile_id: athlete.profile_id,
+            planName: athlete.plans?.name || 'Sin Plan',
+            planOption: athlete.plan_option || null,
+            visits_per_week: athlete.visits_per_week || null,
+            plan_tier_price: athlete.plan_tier_price || null,
           },
           metrics: metricsList,
           latestMetrics: latestValues,
@@ -187,6 +233,7 @@ const IndividualAthleteProfile = () => {
           payments: paymentsRes.data || [],
           notes: notesRes.data || [],
           sessions: upcoming,
+          kioskRemaining: kioskRemainingRes,
         });
       } catch (error) {
         console.error("Error cargando perfil:", error);
@@ -197,6 +244,141 @@ const IndividualAthleteProfile = () => {
 
     fetchProfileData();
   }, [athleteId, refreshKey]);
+
+  useEffect(() => {
+    if (!profileData.athlete) return;
+
+    setMembershipForm({
+      planId: profileData.athlete.plan_id || '',
+      planOption: profileData.athlete.plan_option || '',
+    });
+  }, [profileData.athlete]);
+
+  const canManageMembership = currentUser?.role && currentUser.role !== 'atleta';
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      if (!canManageMembership) return;
+
+      const { data, error } = await supabase
+        .from('plans')
+        .select('id, name')
+        .eq('status', 'active')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error cargando planes para edición:', error);
+        return;
+      }
+
+      setAvailablePlans(data || []);
+    };
+
+    fetchPlans();
+  }, [canManageMembership]);
+
+  useEffect(() => {
+    const fetchOptions = async () => {
+      if (!membershipForm.planId) {
+        setAvailablePlanOptions([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('plan_features')
+        .select('feature')
+        .eq('plan_id', membershipForm.planId);
+
+      if (error) {
+        console.error('Error cargando opciones de plan para edición:', error);
+        setAvailablePlanOptions([]);
+        return;
+      }
+
+      const normalized = Array.from(
+        new Set(
+          (data || [])
+            .map((item) => (typeof item.feature === 'string' ? item.feature.trim() : ''))
+            .filter(Boolean)
+        )
+      );
+      setAvailablePlanOptions(normalized);
+
+      if (membershipForm.planOption && !normalized.includes(membershipForm.planOption)) {
+        setMembershipForm((prev) => ({ ...prev, planOption: '' }));
+      }
+    };
+
+    fetchOptions();
+  }, [membershipForm.planId]);
+
+  const handleMembershipChange = (event) => {
+    const { name, value } = event.target;
+
+    if (name === 'planId') {
+      setMembershipForm((prev) => ({ ...prev, planId: value, planOption: '' }));
+      return;
+    }
+
+    setMembershipForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveMembership = async () => {
+    if (!profileData.athlete?.id || !membershipForm.planId) {
+      alert('Selecciona un plan válido antes de guardar.');
+      return;
+    }
+
+    if (membershipForm.planOption && !availablePlanOptions.includes(membershipForm.planOption)) {
+      alert('La opción seleccionada no pertenece al plan elegido.');
+      return;
+    }
+
+    setSavingMembership(true);
+    try {
+      const { error } = await supabase
+        .from('athletes')
+        .update({
+          plan_id: membershipForm.planId,
+          plan_option: membershipForm.planOption || null,
+        })
+        .eq('id', profileData.athlete.id);
+
+      if (error) throw error;
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error('Error actualizando plan del atleta:', error);
+      alert(error.message || 'No se pudo actualizar el plan del atleta.');
+    } finally {
+      setSavingMembership(false);
+    }
+  };
+
+
+  const canModifySchedule = canManageMembership && Number(profileData.athlete?.visits_per_week || 0) > 0 && !!profileData.athlete?.plan_id;
+
+  const handleSaveSchedule = async (selectedWeeklyScheduleIds) => {
+    if (!profileData.athlete?.id) return;
+
+    setSavingSchedule(true);
+    const result = await reassignAthleteSlots({
+      athleteId: profileData.athlete.id,
+      planId: profileData.athlete.plan_id,
+      visitsPerWeek: profileData.athlete.visits_per_week,
+      selectedWeeklyScheduleIds,
+      fetchPlanSlots,
+    });
+
+    if (!result.success) {
+      alert(result.error || 'No se pudieron reasignar los horarios.');
+      setSavingSchedule(false);
+      return;
+    }
+
+    setIsScheduleModalOpen(false);
+    setSavingSchedule(false);
+    setRefreshKey((prev) => prev + 1);
+  };
 
   // --- KPIs CALCULADOS ---
   const kpiStats = useMemo(() => {
@@ -226,8 +408,17 @@ const IndividualAthleteProfile = () => {
         icon: "LogIn",
         iconColor: "var(--color-success)",
       },
+      {
+        title: "Saldo Sesiones (Actual)",
+        value: profileData.kioskRemaining?.remaining ?? "—",
+        unit: "ses.",
+        change: profileData.kioskRemaining?.period_end || "Sin período",
+        changeType: "neutral",
+        icon: "Wallet",
+        iconColor: "var(--color-accent)",
+      },
     ];
-  }, [profileData.attendance, profileData.accessLogs]);
+  }, [profileData.attendance, profileData.accessLogs, profileData.kioskRemaining]);
 
   const isInternalEmail = (email = "") =>
     email.includes("@dmg.internal") || email.includes("@vcfit.internal");
@@ -304,6 +495,75 @@ const IndividualAthleteProfile = () => {
             onEnableAccess={handleEnableAccess}
           />
 
+          {canManageMembership && profileData.athlete && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">Plan y Opción / Variante</h3>
+                  <p className="text-xs text-slate-500">Gestiona la asignación actual del atleta.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsScheduleModalOpen(true)}
+                    disabled={!canModifySchedule}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${canModifySchedule ? 'bg-violet-600 text-white hover:bg-violet-700' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
+                  >
+                    Modificar horarios
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveMembership}
+                    disabled={savingMembership}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors ${savingMembership ? 'bg-slate-400 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'}`}
+                  >
+                    {savingMembership ? 'Guardando...' : 'Guardar asignación'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Plan</label>
+                  <select
+                    name="planId"
+                    value={membershipForm.planId}
+                    onChange={handleMembershipChange}
+                    className="mt-1 w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {availablePlans.map((plan) => (
+                      <option key={plan.id} value={plan.id}>{plan.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Opción / Variante</label>
+                  <select
+                    name="planOption"
+                    value={membershipForm.planOption}
+                    onChange={handleMembershipChange}
+                    disabled={!membershipForm.planId || availablePlanOptions.length === 0}
+                    className="mt-1 w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm disabled:opacity-60"
+                  >
+                    <option value="">{membershipForm.planId ? 'Sin opción' : 'Selecciona un plan primero'}</option>
+                    {availablePlanOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Asignación actual</label>
+                  <p className="mt-1 text-sm font-semibold text-slate-700">{profileData.athlete.planName || 'Sin Plan'}</p>
+                  <p className="text-xs text-slate-500">{profileData.athlete.planOption || '—'}</p>
+                  <p className="text-xs text-slate-500 mt-1">Horarios activos: {assignedSlots.length}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* KPI STRIP */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {loading
@@ -364,6 +624,18 @@ const IndividualAthleteProfile = () => {
             </div>
           </div>
         </div>
+
+
+        {isScheduleModalOpen && profileData.athlete && (
+          <ModifyAthleteScheduleModal
+            athlete={profileData.athlete}
+            assignedSlots={assignedSlots}
+            availableSlots={availableSlots}
+            loading={savingSchedule}
+            onClose={() => setIsScheduleModalOpen(false)}
+            onSave={handleSaveSchedule}
+          />
+        )}
 
         <EnableAccountModal
           isOpen={isEnableModalOpen}

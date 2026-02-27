@@ -17,11 +17,17 @@ export const fetchAthleteById = async (athleteId) => {
 /**
  * Consulta atletas asignados a un profesor
  */
-export const fetchAthletesByCoach = async (coachId) => {
-  const { data, error } = await supabase
+export const fetchAthletesByCoach = async (coachId, { status = 'active' } = {}) => {
+  let query = supabase
     .from('athletes')
     .select('*')
     .eq('coach_id', coachId);
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data ?? [];
@@ -103,7 +109,10 @@ export const createFullAthlete = async (athleteData) => {
       dni: athleteData.dni,
       phone: athleteData.phone,
       plan_id: athleteData.plan_id, // Obligatorio según SQL
+      plan_option: athleteData.plan_option?.trim() || null,
       coach_id: athleteData.coach_id,
+      visits_per_week: athleteData.visits_per_week || null,
+      plan_tier_price: athleteData.tier_price || null,
       status: 'active',
       gender: athleteData.gender,
       city: athleteData.city,
@@ -113,12 +122,24 @@ export const createFullAthlete = async (athleteData) => {
 
     if (aErr) throw aErr;
 
+    if (Array.isArray(athleteData.selected_weekly_schedule_ids) && athleteData.selected_weekly_schedule_ids.length > 0) {
+      const assignments = athleteData.selected_weekly_schedule_ids.map((weeklyScheduleId) => ({
+        athlete_id: newAthlete.id,
+        weekly_schedule_id: weeklyScheduleId,
+        starts_on: athleteData.join_date || new Date().toISOString().split('T')[0],
+        is_active: true,
+      }));
+
+      const { error: assignmentError } = await supabase.from('athlete_slot_assignments').insert(assignments);
+      if (assignmentError) throw assignmentError;
+    }
+
     // 5. Generar Deuda Inicial
     const { data: plan } = await supabase.from('plans').select('price, name').eq('id', athleteData.plan_id).single();
     if (plan) {
       await supabase.from('payments').insert({
         athlete_id: newAthlete.id,
-        amount: plan.price,
+        amount: athleteData.tier_price ?? plan.price,
         status: 'pending',
         concept: `Inscripción inicial - ${plan.name}`,
         payment_date: new Date().toISOString().split('T')[0]
@@ -128,6 +149,161 @@ export const createFullAthlete = async (athleteData) => {
     return { success: true, data: newAthlete };
   } catch (error) {
     console.error("❌ Error en createFullAthlete:", error);
+
+    const isPolicyError =
+      error?.code === '42501' ||
+      String(error?.message || '').toLowerCase().includes('row-level security');
+
+    if (isPolicyError) {
+      return {
+        success: false,
+        error: 'No tienes permisos para crear atletas. Verifica tu rol o las políticas de seguridad.',
+      };
+    }
+
     return { success: false, error: error.message };
+  }
+};
+
+
+export const deactivateAthlete = async (athleteId) => {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { error: athleteError } = await supabase
+    .from('athletes')
+    .update({ status: 'inactive' })
+    .eq('id', athleteId);
+
+  if (athleteError) throw athleteError;
+
+  const { error: assignmentError } = await supabase
+    .from('athlete_slot_assignments')
+    .update({ is_active: false, ends_on: today })
+    .eq('athlete_id', athleteId)
+    .eq('is_active', true);
+
+  if (assignmentError) throw assignmentError;
+
+  return { success: true };
+};
+
+
+export const fetchAthleteAssignedSlots = async (athleteId, effectiveDate = new Date().toISOString().split('T')[0]) => {
+  const { data, error } = await supabase
+    .from('athlete_slot_assignments')
+    .select(`
+      id,
+      athlete_id,
+      weekly_schedule_id,
+      starts_on,
+      ends_on,
+      is_active,
+      weekly_schedule:weekly_schedule_id (
+        id,
+        day_of_week,
+        start_time,
+        end_time,
+        capacity
+      )
+    `)
+    .eq('athlete_id', athleteId)
+    .eq('is_active', true)
+    .lte('starts_on', effectiveDate)
+    .or(`ends_on.is.null,ends_on.gte.${effectiveDate}`);
+
+  if (error) throw error;
+  return data ?? [];
+};
+
+export const reassignAthleteSlots = async ({
+  athleteId,
+  planId,
+  visitsPerWeek,
+  selectedWeeklyScheduleIds,
+  effectiveDate = new Date().toISOString().split('T')[0],
+  fetchPlanSlots,
+}) => {
+  try {
+    if (!athleteId || !planId) {
+      return { success: false, error: 'Falta atleta o plan para reasignar horarios.' };
+    }
+
+    const frequency = Number(visitsPerWeek || 0);
+    if (!frequency || frequency <= 0) {
+      return { success: false, error: 'El atleta no tiene una frecuencia semanal válida.' };
+    }
+
+    const uniqueSelected = Array.from(new Set((selectedWeeklyScheduleIds || []).filter(Boolean)));
+    if (uniqueSelected.length !== frequency) {
+      return { success: false, error: `Debes seleccionar exactamente ${frequency} horarios.` };
+    }
+
+    const { data: planLinks, error: linkError } = await supabase
+      .from('plan_schedule_slots')
+      .select('weekly_schedule_id')
+      .eq('plan_id', planId)
+      .in('weekly_schedule_id', uniqueSelected);
+
+    if (linkError) throw linkError;
+
+    if ((planLinks || []).length !== uniqueSelected.length) {
+      return { success: false, error: 'Se detectaron horarios fuera del plan del atleta.' };
+    }
+
+    const currentAssignments = await fetchAthleteAssignedSlots(athleteId, effectiveDate);
+    const currentSlotIds = new Set(currentAssignments.map((row) => row.weekly_schedule_id));
+
+    if (typeof fetchPlanSlots === 'function') {
+      const slotAvailability = await fetchPlanSlots(planId);
+      const availabilityMap = new Map((slotAvailability || []).map((slot) => [slot.weekly_schedule_id, slot]));
+
+      for (const slotId of uniqueSelected) {
+        const slot = availabilityMap.get(slotId);
+        if (!slot) {
+          return { success: false, error: 'No se pudo validar la disponibilidad del horario seleccionado.' };
+        }
+
+        const isAlreadyOwned = currentSlotIds.has(slotId);
+        if (!isAlreadyOwned && Number(slot.remaining) <= 0) {
+          return { success: false, error: 'Uno o más horarios seleccionados no tienen cupo disponible.' };
+        }
+      }
+    }
+
+    const selectedSet = new Set(uniqueSelected);
+    const toKeep = currentAssignments.filter((assignment) => selectedSet.has(assignment.weekly_schedule_id));
+    const toDeactivate = currentAssignments.filter((assignment) => !selectedSet.has(assignment.weekly_schedule_id));
+    const keepIds = new Set(toKeep.map((assignment) => assignment.weekly_schedule_id));
+    const toInsert = uniqueSelected.filter((slotId) => !keepIds.has(slotId));
+
+    if (toDeactivate.length > 0) {
+      const ids = toDeactivate.map((assignment) => assignment.id);
+      const { error: deactivateError } = await supabase
+        .from('athlete_slot_assignments')
+        .update({
+          is_active: false,
+          ends_on: effectiveDate,
+        })
+        .in('id', ids);
+
+      if (deactivateError) throw deactivateError;
+    }
+
+    if (toInsert.length > 0) {
+      const payload = toInsert.map((weeklyScheduleId) => ({
+        athlete_id: athleteId,
+        weekly_schedule_id: weeklyScheduleId,
+        starts_on: effectiveDate,
+        is_active: true,
+      }));
+
+      const { error: insertError } = await supabase.from('athlete_slot_assignments').insert(payload);
+      if (insertError) throw insertError;
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error en reassignAthleteSlots:', error);
+    return { success: false, error: error.message || 'No se pudo reasignar horarios.' };
   }
 };

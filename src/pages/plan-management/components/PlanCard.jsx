@@ -118,6 +118,9 @@ const PlanCard = ({ plan, onEdit, onDelete, onToggleStatus, loading = false }) =
             {plan.schedule?.length > 0 ? plan.schedule.map((sch, idx) => (
               <span key={idx} className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-600">
                 {sch.day} <span className="text-slate-400 font-medium">|</span> {sch.time}
+                {Number.isFinite(sch.capacity) && (
+                  <span className="text-[10px] text-slate-500 font-semibold ml-1">({sch.remaining ?? '—'}/{sch.capacity})</span>
+                )}
               </span>
             )) : <span className="text-[11px] font-medium text-slate-400 italic">Sin horarios definidos</span>}
           </div>

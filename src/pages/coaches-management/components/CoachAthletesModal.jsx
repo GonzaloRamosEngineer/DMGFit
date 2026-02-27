@@ -6,18 +6,25 @@ import Image from '../../../components/AppImage';
 const CoachAthletesModal = ({ coach, onClose }) => {
   const [athletes, setAthletes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('active');
 
   useEffect(() => {
     const fetchAthletes = async () => {
       if (!coach?.id) return;
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('athletes')
           .select(`
             id, status, join_date,
             profiles:profile_id (full_name, email, avatar_url)
           `)
           .eq('coach_id', coach.id);
+
+        if (statusFilter !== 'all') {
+          query = query.eq('status', statusFilter);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         setAthletes(data || []);
@@ -28,7 +35,7 @@ const CoachAthletesModal = ({ coach, onClose }) => {
       }
     };
     fetchAthletes();
-  }, [coach]);
+  }, [coach, statusFilter]);
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
@@ -53,6 +60,25 @@ const CoachAthletesModal = ({ coach, onClose }) => {
           >
             <Icon name="X" size={18} />
           </button>
+        </div>
+
+        <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/60">
+          <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 gap-1">
+            {[
+              { id: 'active', label: 'Activos' },
+              { id: 'inactive', label: 'Inactivos' },
+              { id: 'all', label: 'Todos' },
+            ].map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setStatusFilter(item.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${statusFilter === item.id ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Lista Scrollable */}
