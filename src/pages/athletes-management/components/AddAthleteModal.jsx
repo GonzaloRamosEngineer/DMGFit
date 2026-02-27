@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../lib/supabaseClient";
-import { createFullAthlete } from "../../../services/athletes"; 
+import { createFullAthlete } from "../../../services/athletes";
+import { fetchPlanPricing, fetchPlanSlots } from "../../../services/plans"; 
 import Icon from "../../../components/AppIcon";
 
 const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState([]);
   const [coaches, setCoaches] = useState([]);
+  const [planOptions, setPlanOptions] = useState([]);
+  const [pricingTiers, setPricingTiers] = useState([]);
+  const [planSlots, setPlanSlots] = useState([]);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -22,6 +26,9 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     medicalConditions: "",
     planId: "",
     coachId: "",
+    planOption: "",
+    visitsPerWeek: 1,
+    selectedSlotIds: [],
     joinDate: new Date().toISOString().split("T")[0],
     amount: "", 
   });
@@ -50,22 +57,108 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     fetchResources();
   }, []);
 
+  useEffect(() => {
+    const fetchPlanOptions = async () => {
+      if (!formData.planId) {
+        setPlanOptions([]);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("plan_features")
+          .select("feature")
+          .eq("plan_id", formData.planId);
+
+        if (error) throw error;
+        const options = (data || [])
+          .map((item) => (typeof item.feature === "string" ? item.feature.trim() : ""))
+          .filter((option) => option !== "");
+        setPlanOptions(Array.from(new Set(options)));
+      } catch (error) {
+        console.error("Error cargando opciones del plan:", error);
+        setPlanOptions([]);
+      }
+    };
+
+    fetchPlanOptions();
+  }, [formData.planId]);
+
+
+  useEffect(() => {
+    const fetchPlanConfig = async () => {
+      if (!formData.planId) {
+        setPricingTiers([]);
+        setPlanSlots([]);
+        setFormData((prev) => ({ ...prev, amount: '', selectedSlotIds: [] }));
+        return;
+      }
+
+      try {
+        const [tiers, slots] = await Promise.all([
+          fetchPlanPricing(formData.planId),
+          fetchPlanSlots(formData.planId),
+        ]);
+
+        setPricingTiers(tiers || []);
+        setPlanSlots(slots || []);
+      } catch (error) {
+        console.error('Error cargando configuración de plan:', error);
+        setPricingTiers([]);
+        setPlanSlots([]);
+      }
+    };
+
+    fetchPlanConfig();
+  }, [formData.planId]);
+
+  useEffect(() => {
+    const tier = pricingTiers.find((item) => Number(item.visits_per_week) === Number(formData.visitsPerWeek));
+    if (tier) {
+      setFormData((prev) => ({ ...prev, amount: tier.price }));
+      return;
+    }
+
+    const selectedPlan = plans.find((p) => p.id === formData.planId);
+    if (selectedPlan) {
+      setFormData((prev) => ({ ...prev, amount: selectedPlan.price || '' }));
+    }
+  }, [pricingTiers, formData.visitsPerWeek, formData.planId, plans]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
 
     if (name === "planId") {
       const selectedPlan = plans.find((p) => p.id === value);
-      if (selectedPlan) {
-        setFormData((prev) => ({
-          ...prev,
-          planId: value,
-          amount: selectedPlan.price,
-        }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        planId: value,
+        planOption: "",
+        selectedSlotIds: [],
+        amount: selectedPlan?.price || "",
+      }));
+      return;
     }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+
+
+  const toggleSlot = (slotId) => {
+    setFormData((prev) => {
+      const exists = prev.selectedSlotIds.includes(slotId);
+      if (exists) {
+        return { ...prev, selectedSlotIds: prev.selectedSlotIds.filter((id) => id !== slotId) };
+      }
+
+      if (prev.selectedSlotIds.length >= Number(prev.visitsPerWeek)) {
+        return prev;
+      }
+
+      return { ...prev, selectedSlotIds: [...prev.selectedSlotIds, slotId] };
+    });
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -74,6 +167,30 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       const cleanDni = formData.dni.trim().replace(/\D/g, '');
       if (!cleanDni) throw new Error("El DNI es obligatorio.");
 
+      const normalizedPlanOption = formData.planOption.trim();
+      const selectedPlanOption = normalizedPlanOption === "" ? null : normalizedPlanOption;
+
+      if (selectedPlanOption && !planOptions.includes(selectedPlanOption)) {
+        throw new Error("La opción seleccionada no corresponde al plan elegido.");
+      }
+
+      const visitsPerWeek = Number(formData.visitsPerWeek);
+      if (!visitsPerWeek || visitsPerWeek <= 0) {
+        throw new Error('Debes seleccionar visitas por semana.');
+      }
+
+      if (formData.selectedSlotIds.length !== visitsPerWeek) {
+        throw new Error(`Debes seleccionar exactamente ${visitsPerWeek} cupos semanales.`);
+      }
+
+      const fullSlotIds = new Set(planSlots.filter((slot) => Number(slot.remaining) <= 0).map((slot) => slot.weekly_schedule_id));
+      if (formData.selectedSlotIds.some((slotId) => fullSlotIds.has(slotId))) {
+        throw new Error('Uno o más cupos seleccionados ya no están disponibles.');
+      }
+
+      const tierMatch = pricingTiers.find((tier) => Number(tier.visits_per_week) === visitsPerWeek);
+      const tierPrice = tierMatch ? Number(tierMatch.price) : Number(formData.amount || 0);
+
       const result = await createFullAthlete({
         full_name: formData.fullName,
         email: formData.email.trim(),
@@ -81,6 +198,11 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
         phone: formData.phone,
         plan_id: formData.planId,
         coach_id: formData.coachId || null,
+        plan_option: selectedPlanOption,
+        visits_per_week: visitsPerWeek,
+        selected_weekly_schedule_ids: formData.selectedSlotIds,
+        tier_price: tierPrice,
+        join_date: formData.joinDate || null,
         birth_date: formData.birthDate,
         gender: formData.gender !== "select" ? formData.gender : null,
         address: formData.address,
@@ -280,8 +402,28 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className={labelClasses}>Fecha de Inicio</label>
-                      <input type="date" name="joinDate" value={formData.joinDate} onChange={handleChange} className={`${inputClasses} bg-white`} />
+                      <label className={labelClasses}>Opción / Variante</label>
+                      <select
+                        name="planOption"
+                        value={formData.planOption}
+                        onChange={handleChange}
+                        className={`${inputClasses} appearance-none cursor-pointer bg-white`}
+                        disabled={!formData.planId || planOptions.length === 0}
+                      >
+                        <option value="">{!formData.planId ? "Selecciona un plan primero" : "Sin opción"}</option>
+                        {planOptions.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Visitas por Semana <span className="text-rose-500">*</span></label>
+                      <select name="visitsPerWeek" value={formData.visitsPerWeek} onChange={handleChange} className={`${inputClasses} appearance-none cursor-pointer bg-white`}>
+                        {[1,2,3,4,5].map((v) => <option key={v} value={v}>{v}</option>)}
+                      </select>
                     </div>
                     <div>
                       <label className={labelClasses}>Monto Inicial</label>
@@ -289,6 +431,36 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
                         <input type="number" value={formData.amount} disabled className="w-full h-[42px] pl-7 pr-3 rounded-xl border border-slate-200 bg-slate-100/50 text-slate-600 font-black cursor-not-allowed text-sm" />
                       </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelClasses}>Cupos Semanales (seleccionados {formData.selectedSlotIds.length}/{formData.visitsPerWeek}) <span className="text-rose-500">*</span></label>
+                    <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                      {planSlots.length === 0 ? (
+                        <p className="text-xs text-slate-400">Este plan no tiene cupos configurados.</p>
+                      ) : planSlots.map((slot) => {
+                        const slotId = slot.weekly_schedule_id;
+                        const selected = formData.selectedSlotIds.includes(slotId);
+                        const full = Number(slot.remaining) <= 0 && !selected;
+                        const dayName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][slot.day_of_week] || 'Día';
+                        return (
+                          <label key={slotId} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold ${full ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-white text-slate-700 border-slate-200 cursor-pointer'}`}>
+                            <div className="flex items-center gap-2">
+                              <input type="checkbox" checked={selected} disabled={full} onChange={() => toggleSlot(slotId)} />
+                              <span>{dayName} {String(slot.start_time).slice(0,5)}-{String(slot.end_time).slice(0,5)}</span>
+                            </div>
+                            <span className={`font-black ${Number(slot.remaining) <= 1 ? 'text-rose-500' : 'text-emerald-600'}`}>{slot.remaining}/{slot.capacity}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Fecha de Inicio</label>
+                      <input type="date" name="joinDate" value={formData.joinDate} onChange={handleChange} className={`${inputClasses} bg-white`} />
                     </div>
                   </div>
                 </div>

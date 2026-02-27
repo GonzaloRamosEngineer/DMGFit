@@ -86,6 +86,7 @@ const AthleteCard = ({
         {/* 3. Membresía */}
         <div className="flex flex-col justify-center min-w-0">
           <p className="text-xs font-bold text-slate-700 truncate">{athlete.planName}</p>
+          <p className="text-[10px] font-medium text-slate-500 truncate">{athlete.planOption || '—'}</p>
           <p className="text-[10px] font-bold text-slate-400">${athlete.planPrice}</p>
         </div>
 

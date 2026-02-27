@@ -294,7 +294,7 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
                     <div className="w-6 h-6 rounded bg-amber-50 text-amber-500 flex items-center justify-center">
                       <Icon name="CheckCircle" size={12} />
                     </div>
-                    <h3 className="text-sm font-black text-slate-800">Beneficios Inclusos</h3>
+                    <h3 className="text-sm font-black text-slate-800">Opciones / Variantes del Plan</h3>
                   </div>
                   <button 
                     type="button" 
@@ -314,7 +314,7 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
                       <input 
                         value={feature} 
                         onChange={(e) => handleFeatureChange(index, e.target.value)} 
-                        placeholder="Ej: Acceso a todas las clases..." 
+                        placeholder="Ej: Turno mañana, 3 días, etc." 
                         className={`${inputClasses} flex-1 px-3 py-2`} 
                       />
                       {formData.features.length > 1 && (
@@ -322,7 +322,7 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
                           type="button" 
                           onClick={() => removeFeature(index)} 
                           className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0"
-                          title="Eliminar beneficio"
+                          title="Eliminar opción"
                         >
                           <Icon name="Trash2" size={16} />
                         </button>
