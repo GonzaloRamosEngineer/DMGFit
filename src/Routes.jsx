@@ -5,9 +5,9 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import ScrollToTop from "components/ScrollToTop";
-import ErrorBoundary from "components/ErrorBoundary";
-import ProtectedRoute from "components/ProtectedRoute";
+import ScrollToTop from "./components/ScrollToTop";
+import ErrorBoundary from "./components/ErrorBoundary";
+import ProtectedRoute from "./components/ProtectedRoute";
 import AppLayout from "./AppLayout";
 import NotFound from "pages/NotFound";
 import LoginRoleSelection from "./pages/login-role-selection";

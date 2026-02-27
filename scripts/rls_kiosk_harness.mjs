@@ -81,9 +81,12 @@ async function expectSuccess(op, label) {
   const deniedInsert = await expectSuccess(
     () => user
       .from('access_logs')
-      .insert({ access_granted: false, reason_code: 'PAYMENT_BLOCKED', rejection_reason: 'rls harness denied' })
-      .select('id')
-      .single(),
+      .insert({
+  athlete_id: env.TEST_ATHLETE_ID,
+  access_granted: false,
+  reason_code: 'PAYMENT_BLOCKED',
+  rejection_reason: 'rls harness denied'
+}),
     'non-staff INSERT access_logs access_granted=false allowed'
   );
   if (!deniedInsert.ok) failed++;
