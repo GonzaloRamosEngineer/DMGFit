@@ -70,7 +70,9 @@ export const fetchPlansByCoach = async (coachId) => {
 
   if (error) throw error;
 
-  return (data ?? []).map((entry) => entry?.plans).filter(Boolean);
+  return (data ?? [])
+    .map((entry) => entry?.plans)
+    .filter(Boolean);
 };
 
 export const fetchPlanPricing = async (planId) => {
