@@ -176,107 +176,116 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
 
   const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-  // Clases Reutilizables
-  const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400";
-  const labelClasses = "text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block";
+  // Clases Reutilizables estilo SaaS
+  const inputClasses = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400";
+  const labelClasses = "text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-2 block";
+  const sectionCardClasses = "bg-white border border-slate-100 rounded-[1.5rem] p-6 shadow-sm";
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
       
-      {/* Modal Container: Max width grande para permitir 2 columnas cómodas */}
-      <div className="bg-white border border-slate-100 rounded-[2rem] w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+      {/* Modal Container */}
+      <div className="bg-slate-50 border border-slate-200 rounded-[2rem] w-full max-w-4xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div className="px-8 py-6 bg-white border-b border-slate-100 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
-              <Icon name={plan ? "Edit" : "PlusCircle"} size={20} />
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/50">
+              <Icon name={plan ? "Edit" : "PlusCircle"} size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-800 tracking-tight">
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">
                 {plan ? 'Editar Plan' : 'Crear Nuevo Plan'}
               </h2>
-              <p className="text-xs font-bold text-slate-400 mt-0.5">
-                Configura los detalles del servicio
+              <p className="text-sm font-medium text-slate-400 mt-0.5">
+                Configura los detalles comerciales y operativos
               </p>
             </div>
           </div>
           <button 
             onClick={onClose} 
-            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
           >
-            <Icon name="X" size={18} />
+            <Icon name="X" size={20} />
           </button>
         </div>
 
-        {/* Formulario con Scroll (GRID 2 Columnas) */}
-        <form id="plan-form" onSubmit={handleSubmit} className="overflow-y-auto p-6 custom-scrollbar flex-1">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8">
+        {/* Formulario con Scroll Vertical */}
+        <form id="plan-form" onSubmit={handleSubmit} className="overflow-y-auto p-4 md:p-8 custom-scrollbar flex-1 space-y-8">
+          
+          {/* SECCIÓN 1: IDENTIDAD DEL PLAN */}
+          <div className={sectionCardClasses}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                <Icon name="FileText" size={16} />
+              </div>
+              <h3 className="font-bold text-slate-800 text-lg">Identidad del Plan</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              <div className="md:col-span-8">
+                <label className={labelClasses}>Nombre Comercial <span className="text-rose-500">*</span></label>
+                <input name="name" value={formData.name} onChange={handleInputChange} placeholder="Ej: Plan Elite Crossfit" required className={inputClasses} autoFocus />
+              </div>
+              <div className="md:col-span-4">
+                <label className={labelClasses}>Estado</label>
+                <select name="status" value={formData.status} onChange={handleInputChange} className={`${inputClasses} appearance-none cursor-pointer`}>
+                  <option value="active">🟢 Activo (Visible)</option>
+                  <option value="inactive">🔴 Inactivo (Oculto)</option>
+                </select>
+              </div>
+              <div className="md:col-span-12">
+                <label className={labelClasses}>Descripción <span className="text-rose-500">*</span></label>
+                <textarea 
+                  name="description" 
+                  value={formData.description} 
+                  onChange={handleInputChange} 
+                  placeholder="Describe los beneficios principales de este plan..." 
+                  rows={2} 
+                  className={`${inputClasses} resize-none`} 
+                  required 
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* GRID DE 2 COLUMNAS PARA PRECIOS Y PROFESORES */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             
-            {/* --- COLUMNA IZQUIERDA --- */}
-            <div className="space-y-8">
+            {/* SECCIÓN 2: VALORES BASE */}
+            <div className={`${sectionCardClasses} flex flex-col`}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <Icon name="DollarSign" size={16} />
+                </div>
+                <h3 className="font-bold text-slate-800 text-lg">Valores Base</h3>
+              </div>
               
-              {/* Sección 1: Info Básica */}
-              <section>
-                <div className="flex items-center gap-2 pb-2 mb-5 border-b border-slate-100">
-                  <div className="w-6 h-6 rounded bg-indigo-50 text-indigo-500 flex items-center justify-center">
-                    <Icon name="Info" size={12} />
-                  </div>
-                  <h3 className="text-sm font-black text-slate-800">Información Principal</h3>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className={labelClasses}>Nombre del Plan <span className="text-rose-500">*</span></label>
-                    <input name="name" value={formData.name} onChange={handleInputChange} placeholder="Ej: Plan Elite Crossfit" required className={inputClasses} />
-                  </div>
-                  
-                  <div>
-                    <label className={labelClasses}>Descripción <span className="text-rose-500">*</span></label>
-                    <textarea 
-                      name="description" 
-                      value={formData.description} 
-                      onChange={handleInputChange} 
-                      placeholder="Describe qué incluye este plan..." 
-                      rows={3} 
-                      className={`${inputClasses} resize-none`} 
-                      required 
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClasses}>Precio Mensual <span className="text-rose-500">*</span></label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                        <input name="price" type="number" value={formData.price} onChange={handleInputChange} placeholder="150" required className={`${inputClasses} pl-7`} />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={labelClasses}>Capacidad Max. <span className="text-rose-500">*</span></label>
-                      <input name="capacity" type="number" value={formData.capacity} onChange={handleInputChange} placeholder="Ej: 25" required className={inputClasses} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelClasses}>Estado del Plan</label>
-                    <select name="status" value={formData.status} onChange={handleInputChange} className={`${inputClasses} appearance-none cursor-pointer`}>
-                      <option value="active">Activo (Visible)</option>
-                      <option value="inactive">Inactivo (Oculto)</option>
-                    </select>
+              <div className="space-y-6 flex-1">
+                <div>
+                  <label className={labelClasses}>Precio Mensual Referencia <span className="text-rose-500">*</span></label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">$</span>
+                    <input name="price" type="number" value={formData.price} onChange={handleInputChange} placeholder="0.00" required className={`${inputClasses} pl-9 text-lg font-bold`} />
                   </div>
                 </div>
-              </section>
-
-              {/* Sección 2: Profesores */}
-              <section>
-                <div className="flex items-center gap-2 pb-2 mb-5 border-b border-slate-100">
-                  <div className="w-6 h-6 rounded bg-violet-50 text-violet-500 flex items-center justify-center">
-                    <Icon name="Users" size={12} />
-                  </div>
-                  <h3 className="text-sm font-black text-slate-800">Profesores Asignados</h3>
+                <div>
+                  <label className={labelClasses}>Capacidad Máxima General <span className="text-rose-500">*</span></label>
+                  <input name="capacity" type="number" value={formData.capacity} onChange={handleInputChange} placeholder="Ej: 25 atletas" required className={inputClasses} />
                 </div>
-                
+              </div>
+            </div>
+
+            {/* SECCIÓN 3: PROFESORES */}
+            <div className={`${sectionCardClasses} flex flex-col`}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-violet-50 text-violet-600 rounded-lg">
+                  <Icon name="Users" size={16} />
+                </div>
+                <h3 className="font-bold text-slate-800 text-lg">Profesores a Cargo</h3>
+              </div>
+              
+              <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-100 max-h-[180px] overflow-y-auto custom-scrollbar">
                 <div className="flex flex-wrap gap-2">
                   {professors.length > 0 ? professors.map((prof) => {
                     const isSelected = formData.professorIds.includes(prof.id);
@@ -285,150 +294,189 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
                         key={prof.id}
                         type="button"
                         onClick={() => toggleProfessor(prof.id)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border ${
                           isSelected
-                            ? 'bg-violet-50 text-violet-700 border-violet-200'
-                            : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                            ? 'bg-violet-600 text-white border-violet-600 shadow-md'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-violet-300 hover:bg-violet-50'
                         }`}
                       >
-                        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-violet-500' : 'bg-slate-300'}`}></div>
+                        {isSelected && <Icon name="Check" size={12} />}
                         {prof.name}
                       </button>
                     );
-                  }) : <p className="text-sm text-slate-400 font-medium">No hay profesores registrados.</p>}
+                  }) : <p className="text-sm text-slate-400 font-medium py-4 text-center w-full">No hay profesores registrados.</p>}
                 </div>
-              </section>
-
+              </div>
             </div>
+          </div>
 
-            {/* --- COLUMNA DERECHA --- */}
-            <div className="space-y-8">
-              
-              {/* Sección 3: Horarios y Cupos */}
-              <section>
-                <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded bg-emerald-50 text-emerald-500 flex items-center justify-center">
-                      <Icon name="Clock" size={12} />
-                    </div>
-                    <h3 className="text-sm font-black text-slate-800">Días / Ventanas / Cupos</h3>
-                  </div>
-                  <button type="button" onClick={addScheduleSlot} className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1">
-                    <Icon name="Plus" size={10} /> Agregar
-                  </button>
+          {/* SECCIÓN 4: HORARIOS Y CUPOS */}
+          <div className={sectionCardClasses}>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                  <Icon name="Calendar" size={16} />
                 </div>
-                <div className="space-y-3">
-                  {formData.scheduleSlots.map((slot, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                      <select value={slot.day_of_week} onChange={(e) => handleScheduleSlotChange(index, 'day_of_week', e.target.value)} className={`${inputClasses} col-span-4 px-3 py-2`}>
+                <h3 className="font-bold text-slate-800 text-lg">Grilla de Horarios</h3>
+              </div>
+              <button type="button" onClick={addScheduleSlot} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                <Icon name="Plus" size={14} /> Nueva Ventana
+              </button>
+            </div>
+            
+            <div className="bg-slate-50 border border-slate-100 rounded-xl overflow-hidden">
+              
+              {/* Header de Tabla (Ajustado para darle más espacio al Cupo) */}
+              <div className="grid grid-cols-12 gap-3 px-6 py-3 border-b border-slate-200 bg-slate-100/50 hidden md:grid">
+                <div className="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Día</div>
+                <div className="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Inicio</div>
+                <div className="col-span-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fin</div>
+                <div className="col-span-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Cupo</div>
+                <div className="col-span-1"></div>
+              </div>
+
+              {/* Filas de la Grilla */}
+              <div className="p-3 space-y-3">
+                {formData.scheduleSlots.map((slot, index) => (
+                  <div key={index} className="grid grid-cols-2 md:grid-cols-12 gap-3 items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-blue-200">
+                    
+                    {/* Día */}
+                    <div className="col-span-2 md:col-span-3">
+                      <select value={slot.day_of_week} onChange={(e) => handleScheduleSlotChange(index, 'day_of_week', e.target.value)} className={inputClasses}>
                         {days.map((day, dayIndex) => <option key={day} value={dayIndex}>{day}</option>)}
                       </select>
-                      <input type="time" value={slot.start_time} onChange={(e) => handleScheduleSlotChange(index, 'start_time', e.target.value)} className={`${inputClasses} col-span-3 px-3 py-2`} />
-                      <input type="time" value={slot.end_time} onChange={(e) => handleScheduleSlotChange(index, 'end_time', e.target.value)} className={`${inputClasses} col-span-3 px-3 py-2`} />
-                      <input type="number" min="0" value={slot.capacity} onChange={(e) => handleScheduleSlotChange(index, 'capacity', e.target.value)} placeholder="Cupo" className={`${inputClasses} col-span-1 px-2 py-2 text-center`} />
-                      <button type="button" onClick={() => removeScheduleSlot(index)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Eliminar ventana">
-                        <Icon name="Trash2" size={16} />
+                    </div>
+                    
+                    {/* Inicio */}
+                    <div className="col-span-1 md:col-span-3">
+                      <input type="time" value={slot.start_time} onChange={(e) => handleScheduleSlotChange(index, 'start_time', e.target.value)} className={inputClasses} />
+                    </div>
+                    
+                    {/* Fin */}
+                    <div className="col-span-1 md:col-span-3">
+                      <input type="time" value={slot.end_time} onChange={(e) => handleScheduleSlotChange(index, 'end_time', e.target.value)} className={inputClasses} />
+                    </div>
+                    
+                    {/* Cupo (Ahora tiene el doble de espacio) */}
+                    <div className="col-span-1 md:col-span-2">
+                      <input 
+                        type="number" 
+                        min="0" 
+                        value={slot.capacity} 
+                        onChange={(e) => handleScheduleSlotChange(index, 'capacity', e.target.value)} 
+                        placeholder="0" 
+                        className={`${inputClasses} text-center px-2 font-bold text-blue-600`} 
+                      />
+                    </div>
+                    
+                    {/* Borrar */}
+                    <div className="col-span-1 md:col-span-1 flex justify-end md:justify-center">
+                      <button type="button" onClick={() => removeScheduleSlot(index)} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">
+                        <Icon name="Trash2" size={18} />
                       </button>
                     </div>
-                  ))}
-                </div>
-              </section>
 
-              {/* Sección 4: Precios por Semana */}
-              <section>
-                <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded bg-cyan-50 text-cyan-500 flex items-center justify-center">
-                      <Icon name="DollarSign" size={12} />
-                    </div>
-                    <h3 className="text-sm font-black text-slate-800">Precios por Semana</h3>
                   </div>
-                  <button type="button" onClick={addPricingTier} className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1">
-                    <Icon name="Plus" size={10} /> Agregar
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {formData.pricingTiers.map((tier, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                      <input type="number" min="1" max="7" value={tier.visits_per_week} onChange={(e) => handleTierChange(index, 'visits_per_week', e.target.value)} className={`${inputClasses} col-span-4 px-3 py-2`} />
-                      <input type="number" min="0" value={tier.price} onChange={(e) => handleTierChange(index, 'price', e.target.value)} className={`${inputClasses} col-span-7 px-3 py-2`} placeholder="Precio" />
-                      {formData.pricingTiers.length > 1 && (
-                        <button type="button" onClick={() => removePricingTier(index)} className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Eliminar precio">
-                          <Icon name="Trash2" size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {/* Sección 5: Características */}
-              <section>
-                <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded bg-amber-50 text-amber-500 flex items-center justify-center">
-                      <Icon name="CheckCircle" size={12} />
-                    </div>
-                    <h3 className="text-sm font-black text-slate-800">Opciones / Variantes del Plan</h3>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={addFeature}
-                    className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"
-                  >
-                    <Icon name="Plus" size={10} /> Agregar
-                  </button>
-                </div>
-                
-                <div className="space-y-2">
-                  {formData.features.map((feature, index) => (
-                    <div key={index} className="flex gap-2 items-center">
-                      <div className="w-5 h-5 rounded-full bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                        <Icon name="Check" size={12} className="text-emerald-500" />
-                      </div>
-                      <input 
-                        value={feature} 
-                        onChange={(e) => handleFeatureChange(index, e.target.value)} 
-                        placeholder="Ej: Turno mañana, 3 días, etc." 
-                        className={`${inputClasses} flex-1 px-3 py-2`} 
-                      />
-                      {formData.features.length > 1 && (
-                        <button 
-                          type="button" 
-                          onClick={() => removeFeature(index)} 
-                          className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0"
-                          title="Eliminar opción"
-                        >
-                          <Icon name="Trash2" size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-
+                ))}
+              </div>
             </div>
+          </div>
+
+          {/* GRID DE 2 COLUMNAS PARA PRECIOS ESCALONADOS Y FEATURES */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* SECCIÓN 5: PRECIOS ESCALONADOS */}
+            <div className={sectionCardClasses}>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg">
+                    <Icon name="Layers" size={16} />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-lg">Precios Escalonados</h3>
+                </div>
+                <button type="button" onClick={addPricingTier} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                  <Icon name="Plus" size={12} /> Añadir
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                {formData.pricingTiers.map((tier, index) => (
+                  <div key={index} className="flex gap-3 items-center">
+                    <div className="relative w-1/3">
+                      <input type="number" min="1" max="7" value={tier.visits_per_week} onChange={(e) => handleTierChange(index, 'visits_per_week', e.target.value)} className={`${inputClasses} pr-8`} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Días</span>
+                    </div>
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">$</span>
+                      <input type="number" min="0" value={tier.price} onChange={(e) => handleTierChange(index, 'price', e.target.value)} className={`${inputClasses} pl-8`} placeholder="Precio" />
+                    </div>
+                    {formData.pricingTiers.length > 1 && (
+                      <button type="button" onClick={() => removePricingTier(index)} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0">
+                        <Icon name="Trash2" size={18} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* SECCIÓN 6: CARACTERÍSTICAS */}
+            <div className={sectionCardClasses}>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-pink-50 text-pink-600 rounded-lg">
+                    <Icon name="List" size={16} />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-lg">¿Qué incluye?</h3>
+                </div>
+                <button type="button" onClick={addFeature} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                  <Icon name="Plus" size={12} /> Añadir
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                {formData.features.map((feature, index) => (
+                  <div key={index} className="flex gap-2 items-center">
+                    <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                      <Icon name="Check" size={14} className="text-emerald-500" />
+                    </div>
+                    <input 
+                      value={feature} 
+                      onChange={(e) => handleFeatureChange(index, e.target.value)} 
+                      placeholder="Ej: Acceso a duchas" 
+                      className={`${inputClasses} flex-1`} 
+                    />
+                    {formData.features.length > 1 && (
+                      <button type="button" onClick={() => removeFeature(index)} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0">
+                        <Icon name="X" size={18} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         </form>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 rounded-b-[2rem]">
-          <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
-            <Icon name="Info" size={12} />
-            Obligatorio <span className="text-rose-500">*</span>
+        <div className="px-8 py-5 bg-white border-t border-slate-100 flex items-center justify-between shrink-0 z-10">
+          <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
+            <Icon name="Info" size={14} />
+            Campos obligatorios <span className="text-rose-500 text-lg leading-none">*</span>
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button 
               type="button" 
               onClick={onClose} 
-              className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200/50 transition-colors"
+              className="px-6 py-3 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-100 transition-colors"
             >
               Cancelar
             </button>
             <button 
               form="plan-form"
               type="submit" 
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
+              className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm text-white bg-slate-900 hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all hover:-translate-y-0.5"
             >
               <Icon name="Save" size={16} />
               {plan ? 'Guardar Cambios' : 'Crear Plan'}
