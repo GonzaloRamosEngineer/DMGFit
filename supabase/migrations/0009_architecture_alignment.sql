@@ -228,7 +228,10 @@ begin
 
   for v_slot_id in select unnest(v_selected_slots)
   loop
-    select greatest(ws.capacity - count(distinct asa.id), 0)::int
+    select greatest(
+  ws.capacity - count(distinct case when a.id is not null then asa.id end),
+  0
+)::int
     into v_remaining
     from public.weekly_schedule ws
     left join public.athlete_slot_assignments asa
@@ -380,7 +383,10 @@ begin
       continue;
     end if;
 
-    select greatest(ws.capacity - count(distinct asa.id), 0)::int
+    select greatest(
+  ws.capacity - count(distinct case when a.id is not null then asa.id end),
+  0
+)::int
     into v_remaining
     from public.weekly_schedule ws
     left join public.athlete_slot_assignments asa

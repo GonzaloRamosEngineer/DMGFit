@@ -11,17 +11,19 @@ const DAYS = [
   "Sábado",
 ];
 
+const DAY_SHORT = ["D", "L", "M", "X", "J", "V", "S"];
+
 const buildDefaultTiers = () =>
   [1, 2, 3, 4, 5].map((v) => ({
     visits_per_week: v,
     price: "",
   }));
 
-const buildDefaultWindow = () => ({
-  day_of_week: 1,
+const buildDefaultTimeBlock = () => ({
   start_time: "09:00",
   end_time: "13:00",
   capacity: 10,
+  days: [1], // lunes
 });
 
 const timeToMinutes = (value = "") => {
@@ -33,6 +35,33 @@ const minutesToTime = (minutes) => {
   const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
   const mm = String(minutes % 60).padStart(2, "0");
   return `${hh}:${mm}`;
+};
+
+const normalizeWindows = (windows = []) => {
+  return (windows || [])
+    .map((window) => ({
+      day_of_week: Number(window.day_of_week),
+      start_time: String(window.start_time || "").slice(0, 5),
+      end_time: String(window.end_time || "").slice(0, 5),
+      capacity: Math.max(0, Number(window.capacity ?? 0)),
+    }))
+    .filter(
+      (window) =>
+        Number.isInteger(window.day_of_week) &&
+        window.day_of_week >= 0 &&
+        window.day_of_week <= 6 &&
+        window.start_time &&
+        window.end_time &&
+        window.end_time > window.start_time,
+    )
+    .sort((a, b) => {
+      if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week;
+      if (a.start_time !== b.start_time)
+        return a.start_time.localeCompare(b.start_time);
+      if (a.end_time !== b.end_time)
+        return a.end_time.localeCompare(b.end_time);
+      return Number(a.capacity) - Number(b.capacity);
+    });
 };
 
 const expandWindowsToSlots = (windows, sessionDurationMin = 60) => {
@@ -63,29 +92,28 @@ const expandWindowsToSlots = (windows, sessionDurationMin = 60) => {
       slots.map((slot) => [
         `${slot.day_of_week}-${slot.start_time}-${slot.end_time}-${slot.capacity}`,
         slot,
-      ])
-    ).values()
+      ]),
+    ).values(),
   );
 
   return unique.sort(
     (a, b) =>
-      a.day_of_week - b.day_of_week ||
-      a.start_time.localeCompare(b.start_time)
+      a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time),
   );
 };
 
 const compressSlotsToWindows = (slots = [], sessionDurationMin = 60) => {
-  if (!Array.isArray(slots) || slots.length === 0) return [buildDefaultWindow()];
+  if (!Array.isArray(slots) || slots.length === 0) return [];
 
   const normalized = slots
     .filter((slot) => slot.day_of_week !== undefined)
     .map((slot) => ({
       day_of_week: Number(slot.day_of_week),
       start_time: String(
-        slot.start_time || slot.time?.split(" - ")?.[0] || ""
+        slot.start_time || slot.time?.split(" - ")?.[0] || "",
       ).slice(0, 5),
       end_time: String(
-        slot.end_time || slot.time?.split(" - ")?.[1] || ""
+        slot.end_time || slot.time?.split(" - ")?.[1] || "",
       ).slice(0, 5),
       capacity: Number(slot.capacity || 0),
     }))
@@ -95,8 +123,6 @@ const compressSlotsToWindows = (slots = [], sessionDurationMin = 60) => {
       if (a.capacity !== b.capacity) return a.capacity - b.capacity;
       return a.start_time.localeCompare(b.start_time);
     });
-
-  if (normalized.length === 0) return [buildDefaultWindow()];
 
   const windows = [];
   const expectedStep = Math.max(15, Number(sessionDurationMin) || 60);
@@ -109,7 +135,8 @@ const compressSlotsToWindows = (slots = [], sessionDurationMin = 60) => {
       last.day_of_week === slot.day_of_week &&
       Number(last.capacity) === Number(slot.capacity) &&
       timeToMinutes(last.end_time) === timeToMinutes(slot.start_time) &&
-      timeToMinutes(slot.end_time) - timeToMinutes(slot.start_time) === expectedStep
+      timeToMinutes(slot.end_time) - timeToMinutes(slot.start_time) ===
+        expectedStep
     ) {
       last.end_time = slot.end_time;
     } else {
@@ -117,22 +144,82 @@ const compressSlotsToWindows = (slots = [], sessionDurationMin = 60) => {
     }
   }
 
-  return windows.length > 0 ? windows : [buildDefaultWindow()];
+  return windows;
+};
+
+const windowsToTimeBlocks = (windows = []) => {
+  const grouped = new Map();
+
+  normalizeWindows(windows).forEach((window) => {
+    const key = `${window.start_time}-${window.end_time}-${window.capacity}`;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        start_time: window.start_time,
+        end_time: window.end_time,
+        capacity: Number(window.capacity || 0),
+        days: [],
+      });
+    }
+
+    grouped.get(key).days.push(Number(window.day_of_week));
+  });
+
+  const blocks = Array.from(grouped.values()).map((block) => ({
+    ...block,
+    days: Array.from(new Set(block.days)).sort((a, b) => a - b),
+  }));
+
+  return blocks.length > 0 ? blocks : [buildDefaultTimeBlock()];
+};
+
+const timeBlocksToWindows = (timeBlocks = []) => {
+  const rawWindows = [];
+
+  (timeBlocks || []).forEach((block) => {
+    const start_time = String(block.start_time || "").slice(0, 5);
+    const end_time = String(block.end_time || "").slice(0, 5);
+    const capacity = Math.max(0, Number(block.capacity ?? 0));
+
+    (block.days || []).forEach((dayIndex) => {
+      rawWindows.push({
+        day_of_week: Number(dayIndex),
+        start_time,
+        end_time,
+        capacity,
+      });
+    });
+  });
+
+  const unique = Array.from(
+    new Map(
+      rawWindows.map((window) => [
+        `${window.day_of_week}-${window.start_time}-${window.end_time}-${window.capacity}`,
+        window,
+      ]),
+    ).values(),
+  );
+
+  return normalizeWindows(unique);
 };
 
 const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
+  const [activeTab, setActiveTab] = useState("identity");
+  const [selectedFrequency, setSelectedFrequency] = useState("1");
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     status: "active",
     sessionDurationMin: 60,
-    availabilityWindows: [buildDefaultWindow()],
     pricingTiers: buildDefaultTiers(),
     professorIds: [],
     features: [],
     price: 0, // compat legacy
     capacity: 0, // compat legacy
   });
+
+  const [timeBlocks, setTimeBlocks] = useState([buildDefaultTimeBlock()]);
 
   useEffect(() => {
     if (!plan) {
@@ -141,19 +228,22 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
         description: "",
         status: "active",
         sessionDurationMin: 60,
-        availabilityWindows: [buildDefaultWindow()],
         pricingTiers: buildDefaultTiers(),
         professorIds: [],
         features: [],
         price: 0,
         capacity: 0,
       });
+      setTimeBlocks([buildDefaultTimeBlock()]);
+      setActiveTab("identity");
       return;
     }
 
     const inferredDuration = Number(plan.sessionDurationMin || 60);
+
     const restoredWindows =
-      Array.isArray(plan.availabilityWindows) && plan.availabilityWindows.length > 0
+      Array.isArray(plan.availabilityWindows) &&
+      plan.availabilityWindows.length > 0
         ? plan.availabilityWindows.map((window) => ({
             day_of_week: Number(window.day_of_week),
             start_time: String(window.start_time || "").slice(0, 5),
@@ -168,8 +258,6 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
       description: plan.description || "",
       status: plan.status || "active",
       sessionDurationMin: inferredDuration,
-      availabilityWindows:
-        restoredWindows.length > 0 ? restoredWindows : [buildDefaultWindow()],
       pricingTiers:
         Array.isArray(plan.pricingTiers) && plan.pricingTiers.length > 0
           ? plan.pricingTiers.map((tier) => ({
@@ -182,32 +270,37 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
       price: Number(plan.price || 0),
       capacity: Number(plan.capacity || 0),
     });
+
+    setTimeBlocks(windowsToTimeBlocks(restoredWindows));
+    setActiveTab("identity");
   }, [plan]);
 
-  const enabledDays = useMemo(() => {
-    return Array.from(
-      new Set(
-        (formData.availabilityWindows || []).map((window) =>
-          Number(window.day_of_week)
-        )
-      )
-    ).sort((a, b) => a - b);
-  }, [formData.availabilityWindows]);
+  const availabilityWindows = useMemo(() => {
+    return timeBlocksToWindows(timeBlocks);
+  }, [timeBlocks]);
 
   const generatedSlots = useMemo(() => {
     return expandWindowsToSlots(
-      formData.availabilityWindows,
-      Number(formData.sessionDurationMin || 60)
+      availabilityWindows,
+      Number(formData.sessionDurationMin || 60),
     );
-  }, [formData.availabilityWindows, formData.sessionDurationMin]);
+  }, [availabilityWindows, formData.sessionDurationMin]);
 
   const generatedSlotsByDay = useMemo(() => {
     return DAYS.map((day, dayIndex) => ({
       day,
       dayIndex,
-      slots: generatedSlots.filter((slot) => Number(slot.day_of_week) === dayIndex),
+      slots: generatedSlots.filter(
+        (slot) => Number(slot.day_of_week) === dayIndex,
+      ),
     })).filter((group) => group.slots.length > 0);
   }, [generatedSlots]);
+
+  const sortedPricingTiers = useMemo(() => {
+    return [...(formData.pricingTiers || [])].sort(
+      (a, b) => Number(a.visits_per_week) - Number(b.visits_per_week),
+    );
+  }, [formData.pricingTiers]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -226,122 +319,178 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
     }));
   };
 
-  const toggleDay = (dayIndex) => {
+  const addTimeBlock = () => {
+    setTimeBlocks((prev) => [
+      ...prev,
+      {
+        start_time: "17:00",
+        end_time: "21:00",
+        capacity: 10,
+        days: [],
+      },
+    ]);
+  };
+
+  const updateTimeBlock = (index, field, value) => {
+    setTimeBlocks((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        [field]: field === "capacity" ? Number(value) : value,
+      };
+      return next;
+    });
+  };
+
+  const toggleBlockDay = (blockIndex, dayIndex) => {
+    setTimeBlocks((prev) => {
+      const next = [...prev];
+      const currentDays = Array.isArray(next[blockIndex].days)
+        ? next[blockIndex].days
+        : [];
+
+      const exists = currentDays.includes(dayIndex);
+
+      next[blockIndex] = {
+        ...next[blockIndex],
+        days: exists
+          ? currentDays.filter((day) => day !== dayIndex)
+          : [...currentDays, dayIndex].sort((a, b) => a - b),
+      };
+
+      return next;
+    });
+  };
+
+  const removeTimeBlock = (index) => {
+    setTimeBlocks((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [buildDefaultTimeBlock()];
+    });
+  };
+
+  const handleTierChange = (visitsPerWeek, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      pricingTiers: prev.pricingTiers.map((tier) =>
+        Number(tier.visits_per_week) === Number(visitsPerWeek)
+          ? { ...tier, price: value === "" ? "" : Number(value) }
+          : tier,
+      ),
+    }));
+  };
+
+  const addFrequency = () => {
+    const nextVisits = Number(selectedFrequency);
+
     setFormData((prev) => {
-      const exists = prev.availabilityWindows.some(
-        (window) => Number(window.day_of_week) === dayIndex
+      const exists = prev.pricingTiers.some(
+        (tier) => Number(tier.visits_per_week) === nextVisits,
       );
 
-      if (exists) {
-        const nextWindows = prev.availabilityWindows.filter(
-          (window) => Number(window.day_of_week) !== dayIndex
-        );
-
-        return {
-          ...prev,
-          availabilityWindows:
-            nextWindows.length > 0 ? nextWindows : [buildDefaultWindow()],
-        };
-      }
+      if (exists) return prev;
 
       return {
         ...prev,
-        availabilityWindows: [
-          ...prev.availabilityWindows,
-          {
-            day_of_week: dayIndex,
-            start_time: "09:00",
-            end_time: "13:00",
-            capacity: 10,
-          },
-        ],
+        pricingTiers: [
+          ...prev.pricingTiers,
+          { visits_per_week: nextVisits, price: "" },
+        ].sort((a, b) => a.visits_per_week - b.visits_per_week),
       };
     });
   };
 
-  const addWindow = (dayIndex) => {
-    setFormData((prev) => ({
-      ...prev,
-      availabilityWindows: [
-        ...prev.availabilityWindows,
-        {
-          day_of_week: dayIndex,
-          start_time: "17:00",
-          end_time: "21:00",
-          capacity: 10,
-        },
-      ],
-    }));
-  };
-
-  const updateWindow = (index, field, value) => {
+  const removeTier = (visitsPerWeek) => {
     setFormData((prev) => {
-      const next = [...prev.availabilityWindows];
-      next[index] = {
-        ...next[index],
-        [field]:
-          field === "day_of_week" || field === "capacity"
-            ? Number(value)
-            : value,
-      };
-      return { ...prev, availabilityWindows: next };
-    });
-  };
+      const next = prev.pricingTiers.filter(
+        (tier) => Number(tier.visits_per_week) !== Number(visitsPerWeek),
+      );
 
-  const removeWindow = (index) => {
-    setFormData((prev) => {
-      const next = prev.availabilityWindows.filter((_, i) => i !== index);
       return {
         ...prev,
-        availabilityWindows: next.length > 0 ? next : [buildDefaultWindow()],
+        pricingTiers:
+          next.length > 0 ? next : [{ visits_per_week: 1, price: "" }],
       };
     });
   };
 
-  const handleTierChange = (index, field, value) => {
-    setFormData((prev) => {
-      const next = [...prev.pricingTiers];
-      next[index] = {
-        ...next[index],
-        [field]: Number(value),
-      };
-      return { ...prev, pricingTiers: next };
-    });
+  const validateIdentityTab = () => {
+    if (!formData.name.trim()) {
+      alert("Debes ingresar un nombre para el plan.");
+      setActiveTab("identity");
+      return false;
+    }
+
+    if (!formData.description.trim()) {
+      alert("Debes ingresar una descripción.");
+      setActiveTab("identity");
+      return false;
+    }
+
+    return true;
   };
 
-  const addTier = () => {
-    setFormData((prev) => ({
-      ...prev,
-      pricingTiers: [...prev.pricingTiers, { visits_per_week: 1, price: 0 }],
-    }));
+  const validateScheduleTab = () => {
+    const normalizedWindows = normalizeWindows(availabilityWindows);
+    const expandedSlots = expandWindowsToSlots(
+      normalizedWindows,
+      Number(formData.sessionDurationMin || 60),
+    );
+
+    if (normalizedWindows.length === 0) {
+      alert(
+        "Debes configurar al menos una franja horaria válida con días seleccionados.",
+      );
+      setActiveTab("schedule");
+      return false;
+    }
+
+    if (expandedSlots.length === 0) {
+      alert(
+        "No se generaron slots válidos. Revisa rangos horarios, duración y días.",
+      );
+      setActiveTab("schedule");
+      return false;
+    }
+
+    return true;
   };
 
-  const removeTier = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      pricingTiers: prev.pricingTiers.filter((_, i) => i !== index),
-    }));
+  const validatePricingTab = () => {
+    const normalizedPricingTiers = Array.from(
+      new Map(
+        (formData.pricingTiers || [])
+          .map((tier) => ({
+            visits_per_week: Number(tier.visits_per_week),
+            price: Number(tier.price),
+          }))
+          .filter(
+            (tier) =>
+              tier.visits_per_week > 0 &&
+              Number.isFinite(tier.price) &&
+              tier.price >= 0,
+          )
+          .map((tier) => [tier.visits_per_week, tier]),
+      ).values(),
+    ).sort((a, b) => a.visits_per_week - b.visits_per_week);
+
+    if (normalizedPricingTiers.length === 0) {
+      alert("Debes configurar al menos un precio por frecuencia semanal.");
+      setActiveTab("pricing");
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const normalizedWindows = (formData.availabilityWindows || [])
-      .map((window) => ({
-        day_of_week: Number(window.day_of_week),
-        start_time: String(window.start_time || "").slice(0, 5),
-        end_time: String(window.end_time || "").slice(0, 5),
-        capacity: Math.max(0, Number(window.capacity || 0)),
-      }))
-      .filter(
-        (window) =>
-          Number.isInteger(window.day_of_week) &&
-          window.day_of_week >= 0 &&
-          window.day_of_week <= 6 &&
-          window.start_time &&
-          window.end_time &&
-          window.end_time > window.start_time
-      );
+    if (!validateIdentityTab()) return;
+    if (!validateScheduleTab()) return;
+    if (!validatePricingTab()) return;
+
+    const normalizedWindows = normalizeWindows(availabilityWindows);
 
     const normalizedPricingTiers = Array.from(
       new Map(
@@ -354,46 +503,21 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
             (tier) =>
               tier.visits_per_week > 0 &&
               Number.isFinite(tier.price) &&
-              tier.price >= 0
+              tier.price >= 0,
           )
-          .map((tier) => [tier.visits_per_week, tier])
-      ).values()
+          .map((tier) => [tier.visits_per_week, tier]),
+      ).values(),
     ).sort((a, b) => a.visits_per_week - b.visits_per_week);
 
     const expandedSlots = expandWindowsToSlots(
       normalizedWindows,
-      Number(formData.sessionDurationMin || 60)
+      Number(formData.sessionDurationMin || 60),
     );
-
-    if (!formData.name.trim()) {
-      alert("Debes ingresar un nombre para el plan.");
-      return;
-    }
-
-    if (!formData.description.trim()) {
-      alert("Debes ingresar una descripción.");
-      return;
-    }
-
-    if (normalizedWindows.length === 0) {
-      alert("Debes configurar al menos una ventana horaria válida.");
-      return;
-    }
-
-    if (expandedSlots.length === 0) {
-      alert("No se generaron slots válidos. Revisa rangos y duración.");
-      return;
-    }
-
-    if (normalizedPricingTiers.length === 0) {
-      alert("Debes configurar al menos un precio por visitas semanales.");
-      return;
-    }
 
     const fallbackPrice = Number(normalizedPricingTiers[0]?.price || 0);
     const fallbackCapacity = Math.max(
       0,
-      ...expandedSlots.map((slot) => Number(slot.capacity || 0))
+      ...expandedSlots.map((slot) => Number(slot.capacity || 0)),
     );
 
     onSave({
@@ -419,419 +543,497 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
   };
 
   const inputClasses =
-    "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400";
+    "w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400";
   const labelClasses =
-    "text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-2 block";
+    "text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2 block";
   const sectionCardClasses =
-    "bg-white border border-slate-100 rounded-[1.5rem] p-6 shadow-sm";
+    "bg-white border border-slate-200 rounded-[1.5rem] p-5 md:p-6 shadow-sm";
+
+  const tabButtonClasses = (tabKey) =>
+    `pb-4 text-sm font-black border-b-[3px] transition-colors uppercase tracking-wide ${
+      activeTab === tabKey
+        ? "border-blue-600 text-slate-900"
+        : "border-transparent text-slate-400 hover:text-slate-700"
+    }`;
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-slate-50 border border-slate-200 rounded-[2rem] w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
-        <div className="px-8 py-6 bg-white border-b border-slate-100 flex items-center justify-between shrink-0 z-10">
+      <div className="bg-white border border-slate-200 rounded-[2rem] w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+        {/* Header */}
+        <div className="px-6 md:px-8 py-5 border-b border-slate-200 flex items-center justify-between shrink-0 bg-slate-50">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/50">
-              <Icon name={plan ? "Edit" : "PlusCircle"} size={24} />
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-100">
+              <Icon name={plan ? "Edit" : "Plus"} size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                 {plan ? "Editar Plan" : "Crear Nuevo Plan"}
               </h2>
-              <p className="text-sm font-medium text-slate-400 mt-0.5">
-                Configura disponibilidad, cupos y precios por frecuencia
+              <p className="text-sm font-medium text-slate-500 mt-0.5">
+                Configurá la identidad, disponibilidad y precios.
               </p>
             </div>
           </div>
+
           <button
             onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-xl text-slate-400 hover:bg-white hover:text-slate-700 transition-colors border border-slate-200 shadow-sm"
           >
-            <Icon name="X" size={20} />
+            <Icon name="X" size={18} />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200 bg-white px-6 md:px-8 pt-4 gap-6 md:gap-10 shrink-0 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("identity")}
+            className={tabButtonClasses("identity")}
+          >
+            1. Identidad
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("schedule")}
+            className={tabButtonClasses("schedule")}
+          >
+            2. Horarios por Día
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("pricing")}
+            className={tabButtonClasses("pricing")}
+          >
+            3. Precios
           </button>
         </div>
 
         <form
           id="plan-form"
           onSubmit={handleSubmit}
-          className="overflow-y-auto p-4 md:p-8 custom-scrollbar flex-1 space-y-8"
+          className="overflow-y-auto flex-1 bg-slate-50/70 custom-scrollbar"
         >
-          <div className={sectionCardClasses}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                <Icon name="FileText" size={16} />
-              </div>
-              <h3 className="font-bold text-slate-800 text-lg">
-                Identidad del Plan
-              </h3>
-            </div>
+          <div className="p-4 md:p-8 space-y-6">
+            {/* TAB 1: IDENTIDAD */}
+            {activeTab === "identity" && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className={sectionCardClasses}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2">
+                      <label className={labelClasses}>
+                        Nombre Comercial{" "}
+                        <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        placeholder="Ej: Plan Fuerza Base"
+                        required
+                        autoFocus
+                        className={inputClasses}
+                      />
+                    </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              <div className="md:col-span-8">
-                <label className={labelClasses}>
-                  Nombre Comercial <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Ej: Plan Elite"
-                  required
-                  className={inputClasses}
-                  autoFocus
-                />
-              </div>
-              <div className="md:col-span-4">
-                <label className={labelClasses}>Estado</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className={`${inputClasses} appearance-none cursor-pointer`}
-                >
-                  <option value="active">🟢 Activo (Visible)</option>
-                  <option value="inactive">🔴 Inactivo (Oculto)</option>
-                </select>
-              </div>
-              <div className="md:col-span-12">
-                <label className={labelClasses}>
-                  Descripción <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Describe el enfoque del plan..."
-                  rows={2}
-                  className={`${inputClasses} resize-none`}
-                  required
-                />
-              </div>
-            </div>
-          </div>
+                    <div>
+                      <label className={labelClasses}>Estado Inicial</label>
+                      <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleInputChange}
+                        className={`${inputClasses} appearance-none cursor-pointer`}
+                      >
+                        <option value="active">🟢 Activo (Visible)</option>
+                        <option value="inactive">⚪ Inactivo (Oculto)</option>
+                      </select>
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className={sectionCardClasses}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-                  <Icon name="Clock3" size={16} />
+                  <div className="mt-6">
+                    <label className={labelClasses}>
+                      Descripción del enfoque{" "}
+                      <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      name="description"
+                      value={formData.description}
+                      onChange={handleInputChange}
+                      placeholder="Describe brevemente qué se trabaja en este plan..."
+                      rows={4}
+                      className={`${inputClasses} resize-none`}
+                      required
+                    />
+                  </div>
                 </div>
-                <h3 className="font-bold text-slate-800 text-lg">
-                  Duración de Sesión
-                </h3>
-              </div>
 
-              <div>
-                <label className={labelClasses}>
-                  Duración (minutos) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  name="sessionDurationMin"
-                  type="number"
-                  min="15"
-                  step="15"
-                  value={formData.sessionDurationMin}
-                  onChange={handleInputChange}
-                  className={inputClasses}
-                  required
-                />
-                <p className="mt-2 text-xs text-slate-400 font-medium">
-                  Ejemplo: 60 min generará slots de una hora dentro de cada rango.
-                </p>
-              </div>
-            </div>
+                <div className={sectionCardClasses}>
+                  <label className={labelClasses}>
+                    Profesores a cargo (selección múltiple)
+                  </label>
 
-            <div className={sectionCardClasses}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-violet-50 text-violet-600 rounded-lg">
-                  <Icon name="Users" size={16} />
+                  <div className="flex flex-wrap gap-3">
+                    {professors.length > 0 ? (
+                      professors.map((prof) => {
+                        const isSelected = formData.professorIds.includes(
+                          prof.id,
+                        );
+
+                        return (
+                          <button
+                            key={prof.id}
+                            type="button"
+                            onClick={() => toggleProfessor(prof.id)}
+                            className={`px-4 py-2 rounded-xl border-2 text-sm font-bold transition-all shadow-sm ${
+                              isSelected
+                                ? "border-red-200 bg-red-50 text-red-700"
+                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {isSelected ? `✓ ${prof.name}` : prof.name}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-slate-400 font-medium py-3">
+                        No hay profesores registrados.
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <h3 className="font-bold text-slate-800 text-lg">
-                  Profesores a Cargo
-                </h3>
               </div>
+            )}
 
-              <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-100 max-h-[180px] overflow-y-auto custom-scrollbar">
-                <div className="flex flex-wrap gap-2">
-                  {professors.length > 0 ? (
-                    professors.map((prof) => {
-                      const isSelected = formData.professorIds.includes(prof.id);
-                      return (
-                        <button
-                          key={prof.id}
-                          type="button"
-                          onClick={() => toggleProfessor(prof.id)}
-                          className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border ${
-                            isSelected
-                              ? "bg-violet-600 text-white border-violet-600 shadow-md"
-                              : "bg-white text-slate-600 border-slate-200 hover:border-violet-300 hover:bg-violet-50"
-                          }`}
-                        >
-                          {isSelected && <Icon name="Check" size={12} />}
-                          {prof.name}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <p className="text-sm text-slate-400 font-medium py-4 text-center w-full">
-                      No hay profesores registrados.
+            {/* TAB 2: HORARIOS */}
+            {activeTab === "schedule" && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className={sectionCardClasses}>
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                    <div className="min-w-0">
+                      <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">
+                        Duración del Turno / Clase
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Las franjas de abajo se cortarán en bloques de este
+                        tiempo.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 lg:min-w-[230px] lg:justify-end">
+                      <div className="w-[110px] sm:w-[120px]">
+                        <input
+                          name="sessionDurationMin"
+                          type="number"
+                          min="15"
+                          step="15"
+                          value={formData.sessionDurationMin}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none text-center text-3xl font-black text-slate-900 shadow-sm"
+                          required
+                        />
+                      </div>
+
+                      <span className="text-base font-black text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        Minutos
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={sectionCardClasses}>
+                  <div className="flex justify-between items-center mb-4">
+                    <label className="block text-sm font-black text-slate-800 uppercase tracking-wide">
+                      Configuración de Franjas y Días
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={addTimeBlock}
+                      className="text-red-600 text-sm font-black hover:text-red-700 flex items-center gap-1.5 bg-red-50 px-3 py-2 rounded-xl border border-red-100 transition-colors"
+                    >
+                      <Icon name="Plus" size={14} />
+                      Añadir Franja
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    {timeBlocks.map((block, index) => (
+                      <div
+                        key={index}
+                        className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-5">
+                          <div className="md:col-span-4">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                              Hora Inicio
+                            </label>
+                            <input
+                              type="time"
+                              value={block.start_time}
+                              onChange={(e) =>
+                                updateTimeBlock(
+                                  index,
+                                  "start_time",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-colors"
+                            />
+                          </div>
+
+                          <div className="md:col-span-4">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                              Hora Fin
+                            </label>
+                            <input
+                              type="time"
+                              value={block.end_time}
+                              onChange={(e) =>
+                                updateTimeBlock(
+                                  index,
+                                  "end_time",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-colors"
+                            />
+                          </div>
+
+                          <div className="md:col-span-3">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                              Cupo (Personas)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={block.capacity}
+                              onChange={(e) =>
+                                updateTimeBlock(
+                                  index,
+                                  "capacity",
+                                  e.target.value,
+                                )
+                              }
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-colors"
+                            />
+                          </div>
+
+                          <div className="md:col-span-1 flex items-end justify-end">
+                            <button
+                              type="button"
+                              onClick={() => removeTimeBlock(index)}
+                              className="w-11 h-11 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                              title="Eliminar franja"
+                            >
+                              <Icon name="Trash2" size={18} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <span className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                            Aplica a los días:
+                          </span>
+
+                          <div className="flex flex-wrap gap-2">
+                            {DAY_SHORT.map((shortLabel, dayIndex) => {
+                              const active = (block.days || []).includes(
+                                dayIndex,
+                              );
+
+                              return (
+                                <button
+                                  key={`${index}-${dayIndex}`}
+                                  type="button"
+                                  onClick={() =>
+                                    toggleBlockDay(index, dayIndex)
+                                  }
+                                  className={`w-10 h-10 rounded-lg font-black text-sm border-2 transition-all ${
+                                    active
+                                      ? "border-red-500 bg-red-600 text-white shadow-md scale-105"
+                                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                                  }`}
+                                  title={DAYS[dayIndex]}
+                                >
+                                  {shortLabel}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-slate-950 rounded-2xl p-6 shadow-inner border border-slate-800">
+                  <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
+                    <Icon
+                      name="CalendarDays"
+                      size={18}
+                      className="text-yellow-400"
+                    />
+                    <h3 className="text-white font-black uppercase tracking-widest text-sm">
+                      Vista Previa de Calendario
+                    </h3>
+                  </div>
+
+                  {generatedSlotsByDay.length === 0 ? (
+                    <p className="text-sm text-slate-400">
+                      Aún no hay slots válidos para mostrar.
                     </p>
+                  ) : (
+                    <div className="space-y-5">
+                      {generatedSlotsByDay.map((group) => (
+                        <div
+                          key={group.dayIndex}
+                          className="rounded-2xl border border-slate-700 bg-slate-900/70 p-4"
+                        >
+                          <h4 className="text-white text-sm font-black uppercase tracking-wider mb-3">
+                            {group.day}
+                          </h4>
+
+                          <div className="flex flex-wrap gap-2">
+                            {group.slots.map((slot, idx) => (
+                              <span
+                                key={`${group.dayIndex}-${slot.start_time}-${slot.end_time}-${idx}`}
+                                className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-black text-white flex items-center gap-2"
+                              >
+                                <span>
+                                  {slot.start_time} - {slot.end_time}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-lg bg-slate-800 text-emerald-400 text-[10px] uppercase tracking-widest">
+                                  Cupo: {slot.capacity}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
-            </div>
-          </div>
+            )}
 
-          <div className={sectionCardClasses}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                <Icon name="CalendarDays" size={16} />
-              </div>
-              <h3 className="font-bold text-slate-800 text-lg">Días Habilitados</h3>
-            </div>
+            {/* TAB 3: PRECIOS */}
+            {activeTab === "pricing" && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 flex gap-4">
+                  <div className="bg-blue-100 p-2 rounded-lg text-blue-600 h-fit">
+                    <Icon name="Wallet" size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-blue-900 uppercase">
+                      Configuración de Cobro
+                    </h4>
+                    <p className="text-sm text-blue-800 mt-1">
+                      Agregá las frecuencias semanales que quieras ofrecer y
+                      definí su valor mensual.
+                    </p>
+                  </div>
+                </div>
 
-            <div className="flex flex-wrap gap-2">
-              {DAYS.map((day, index) => {
-                const active = enabledDays.includes(index);
-                return (
-                  <button
-                    key={day}
-                    type="button"
-                    onClick={() => toggleDay(index)}
-                    className={`px-4 py-2 rounded-full text-xs font-bold border transition-all ${
-                      active
-                        ? "bg-blue-50 border-blue-200 text-blue-700"
-                        : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                    }`}
-                  >
-                    {day}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                <div className={sectionCardClasses}>
+                  <div className="flex flex-col sm:flex-row items-end gap-4">
+                    <div>
+                      <label className={labelClasses}>Frecuencia Semanal</label>
+                      <select
+                        value={selectedFrequency}
+                        onChange={(e) => setSelectedFrequency(e.target.value)}
+                        className="w-full sm:w-56 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-colors"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7].map((value) => (
+                          <option key={value} value={value}>
+                            {value}{" "}
+                            {value === 1 ? "Día por semana" : "Días por semana"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-          <div className={sectionCardClasses}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
-                <Icon name="CalendarRange" size={16} />
-              </div>
-              <h3 className="font-bold text-slate-800 text-lg">
-                Ventanas Horarias y Cupos
-              </h3>
-            </div>
-
-            <div className="space-y-6">
-              {enabledDays.length === 0 ? (
-                <p className="text-sm text-slate-400">
-                  Selecciona al menos un día habilitado.
-                </p>
-              ) : (
-                enabledDays.map((dayIndex) => {
-                  const windows = formData.availabilityWindows
-                    .map((window, index) => ({ ...window, _index: index }))
-                    .filter((window) => Number(window.day_of_week) === dayIndex);
-
-                  return (
-                    <div
-                      key={dayIndex}
-                      className="border border-slate-100 rounded-2xl p-4 bg-slate-50/70"
+                    <button
+                      type="button"
+                      onClick={addFrequency}
+                      className="w-full sm:w-auto bg-slate-900 hover:bg-black text-white px-6 py-3 rounded-xl font-black shadow-md transition-all flex items-center justify-center gap-2"
                     >
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-sm font-black text-slate-700">
-                          {DAYS[dayIndex]}
-                        </h4>
+                      <Icon name="Plus" size={14} />
+                      Añadir Frecuencia
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sortedPricingTiers.map((tier) => (
+                    <div
+                      key={tier.visits_per_week}
+                      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4"
+                    >
+                      <div className="min-w-[132px]">
+                        <p className="text-lg font-black text-slate-900">
+                          {tier.visits_per_week}{" "}
+                          {Number(tier.visits_per_week) === 1
+                            ? "Día / Sem"
+                            : "Días / Sem"}
+                        </p>
+                      </div>
+
+                      <div className="relative flex-1">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={tier.price}
+                          onChange={(e) =>
+                            handleTierChange(
+                              tier.visits_per_week,
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Ej: 45000"
+                          className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-colors placeholder:text-slate-400"
+                        />
+                      </div>
+
+                      {sortedPricingTiers.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => addWindow(dayIndex)}
-                          className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                          onClick={() => removeTier(tier.visits_per_week)}
+                          className="w-11 h-11 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                          title="Eliminar frecuencia"
                         >
-                          <Icon name="Plus" size={12} />
-                          Agregar ventana
+                          <Icon name="Trash2" size={18} />
                         </button>
-                      </div>
-
-                      <div className="space-y-3">
-                        {windows.map((window) => (
-                          <div
-                            key={window._index}
-                            className="grid grid-cols-12 gap-3 items-center bg-white p-3 rounded-xl border border-slate-100"
-                          >
-                            <div className="col-span-4">
-                              <input
-                                type="time"
-                                value={window.start_time}
-                                onChange={(e) =>
-                                  updateWindow(window._index, "start_time", e.target.value)
-                                }
-                                className={inputClasses}
-                              />
-                            </div>
-                            <div className="col-span-4">
-                              <input
-                                type="time"
-                                value={window.end_time}
-                                onChange={(e) =>
-                                  updateWindow(window._index, "end_time", e.target.value)
-                                }
-                                className={inputClasses}
-                              />
-                            </div>
-                            <div className="col-span-3">
-                              <input
-                                type="number"
-                                min="0"
-                                value={window.capacity}
-                                onChange={(e) =>
-                                  updateWindow(window._index, "capacity", e.target.value)
-                                }
-                                placeholder="Cupo"
-                                className={`${inputClasses} text-center font-bold text-blue-600`}
-                              />
-                            </div>
-                            <div className="col-span-1 flex justify-center">
-                              <button
-                                type="button"
-                                onClick={() => removeWindow(window._index)}
-                                className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
-                              >
-                                <Icon name="Trash2" size={18} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      )}
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          <div className={sectionCardClasses}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-sky-50 text-sky-600 rounded-lg">
-                <Icon name="LayoutGrid" size={16} />
-              </div>
-              <h3 className="font-bold text-slate-800 text-lg">
-                Vista Previa de Slots Generados
-              </h3>
-            </div>
-
-            {generatedSlotsByDay.length === 0 ? (
-              <p className="text-sm text-slate-400">
-                Aún no hay slots válidos para mostrar.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {generatedSlotsByDay.map((group) => (
-                  <div key={group.dayIndex}>
-                    <h4 className="text-sm font-black text-slate-700 mb-2">
-                      {group.day}
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {group.slots.map((slot, idx) => (
-                        <span
-                          key={`${group.dayIndex}-${slot.start_time}-${slot.end_time}-${idx}`}
-                          className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-600"
-                        >
-                          {slot.start_time} - {slot.end_time} · Cupo {slot.capacity}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
-
-          <div className={sectionCardClasses}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg">
-                  <Icon name="Layers" size={16} />
-                </div>
-                <h3 className="font-bold text-slate-800 text-lg">
-                  Precios por Visitas Semanales
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={addTier}
-                className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-              >
-                <Icon name="Plus" size={12} />
-                Añadir
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {formData.pricingTiers.map((tier, index) => (
-                <div key={index} className="flex gap-3 items-center">
-                  <div className="relative w-1/3">
-                    <input
-                      type="number"
-                      min="1"
-                      max="7"
-                      value={tier.visits_per_week}
-                      onChange={(e) =>
-                        handleTierChange(index, "visits_per_week", e.target.value)
-                      }
-                      className={`${inputClasses} pr-8`}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                      Días
-                    </span>
-                  </div>
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={tier.price}
-                      onChange={(e) =>
-                        handleTierChange(index, "price", e.target.value)
-                      }
-                      className={`${inputClasses} pl-8`}
-                      placeholder="Precio"
-                    />
-                  </div>
-                  {formData.pricingTiers.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeTier(index)}
-                      className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
-                    >
-                      <Icon name="Trash2" size={18} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
         </form>
 
-        <div className="px-8 py-5 bg-white border-t border-slate-100 flex items-center justify-between shrink-0 z-10">
-          <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
-            <Icon name="Info" size={14} />
-            Campos obligatorios{" "}
-            <span className="text-rose-500 text-lg leading-none">*</span>
-          </p>
+        {/* Footer */}
+        <div className="px-6 md:px-8 py-5 border-t border-slate-200 bg-white flex justify-between items-center shrink-0">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+            <span className="text-rose-500">*</span> Obligatorio
+          </span>
+
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-100 transition-colors"
+              className="px-6 py-3 font-black text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
             >
               Cancelar
             </button>
+
             <button
               form="plan-form"
               type="submit"
-              className="flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-sm text-white bg-slate-900 hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all hover:-translate-y-0.5"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-black shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
             >
-              <Icon name="Save" size={16} />
               {plan ? "Guardar Cambios" : "Crear Plan"}
             </button>
           </div>

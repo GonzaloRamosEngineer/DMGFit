@@ -3,6 +3,11 @@ import Icon from '../../../components/AppIcon';
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
+const normalizeRelation = (value) => {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
+};
+
 const groupByDay = (slots) => {
   return (slots || []).reduce((acc, slot) => {
     const day = Number(slot.day_of_week);
@@ -13,6 +18,9 @@ const groupByDay = (slots) => {
   }, {});
 };
 
+const getAssignedWeeklyScheduleId = (slot) =>
+  slot?.weekly_schedule_id || normalizeRelation(slot?.weekly_schedule)?.id || null;
+
 const ModifyAthleteScheduleModal = ({
   athlete,
   assignedSlots,
@@ -22,9 +30,23 @@ const ModifyAthleteScheduleModal = ({
   onSave,
 }) => {
   const visits = Number(athlete?.visits_per_week || 0);
-  const [selectedSlotIds, setSelectedSlotIds] = useState((assignedSlots || []).map((slot) => slot.weekly_schedule_id));
 
-  const assignedSet = useMemo(() => new Set((assignedSlots || []).map((slot) => slot.weekly_schedule_id)), [assignedSlots]);
+  const [selectedSlotIds, setSelectedSlotIds] = useState(
+    (assignedSlots || [])
+      .map((slot) => getAssignedWeeklyScheduleId(slot))
+      .filter(Boolean)
+  );
+
+  const assignedSet = useMemo(
+    () =>
+      new Set(
+        (assignedSlots || [])
+          .map((slot) => getAssignedWeeklyScheduleId(slot))
+          .filter(Boolean)
+      ),
+    [assignedSlots]
+  );
+
   const availableGrouped = useMemo(() => groupByDay(availableSlots), [availableSlots]);
 
   const toggleSlot = (slotId, disabled) => {
@@ -61,8 +83,12 @@ const ModifyAthleteScheduleModal = ({
 
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-            <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Seleccionados: {selectedSlotIds.length} / {visits}</p>
-            <p className="text-[11px] text-slate-500 mt-1">El cambio se aplica desde hoy y conserva plan/opción/precio/frecuencia.</p>
+            <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+              Seleccionados: {selectedSlotIds.length} / {visits}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-1">
+              El cambio se aplica desde hoy y conserva plan/opción/precio/frecuencia.
+            </p>
           </div>
 
           <div>
@@ -71,11 +97,21 @@ const ModifyAthleteScheduleModal = ({
               {(assignedSlots || []).length === 0 ? (
                 <p className="text-xs text-slate-400">Sin asignaciones activas.</p>
               ) : (
-                assignedSlots.map((slot) => (
-                  <span key={slot.id} className="px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
-                    {DAYS[slot.day_of_week]} {String(slot.start_time).slice(0, 5)}-{String(slot.end_time).slice(0, 5)}
-                  </span>
-                ))
+                assignedSlots.map((slot) => {
+                  const schedule = normalizeRelation(slot.weekly_schedule) || slot;
+                  const day = Number(schedule?.day_of_week);
+                  const start = String(schedule?.start_time || '').slice(0, 5);
+                  const end = String(schedule?.end_time || '').slice(0, 5);
+
+                  return (
+                    <span
+                      key={slot.id || schedule?.id}
+                      className="px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold"
+                    >
+                      {DAYS[day] || 'Horario'} {start}-{end}
+                    </span>
+                  );
+                })
               )}
             </div>
           </div>
@@ -89,7 +125,9 @@ const ModifyAthleteScheduleModal = ({
                 .sort((a, b) => Number(a[0]) - Number(b[0]))
                 .map(([day, slots]) => (
                   <div key={day} className="border border-slate-200 rounded-xl p-3">
-                    <p className="text-xs font-black text-slate-600 uppercase tracking-wider mb-2">{DAYS[day]}</p>
+                    <p className="text-xs font-black text-slate-600 uppercase tracking-wider mb-2">
+                      {DAYS[day]}
+                    </p>
                     <div className="space-y-2">
                       {slots.map((slot) => {
                         const slotId = slot.weekly_schedule_id;
@@ -101,12 +139,27 @@ const ModifyAthleteScheduleModal = ({
                         return (
                           <label
                             key={slotId}
-                            className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs ${disabled ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-white text-slate-700 border-slate-200 cursor-pointer'}`}
+                            className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs ${
+                              disabled
+                                ? 'bg-slate-100 text-slate-400 border-slate-200'
+                                : 'bg-white text-slate-700 border-slate-200 cursor-pointer'
+                            }`}
                           >
                             <div className="flex items-center gap-2">
-                              <input type="checkbox" checked={selected} disabled={disabled} onChange={() => toggleSlot(slotId, disabled)} />
-                              <span className="font-semibold">{String(slot.start_time).slice(0, 5)}-{String(slot.end_time).slice(0, 5)}</span>
-                              {owned && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-black">Actual</span>}
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                disabled={disabled}
+                                onChange={() => toggleSlot(slotId, disabled)}
+                              />
+                              <span className="font-semibold">
+                                {String(slot.start_time).slice(0, 5)}-{String(slot.end_time).slice(0, 5)}
+                              </span>
+                              {owned && (
+                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-black">
+                                  Actual
+                                </span>
+                              )}
                             </div>
                             <span className={`font-black ${Number(slot.remaining) <= 1 ? 'text-rose-500' : 'text-emerald-600'}`}>
                               {slot.remaining}/{slot.capacity}
@@ -122,12 +175,22 @@ const ModifyAthleteScheduleModal = ({
         </form>
 
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg">Cancelar</button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg"
+          >
+            Cancelar
+          </button>
           <button
             type="submit"
             onClick={handleSubmit}
             disabled={loading || selectedSlotIds.length !== visits || visits <= 0}
-            className={`px-4 py-2 text-sm font-bold rounded-lg text-white ${loading || selectedSlotIds.length !== visits || visits <= 0 ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+            className={`px-4 py-2 text-sm font-bold rounded-lg text-white ${
+              loading || selectedSlotIds.length !== visits || visits <= 0
+                ? 'bg-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
             {loading ? 'Guardando...' : 'Guardar horarios'}
           </button>
