@@ -11,17 +11,18 @@ const DAYS = [
   "Sábado",
 ];
 
-const DEFAULT_TIERS = [1, 2, 3, 4, 5].map((v) => ({
-  visits_per_week: v,
-  price: "",
-}));
+const buildDefaultTiers = () =>
+  [1, 2, 3, 4, 5].map((v) => ({
+    visits_per_week: v,
+    price: "",
+  }));
 
-const DEFAULT_WINDOW = {
+const buildDefaultWindow = () => ({
   day_of_week: 1,
   start_time: "09:00",
   end_time: "13:00",
   capacity: 10,
-};
+});
 
 const timeToMinutes = (value = "") => {
   const [hh = "0", mm = "0"] = String(value).slice(0, 5).split(":");
@@ -74,14 +75,18 @@ const expandWindowsToSlots = (windows, sessionDurationMin = 60) => {
 };
 
 const compressSlotsToWindows = (slots = [], sessionDurationMin = 60) => {
-  if (!Array.isArray(slots) || slots.length === 0) return [DEFAULT_WINDOW];
+  if (!Array.isArray(slots) || slots.length === 0) return [buildDefaultWindow()];
 
   const normalized = slots
     .filter((slot) => slot.day_of_week !== undefined)
     .map((slot) => ({
       day_of_week: Number(slot.day_of_week),
-      start_time: String(slot.start_time || slot.time?.split(" - ")?.[0] || "").slice(0, 5),
-      end_time: String(slot.end_time || slot.time?.split(" - ")?.[1] || "").slice(0, 5),
+      start_time: String(
+        slot.start_time || slot.time?.split(" - ")?.[0] || ""
+      ).slice(0, 5),
+      end_time: String(
+        slot.end_time || slot.time?.split(" - ")?.[1] || ""
+      ).slice(0, 5),
       capacity: Number(slot.capacity || 0),
     }))
     .filter((slot) => slot.start_time && slot.end_time)
@@ -91,7 +96,7 @@ const compressSlotsToWindows = (slots = [], sessionDurationMin = 60) => {
       return a.start_time.localeCompare(b.start_time);
     });
 
-  if (normalized.length === 0) return [DEFAULT_WINDOW];
+  if (normalized.length === 0) return [buildDefaultWindow()];
 
   const windows = [];
   const expectedStep = Math.max(15, Number(sessionDurationMin) || 60);
@@ -112,25 +117,39 @@ const compressSlotsToWindows = (slots = [], sessionDurationMin = 60) => {
     }
   }
 
-  return windows.length > 0 ? windows : [DEFAULT_WINDOW];
+  return windows.length > 0 ? windows : [buildDefaultWindow()];
 };
 
-const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
+const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     status: "active",
     sessionDurationMin: 60,
-    availabilityWindows: [DEFAULT_WINDOW],
-    pricingTiers: DEFAULT_TIERS,
+    availabilityWindows: [buildDefaultWindow()],
+    pricingTiers: buildDefaultTiers(),
     professorIds: [],
     features: [],
-    price: 0,     // compat legacy
-    capacity: 0,  // compat legacy
+    price: 0, // compat legacy
+    capacity: 0, // compat legacy
   });
 
   useEffect(() => {
-    if (!plan) return;
+    if (!plan) {
+      setFormData({
+        name: "",
+        description: "",
+        status: "active",
+        sessionDurationMin: 60,
+        availabilityWindows: [buildDefaultWindow()],
+        pricingTiers: buildDefaultTiers(),
+        professorIds: [],
+        features: [],
+        price: 0,
+        capacity: 0,
+      });
+      return;
+    }
 
     const inferredDuration = Number(plan.sessionDurationMin || 60);
     const restoredWindows =
@@ -144,29 +163,34 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
         : compressSlotsToWindows(plan.schedule || [], inferredDuration);
 
     setFormData({
+      id: plan.id,
       name: plan.name || "",
       description: plan.description || "",
       status: plan.status || "active",
       sessionDurationMin: inferredDuration,
-      availabilityWindows: restoredWindows.length > 0 ? restoredWindows : [DEFAULT_WINDOW],
+      availabilityWindows:
+        restoredWindows.length > 0 ? restoredWindows : [buildDefaultWindow()],
       pricingTiers:
         Array.isArray(plan.pricingTiers) && plan.pricingTiers.length > 0
           ? plan.pricingTiers.map((tier) => ({
               visits_per_week: Number(tier.visits_per_week),
               price: Number(tier.price),
             }))
-          : DEFAULT_TIERS,
-      professorIds: plan.professorIds || [],
-      features: plan.features || [],
+          : buildDefaultTiers(),
+      professorIds: Array.isArray(plan.professorIds) ? plan.professorIds : [],
+      features: Array.isArray(plan.features) ? plan.features : [],
       price: Number(plan.price || 0),
       capacity: Number(plan.capacity || 0),
-      id: plan.id,
     });
   }, [plan]);
 
   const enabledDays = useMemo(() => {
     return Array.from(
-      new Set(formData.availabilityWindows.map((window) => Number(window.day_of_week)))
+      new Set(
+        (formData.availabilityWindows || []).map((window) =>
+          Number(window.day_of_week)
+        )
+      )
     ).sort((a, b) => a - b);
   }, [formData.availabilityWindows]);
 
@@ -189,10 +213,7 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === "sessionDurationMin"
-          ? Number(value || 60)
-          : value,
+      [name]: name === "sessionDurationMin" ? Number(value || 60) : value,
     }));
   };
 
@@ -218,7 +239,8 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
 
         return {
           ...prev,
-          availabilityWindows: nextWindows.length > 0 ? nextWindows : [DEFAULT_WINDOW],
+          availabilityWindows:
+            nextWindows.length > 0 ? nextWindows : [buildDefaultWindow()],
         };
       }
 
@@ -271,7 +293,7 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
       const next = prev.availabilityWindows.filter((_, i) => i !== index);
       return {
         ...prev,
-        availabilityWindows: next.length > 0 ? next : [DEFAULT_WINDOW],
+        availabilityWindows: next.length > 0 ? next : [buildDefaultWindow()],
       };
     });
   };
@@ -378,8 +400,8 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
       ...formData,
       name: formData.name.trim(),
       description: formData.description.trim(),
-      price: fallbackPrice,      // compat con flujo actual
-      capacity: fallbackCapacity, // compat con flujo actual
+      price: fallbackPrice,
+      capacity: fallbackCapacity,
       pricingTiers: normalizedPricingTiers,
       scheduleSlots: expandedSlots,
       schedule: expandedSlots.map((slot) => ({
@@ -390,9 +412,9 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
         capacity: slot.capacity,
         time: `${slot.start_time} - ${slot.end_time}`,
       })),
-      // se deja también para futuro uso si luego querés persistir ventanas
       availabilityWindows: normalizedWindows,
       sessionDurationMin: Number(formData.sessionDurationMin || 60),
+      features: [],
     });
   };
 
@@ -433,7 +455,6 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
           onSubmit={handleSubmit}
           className="overflow-y-auto p-4 md:p-8 custom-scrollbar flex-1 space-y-8"
         >
-          {/* Identidad */}
           <div className={sectionCardClasses}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
@@ -488,7 +509,6 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
             </div>
           </div>
 
-          {/* Duración + profesores */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className={sectionCardClasses}>
               <div className="flex items-center gap-3 mb-6">
@@ -561,7 +581,6 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
             </div>
           </div>
 
-          {/* Días */}
           <div className={sectionCardClasses}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -569,7 +588,6 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
               </div>
               <h3 className="font-bold text-slate-800 text-lg">Días Habilitados</h3>
             </div>
-          </section>
 
             <div className="flex flex-wrap gap-2">
               {DAYS.map((day, index) => {
@@ -592,7 +610,6 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
             </div>
           </div>
 
-          {/* Ventanas */}
           <div className={sectionCardClasses}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
@@ -690,7 +707,6 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
             </div>
           </div>
 
-          {/* Preview */}
           <div className={sectionCardClasses}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-sky-50 text-sky-600 rounded-lg">
@@ -728,7 +744,6 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
             )}
           </div>
 
-          {/* Pricing */}
           <div className={sectionCardClasses}>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -794,13 +809,14 @@ const CreatePlanModal = ({ plan, professors, onSave, onClose }) => {
                 </div>
               ))}
             </div>
-          </section>
+          </div>
         </form>
 
         <div className="px-8 py-5 bg-white border-t border-slate-100 flex items-center justify-between shrink-0 z-10">
           <p className="text-xs font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
             <Icon name="Info" size={14} />
-            Campos obligatorios <span className="text-rose-500 text-lg leading-none">*</span>
+            Campos obligatorios{" "}
+            <span className="text-rose-500 text-lg leading-none">*</span>
           </p>
           <div className="flex items-center gap-3">
             <button
