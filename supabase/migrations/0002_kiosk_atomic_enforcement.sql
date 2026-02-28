@@ -361,7 +361,7 @@ begin
   set consumed_sessions = amc.consumed_sessions + 1
   where amc.id = v_counter_id
     and amc.consumed_sessions < amc.allowed_sessions
-  returning (amc.allowed_sessions - amc.consumed_sessions - 1)
+  returning (amc.allowed_sessions - amc.consumed_sessions)
   into v_remaining;
 
   if not found then
