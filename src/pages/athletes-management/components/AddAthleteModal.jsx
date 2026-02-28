@@ -294,6 +294,8 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     }));
   };
 
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -699,6 +701,36 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                         onChange={handleChange}
                         className={`${inputClasses} bg-white`}
                       />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={labelClasses}>Cupos Semanales (seleccionados {formData.selectedSlotIds.length}/{formData.visitsPerWeek}) <span className="text-rose-500">*</span></label>
+                    <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                      {planSlots.length === 0 ? (
+                        <p className="text-xs text-slate-400">Este plan no tiene cupos configurados.</p>
+                      ) : planSlots.map((slot) => {
+                        const slotId = slot.weekly_schedule_id;
+                        const selected = formData.selectedSlotIds.includes(slotId);
+                        const full = Number(slot.remaining) <= 0 && !selected;
+                        const dayName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][slot.day_of_week] || 'Día';
+                        return (
+                          <label key={slotId} className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold ${full ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-white text-slate-700 border-slate-200 cursor-pointer'}`}>
+                            <div className="flex items-center gap-2">
+                              <input type="checkbox" checked={selected} disabled={full} onChange={() => toggleSlot(slotId)} />
+                              <span>{dayName} {String(slot.start_time).slice(0,5)}-{String(slot.end_time).slice(0,5)}</span>
+                            </div>
+                            <span className={`font-black ${Number(slot.remaining) <= 1 ? 'text-rose-500' : 'text-emerald-600'}`}>{slot.remaining}/{slot.capacity}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClasses}>Fecha de Inicio</label>
+                      <input type="date" name="joinDate" value={formData.joinDate} onChange={handleChange} className={`${inputClasses} bg-white`} />
                     </div>
                   </div>
                 </div>

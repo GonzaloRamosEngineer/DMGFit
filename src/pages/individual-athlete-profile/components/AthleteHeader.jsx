@@ -306,6 +306,15 @@ const AthleteHeader = ({
                 </p>
               </div>
             </div>
+
+            <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
+              <Icon name="CreditCard" size={16} className="text-secondary" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground uppercase font-medium">Plan / Variante</p>
+                <p className="text-sm font-bold text-foreground truncate">{athlete.planName || 'Sin Plan'}</p>
+                <p className="text-xs text-muted-foreground truncate">{athlete.planOption || '—'}</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-end">
