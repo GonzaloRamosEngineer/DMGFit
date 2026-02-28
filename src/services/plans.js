@@ -149,6 +149,30 @@ export const expandWindowsToSlots = (windows, sessionDurationMin = 60) => {
   return unique.sort((a, b) => (a.day_of_week - b.day_of_week) || a.start_time.localeCompare(b.start_time));
 };
 
+export const savePlanConfiguration = async (planData, { planId = null } = {}) => {
+  const { data, error } = await supabase.rpc('save_plan_configuration', {
+    p_plan_id: planId,
+    p_name: planData.name,
+    p_description: planData.description,
+    p_price: Number(planData.price ?? 0),
+    p_capacity: Number(planData.capacity ?? 0),
+    p_status: planData.status || 'active',
+    p_session_duration_min: Number(planData.sessionDurationMin || 60),
+    p_features: planData.features || [],
+    p_coach_ids: planData.professorIds || [],
+    p_legacy_schedule: planData.schedule || [],
+    p_pricing_tiers: planData.pricingTiers || [],
+    p_availability_windows: planData.availabilityWindows || [],
+    p_schedule_slots: expandWindowsToSlots(
+      planData.availabilityWindows || [],
+      Number(planData.sessionDurationMin || 60)
+    ),
+  });
+
+  if (error) throw error;
+  return data;
+};
+
 export const upsertPlanPricing = async (planId, tiers) => {
   const normalized = Array.from(
     new Map(
@@ -202,39 +226,6 @@ export const upsertPlanAvailabilityWindows = async (planId, windows) => {
   return data ?? [];
 };
 
-export const upsertPlanSlots = async (planId, slots) => {
-  const normalized = (slots || [])
-    .map((slot) => ({
-      day_of_week: Number(slot.day_of_week),
-      start_time: String(slot.start_time || '').slice(0, 5),
-      end_time: String(slot.end_time || '').slice(0, 5),
-      capacity: Number(slot.capacity ?? 0),
-    }))
-    .filter((slot) => Number.isInteger(slot.day_of_week) && slot.day_of_week >= 0 && slot.day_of_week <= 6 && slot.start_time && slot.end_time);
-
-  const { error: delLinksError } = await supabase.from('plan_schedule_slots').delete().eq('plan_id', planId);
-  if (delLinksError) throw delLinksError;
-
-  if (normalized.length === 0) {
-    return [];
-  }
-
-  const { data: createdSchedules, error: scheduleError } = await supabase
-    .from('weekly_schedule')
-    .insert(normalized)
-    .select('id, day_of_week, start_time, end_time, capacity');
-
-  if (scheduleError) throw scheduleError;
-
-  const links = (createdSchedules || []).map((schedule) => ({
-    plan_id: planId,
-    weekly_schedule_id: schedule.id,
-  }));
-
-  if (links.length > 0) {
-    const { error: linkErr } = await supabase.from('plan_schedule_slots').insert(links);
-    if (linkErr) throw linkErr;
-  }
-
-  return createdSchedules ?? [];
+export const upsertPlanSlots = async () => {
+  throw new Error('upsertPlanSlots deprecado: usar savePlanConfiguration() para persistencia atómica y estable.');
 };

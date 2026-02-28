@@ -56,99 +56,32 @@ export const checkDniExists = async (dni) => {
     .select('id')
     .eq('dni', dni)
     .maybeSingle();
-  
+
   if (error) return false;
   return !!data;
 };
 
 /**
- * ALTA INTEGRAL DE ATLETA (Corregido)
- * Soluciona: join_date null constraint y profiles_email_key duplicate
+ * Alta integral atómica vía RPC transaccional.
  */
 export const createFullAthlete = async (athleteData) => {
   try {
-    // 1. Validaciones Previas de Negocio
     const exists = await checkDniExists(athleteData.dni);
-    if (exists) return { success: false, error: "El DNI ya existe en el sistema." };
+    if (exists) return { success: false, error: 'El DNI ya existe en el sistema.' };
 
     if (!athleteData.plan_id) {
-      return { success: false, error: "Debes seleccionar un plan obligatorio." };
+      return { success: false, error: 'Debes seleccionar un plan obligatorio.' };
     }
 
-    const normalizedEmail = athleteData.email?.trim() || "";
-    const isInternal = !normalizedEmail || normalizedEmail.includes('.internal');
-    const finalEmail = isInternal 
-      ? `sin_email_${athleteData.dni}@dmg.internal` 
-      : normalizedEmail;
-
-    // 2. Verificar si el email ya existe en PROFILES para evitar el error UNIQUE
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', finalEmail)
-      .maybeSingle();
-
-    if (existingProfile) {
-      return { success: false, error: "Este correo ya está registrado en el sistema." };
-    }
-
-    const profileId = crypto.randomUUID();
-
-    // 3. Crear Perfil Fantasma
-    const { error: pErr } = await supabase.from('profiles').insert({
-      id: profileId,
-      full_name: athleteData.full_name,
-      email: finalEmail,
-      role: 'atleta'
+    const { data, error } = await supabase.rpc('create_full_athlete_atomic', {
+      p_payload: athleteData,
     });
-    if (pErr) throw pErr;
 
-    // 4. Crear Atleta (Blindando los campos NOT NULL detectados por SQL)
-    const { data: newAthlete, error: aErr } = await supabase.from('athletes').insert([{
-      profile_id: profileId,
-      dni: athleteData.dni,
-      phone: athleteData.phone,
-      plan_id: athleteData.plan_id, // Obligatorio según SQL
-      plan_option: athleteData.plan_option?.trim() || null,
-      coach_id: athleteData.coach_id,
-      visits_per_week: athleteData.visits_per_week || null,
-      plan_tier_price: athleteData.tier_price || null,
-      status: 'active',
-      gender: athleteData.gender,
-      city: athleteData.city,
-      // Obligatorio según SQL: Si no viene, usamos la fecha de hoy
-      join_date: athleteData.join_date || new Date().toISOString().split('T')[0] 
-    }]).select().single();
+    if (error) throw error;
 
-    if (aErr) throw aErr;
-
-    if (Array.isArray(athleteData.selected_weekly_schedule_ids) && athleteData.selected_weekly_schedule_ids.length > 0) {
-      const assignments = athleteData.selected_weekly_schedule_ids.map((weeklyScheduleId) => ({
-        athlete_id: newAthlete.id,
-        weekly_schedule_id: weeklyScheduleId,
-        starts_on: athleteData.join_date || new Date().toISOString().split('T')[0],
-        is_active: true,
-      }));
-
-      const { error: assignmentError } = await supabase.from('athlete_slot_assignments').insert(assignments);
-      if (assignmentError) throw assignmentError;
-    }
-
-    // 5. Generar Deuda Inicial
-    const { data: plan } = await supabase.from('plans').select('price, name').eq('id', athleteData.plan_id).single();
-    if (plan) {
-      await supabase.from('payments').insert({
-        athlete_id: newAthlete.id,
-        amount: athleteData.tier_price ?? plan.price,
-        status: 'pending',
-        concept: `Inscripción inicial - ${plan.name}`,
-        payment_date: new Date().toISOString().split('T')[0]
-      });
-    }
-
-    return { success: true, data: newAthlete };
+    return { success: true, data };
   } catch (error) {
-    console.error("❌ Error en createFullAthlete:", error);
+    console.error('❌ Error en createFullAthlete:', error);
 
     const isPolicyError =
       error?.code === '42501' ||
@@ -164,7 +97,6 @@ export const createFullAthlete = async (athleteData) => {
     return { success: false, error: error.message };
   }
 };
-
 
 export const deactivateAthlete = async (athleteId) => {
   const today = new Date().toISOString().split('T')[0];
@@ -186,7 +118,6 @@ export const deactivateAthlete = async (athleteId) => {
 
   return { success: true };
 };
-
 
 export const fetchAthleteAssignedSlots = async (athleteId, effectiveDate = new Date().toISOString().split('T')[0]) => {
   const { data, error } = await supabase
@@ -221,84 +152,20 @@ export const reassignAthleteSlots = async ({
   visitsPerWeek,
   selectedWeeklyScheduleIds,
   effectiveDate = new Date().toISOString().split('T')[0],
-  fetchPlanSlots,
 }) => {
   try {
-    if (!athleteId || !planId) {
-      return { success: false, error: 'Falta atleta o plan para reasignar horarios.' };
-    }
+    const { data, error } = await supabase.rpc('reassign_athlete_slots_atomic', {
+      p_athlete_id: athleteId,
+      p_plan_id: planId,
+      p_visits_per_week: Number(visitsPerWeek || 0),
+      p_selected_weekly_schedule_ids: selectedWeeklyScheduleIds || [],
+      p_effective_date: effectiveDate,
+    });
 
-    const frequency = Number(visitsPerWeek || 0);
-    if (!frequency || frequency <= 0) {
-      return { success: false, error: 'El atleta no tiene una frecuencia semanal válida.' };
-    }
+    if (error) throw error;
 
-    const uniqueSelected = Array.from(new Set((selectedWeeklyScheduleIds || []).filter(Boolean)));
-    if (uniqueSelected.length !== frequency) {
-      return { success: false, error: `Debes seleccionar exactamente ${frequency} horarios.` };
-    }
-
-    const { data: planLinks, error: linkError } = await supabase
-      .from('plan_schedule_slots')
-      .select('weekly_schedule_id')
-      .eq('plan_id', planId)
-      .in('weekly_schedule_id', uniqueSelected);
-
-    if (linkError) throw linkError;
-
-    if ((planLinks || []).length !== uniqueSelected.length) {
-      return { success: false, error: 'Se detectaron horarios fuera del plan del atleta.' };
-    }
-
-    const currentAssignments = await fetchAthleteAssignedSlots(athleteId, effectiveDate);
-    const currentSlotIds = new Set(currentAssignments.map((row) => row.weekly_schedule_id));
-
-    if (typeof fetchPlanSlots === 'function') {
-      const slotAvailability = await fetchPlanSlots(planId);
-      const availabilityMap = new Map((slotAvailability || []).map((slot) => [slot.weekly_schedule_id, slot]));
-
-      for (const slotId of uniqueSelected) {
-        const slot = availabilityMap.get(slotId);
-        if (!slot) {
-          return { success: false, error: 'No se pudo validar la disponibilidad del horario seleccionado.' };
-        }
-
-        const isAlreadyOwned = currentSlotIds.has(slotId);
-        if (!isAlreadyOwned && Number(slot.remaining) <= 0) {
-          return { success: false, error: 'Uno o más horarios seleccionados no tienen cupo disponible.' };
-        }
-      }
-    }
-
-    const selectedSet = new Set(uniqueSelected);
-    const toKeep = currentAssignments.filter((assignment) => selectedSet.has(assignment.weekly_schedule_id));
-    const toDeactivate = currentAssignments.filter((assignment) => !selectedSet.has(assignment.weekly_schedule_id));
-    const keepIds = new Set(toKeep.map((assignment) => assignment.weekly_schedule_id));
-    const toInsert = uniqueSelected.filter((slotId) => !keepIds.has(slotId));
-
-    if (toDeactivate.length > 0) {
-      const ids = toDeactivate.map((assignment) => assignment.id);
-      const { error: deactivateError } = await supabase
-        .from('athlete_slot_assignments')
-        .update({
-          is_active: false,
-          ends_on: effectiveDate,
-        })
-        .in('id', ids);
-
-      if (deactivateError) throw deactivateError;
-    }
-
-    if (toInsert.length > 0) {
-      const payload = toInsert.map((weeklyScheduleId) => ({
-        athlete_id: athleteId,
-        weekly_schedule_id: weeklyScheduleId,
-        starts_on: effectiveDate,
-        is_active: true,
-      }));
-
-      const { error: insertError } = await supabase.from('athlete_slot_assignments').insert(payload);
-      if (insertError) throw insertError;
+    if (data?.success === false) {
+      return { success: false, error: data.error || 'No se pudo reasignar horarios.' };
     }
 
     return { success: true };
