@@ -296,20 +296,6 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
 
 
 
-  const toggleSlot = (slotId) => {
-    setFormData((prev) => {
-      const exists = prev.selectedSlotIds.includes(slotId);
-      if (exists) {
-        return { ...prev, selectedSlotIds: prev.selectedSlotIds.filter((id) => id !== slotId) };
-      }
-
-      if (prev.selectedSlotIds.length >= Number(prev.visitsPerWeek)) {
-        return prev;
-      }
-
-      return { ...prev, selectedSlotIds: [...prev.selectedSlotIds, slotId] };
-    });
-  };
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
