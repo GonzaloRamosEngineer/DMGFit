@@ -37,8 +37,10 @@ export const generateMonthlyInvoices = async () => {
     const { data: activeAthletes, error: athletesError } = await supabase
       .from('athletes')
       .select(`
-        id, 
-        status, 
+        id,
+        status,
+        visits_per_week,
+        plan_tier_price,
         plans ( id, name, price )
       `)
       .eq('status', 'active');
@@ -79,18 +81,25 @@ export const generateMonthlyInvoices = async () => {
         
         // Si no tiene plan o precio, usamos defaults seguros
         const planName = planData?.name || 'Membresía General';
-        const planPrice = planData?.price || 0; 
-        
+        const tierPrice = Number(athlete.plan_tier_price);
+        const legacyPlanPrice = Number(planData?.price || 0);
+        const planPrice = Number.isFinite(tierPrice) ? tierPrice : legacyPlanPrice;
+
         const monthName = today.toLocaleDateString('es-ES', { month: 'long' });
         const formattedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
+        const visits = Number(athlete?.visits_per_week || 0);
+        const visitsLabel = visits > 0
+          ? ` - ${visits} ${visits === 1 ? 'vez' : 'veces'} por semana`
+          : '';
+
         return {
           athlete_id: athlete.id,
-          amount: planPrice,        // Nos aseguramos que sea un número o 0, nunca undefined
+          amount: planPrice,
           status: 'pending',
-          method: 'efectivo',       // Default method (puede ser null si tu BD lo permite, pero 'efectivo' es más seguro)
-          payment_date: paymentDateClean, 
-          concept: `Cuota ${formattedMonth} - ${planName}`
+          method: 'efectivo',
+          payment_date: paymentDateClean,
+          concept: `Cuota ${formattedMonth} - ${planName}${visitsLabel}`
         };
       });
 

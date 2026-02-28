@@ -4,7 +4,7 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
-import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, upsertPlanPricing, upsertPlanSlots, upsertPlanAvailabilityWindows, expandWindowsToSlots } from '../../services/plans';
+import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, savePlanConfiguration } from '../../services/plans';
 
 // Componentes Hijos
 import PlanCard from './components/PlanCard';
@@ -147,56 +147,15 @@ const PlanManagement = () => {
   const handleSavePlan = async (planData) => {
     try {
       setLoading(true);
-      
-      const planPayload = {
-        name: planData.name,
-        description: planData.description,
-        price: planData.price,
-        capacity: planData.capacity,
-        status: planData.status || 'active',
-        session_duration_min: Number(planData.sessionDurationMin || 60),
-      };
 
-      let planId = planData.id;
+      await savePlanConfiguration(planData, { planId: editingPlan ? planData.id : null });
 
-      if (editingPlan) {
-        const { error } = await supabase.from('plans').update(planPayload).eq('id', planId);
-        if (error) throw error;
-        
-        await Promise.all([
-          supabase.from('plan_features').delete().eq('plan_id', planId),
-          supabase.from('plan_schedule').delete().eq('plan_id', planId),
-          supabase.from('plan_coaches').delete().eq('plan_id', planId)
-        ]);
-      } else {
-        const { data, error } = await supabase.from('plans').insert(planPayload).select().single();
-        if (error) throw error;
-        planId = data.id;
-      }
-
-      const normalizedFeatures = Array.from(
-        new Set((planData.features || []).map((feature) => feature.trim()).filter(Boolean))
-      );
-      const featuresInsert = normalizedFeatures.map((feature) => ({ plan_id: planId, feature }));
-      const scheduleInsert = planData.schedule.map(s => ({ plan_id: planId, day: s.day, time: s.time }));
-      const coachesInsert = planData.professorIds?.map(coachId => ({ plan_id: planId, coach_id: coachId })) || [];
-
-      await Promise.all([
-        featuresInsert.length > 0 && supabase.from('plan_features').insert(featuresInsert),
-        scheduleInsert.length > 0 && supabase.from('plan_schedule').insert(scheduleInsert),
-        coachesInsert.length > 0 && supabase.from('plan_coaches').insert(coachesInsert),
-        upsertPlanPricing(planId, planData.pricingTiers || []),
-        upsertPlanAvailabilityWindows(planId, planData.availabilityWindows || []),
-        upsertPlanSlots(planId, expandWindowsToSlots(planData.availabilityWindows || [], planData.sessionDurationMin || 60)),
-      ]);
-
-      await fetchData(); 
+      await fetchData();
       setIsCreateModalOpen(false);
       setEditingPlan(null);
-
     } catch (error) {
-      console.error("Error guardando plan:", error);
-      alert("Hubo un error al guardar el plan. Revisa la consola.");
+      console.error('Error guardando plan:', error);
+      alert(error.message || 'Hubo un error al guardar el plan. Revisa la consola.');
     } finally {
       setLoading(false);
     }
