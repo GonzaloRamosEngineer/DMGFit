@@ -363,14 +363,6 @@ const PlanManagement = () => {
         </div>
       </div>
 
-
-      {selectedGridPlan && (
-        <PlanAvailabilityGridModal
-          plan={selectedGridPlan}
-          onClose={() => setSelectedGridPlan(null)}
-        />
-      )}
-
       {isCreateModalOpen && (
         <CreatePlanModal
           plan={editingPlan}
