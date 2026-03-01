@@ -23,42 +23,150 @@ const getLowestPrice = (plan) => {
   return Number(plan?.price || 0);
 };
 
+const timeToMinutes = (value = '') => {
+  const [hh = '0', mm = '0'] = String(value).slice(0, 5).split(':');
+  return Number(hh) * 60 + Number(mm);
+};
+
+const splitConsecutiveRanges = (days = []) => {
+  const uniqueSorted = [...new Set(days.map(Number).filter((d) => d >= 0 && d <= 6))].sort(
+    (a, b) => a - b
+  );
+
+  if (uniqueSorted.length === 0) return [];
+
+  const ranges = [];
+  let start = uniqueSorted[0];
+  let prev = uniqueSorted[0];
+
+  for (let i = 1; i < uniqueSorted.length; i += 1) {
+    const day = uniqueSorted[i];
+    if (day === prev + 1) {
+      prev = day;
+      continue;
+    }
+
+    ranges.push([start, prev]);
+    start = day;
+    prev = day;
+  }
+
+  ranges.push([start, prev]);
+  return ranges;
+};
+
+const formatDayRange = ([start, end]) => {
+  if (start === end) return DAYS_SHORT[start] || 'Día';
+  if (end === start + 1) return `${DAYS_SHORT[start]} y ${DAYS_SHORT[end]}`;
+  return `${DAYS_SHORT[start]} a ${DAYS_SHORT[end]}`;
+};
+
+const joinLabelsHumanly = (labels = []) => {
+  if (labels.length <= 1) return labels[0] || '';
+  if (labels.length === 2) return `${labels[0]} y ${labels[1]}`;
+  return `${labels.slice(0, -1).join(', ')} y ${labels[labels.length - 1]}`;
+};
+
+const formatDayGroup = (days = []) => {
+  const ranges = splitConsecutiveRanges(days).map(formatDayRange);
+  return joinLabelsHumanly(ranges);
+};
+
+const getSummaryIconName = (startTime = '') => {
+  const hour = Number(String(startTime).slice(0, 2) || 0);
+
+  if (hour < 12) return 'Sun';
+  if (hour < 18) return 'Clock3';
+  return 'Moon';
+};
+
 const getAvailabilitySummary = (plan) => {
   const windows = Array.isArray(plan?.availabilityWindows) ? plan.availabilityWindows : [];
 
   if (windows.length > 0) {
-    return windows
-      .slice()
+    const groups = new Map();
+
+    windows.forEach((window) => {
+      const start = String(window.start_time || '').slice(0, 5);
+      const end = String(window.end_time || '').slice(0, 5);
+      const day = Number(window.day_of_week);
+
+      if (!start || !end || !Number.isInteger(day)) return;
+
+      const key = `${start}-${end}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          start,
+          end,
+          days: [],
+        });
+      }
+
+      groups.get(key).days.push(day);
+    });
+
+    const groupedItems = Array.from(groups.values())
+      .map((group) => ({
+        startTime: group.start,
+        label: `${formatDayGroup(group.days)} · ${group.start} a ${group.end} hs`,
+        sortDay: Math.min(...group.days),
+        sortTime: timeToMinutes(group.start),
+      }))
       .sort((a, b) => {
-        if (Number(a.day_of_week) !== Number(b.day_of_week)) {
-          return Number(a.day_of_week) - Number(b.day_of_week);
-        }
-        return String(a.start_time || '').localeCompare(String(b.start_time || ''));
-      })
-      .slice(0, 3)
-      .map((window) => ({
-        label: `${DAYS_SHORT[Number(window.day_of_week)] || 'Día'}: ${String(
-          window.start_time || ''
-        ).slice(0, 5)} a ${String(window.end_time || '').slice(0, 5)} hs`,
-      }));
+        if (a.sortDay !== b.sortDay) return a.sortDay - b.sortDay;
+        return a.sortTime - b.sortTime;
+      });
+
+    return {
+      items: groupedItems.slice(0, 3),
+      extraCount: Math.max(groupedItems.length - 3, 0),
+    };
   }
 
   const schedule = Array.isArray(plan?.schedule) ? plan.schedule : [];
-  return schedule.slice(0, 3).map((slot) => ({
-    label: `${slot.day || 'Día'}: ${slot.time || ''}`,
-  }));
+  const fallbackItems = schedule.slice(0, 3).map((slot) => {
+    const startTime =
+      String(slot.start_time || '').slice(0, 5) ||
+      String(slot.time || '').slice(0, 5);
+
+    return {
+      label: `${slot.day || 'Día'}: ${slot.time || ''}`,
+      startTime,
+    };
+  });
+
+  return {
+    items: fallbackItems,
+    extraCount: Math.max(schedule.length - 3, 0),
+  };
 };
 
-const getProgressColor = (occupancyRate) => {
-  if (occupancyRate >= 100) return 'bg-rose-500';
-  if (occupancyRate >= 80) return 'bg-amber-400';
-  return 'bg-emerald-500';
-};
+const getAccumulatedAvailability = (plan) => {
+  const schedule = Array.isArray(plan?.schedule) ? plan.schedule : [];
 
-const getProgressTrackTextColor = (occupancyRate) => {
-  if (occupancyRate >= 100) return 'text-rose-600';
-  if (occupancyRate >= 80) return 'text-amber-600';
-  return 'text-emerald-600';
+  let hasRemainingData = false;
+
+  const totalRemaining = schedule.reduce((sum, slot) => {
+    const rawRemaining = slot?.remaining;
+
+    if (rawRemaining === undefined || rawRemaining === null || Number.isNaN(Number(rawRemaining))) {
+      return sum;
+    }
+
+    hasRemainingData = true;
+    return sum + Math.max(0, Number(rawRemaining));
+  }, 0);
+
+  const slotCount = schedule.filter((slot) =>
+    Number.isFinite(Number(slot?.capacity))
+  ).length;
+
+  return {
+    totalRemaining,
+    slotCount,
+    hasRemainingData,
+  };
 };
 
 const PlanCard = ({
@@ -71,6 +179,10 @@ const PlanCard = ({
 }) => {
   const lowestPrice = useMemo(() => getLowestPrice(plan), [plan]);
   const availabilitySummary = useMemo(() => getAvailabilitySummary(plan), [plan]);
+  const accumulatedAvailability = useMemo(
+    () => getAccumulatedAvailability(plan),
+    [plan]
+  );
 
   if (loading) {
     return (
@@ -105,8 +217,6 @@ const PlanCard = ({
   }
 
   const enrolled = Number(plan?.enrolled || 0);
-  const capacity = Math.max(0, Number(plan?.capacity || 0));
-  const occupancyRate = capacity > 0 ? Math.round((enrolled / capacity) * 100) : 0;
   const isActive = plan?.status === 'active';
 
   return (
@@ -165,7 +275,7 @@ const PlanCard = ({
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">
-              Ocupación
+              Ocupación actual
             </p>
 
             <div className="flex items-end gap-1">
@@ -173,36 +283,47 @@ const PlanCard = ({
               <span className="text-sm font-bold text-slate-400 mb-1">alumnos</span>
             </div>
 
-            <div className="mt-3">
-              <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${getProgressColor(occupancyRate)}`}
-                  style={{ width: `${Math.min(occupancyRate, 100)}%` }}
-                />
-              </div>
-              <p
-                className={`text-xs font-black mt-2 ${getProgressTrackTextColor(
-                  occupancyRate
-                )}`}
-              >
-                {occupancyRate}% de ocupación
+            {accumulatedAvailability.hasRemainingData ? (
+              <>
+                <div className="mt-3 flex items-end gap-1">
+                  <span className="text-xl font-black text-emerald-600">
+                    {accumulatedAvailability.totalRemaining}
+                  </span>
+                  <span className="text-sm font-bold text-slate-400 mb-0.5">
+                    lugares libres
+                  </span>
+                </div>
+
+                <p className="text-xs font-semibold text-slate-500 mt-1">
+                  Disponibilidad horaria acumulada
+                </p>
+
+                {accumulatedAvailability.slotCount > 0 && (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Sumatoria de libres reales en {accumulatedAvailability.slotCount} slots configurados
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-slate-400 mt-3">
+                Disponibilidad horaria no calculada
               </p>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Ventanas horarias */}
+        {/* Horarios habilitados */}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 flex-1">
           <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">
-            Ventanas horarias
+            Horarios habilitados
           </p>
 
-          <div className="space-y-2 mb-4">
-            {availabilitySummary.length > 0 ? (
-              availabilitySummary.map((item, index) => (
+          <div className="space-y-2 mb-3">
+            {availabilitySummary.items.length > 0 ? (
+              availabilitySummary.items.map((item, index) => (
                 <div key={index} className="flex items-center gap-2 text-sm text-slate-700">
                   <Icon
-                    name={index === 0 ? 'Sun' : index === 1 ? 'Moon' : 'Clock3'}
+                    name={getSummaryIconName(item.startTime)}
                     size={14}
                     className="text-slate-400"
                   />
@@ -211,6 +332,18 @@ const PlanCard = ({
               ))
             ) : (
               <p className="text-sm text-slate-400 italic">Sin horarios definidos</p>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <p className="text-xs text-slate-400">
+              Resumen de disponibilidad semanal del plan
+            </p>
+
+            {availabilitySummary.extraCount > 0 && (
+              <p className="text-[11px] font-semibold text-slate-400 mt-1">
+                +{availabilitySummary.extraCount} franja{availabilitySummary.extraCount > 1 ? 's' : ''} más
+              </p>
             )}
           </div>
 
