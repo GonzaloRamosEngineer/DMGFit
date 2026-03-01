@@ -4,12 +4,13 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
-import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, savePlanConfiguration } from '../../services/plans';
+import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, fetchActiveAthleteCountsByPlan, savePlanConfiguration } from '../../services/plans';
 
 // Componentes Hijos
 import PlanCard from './components/PlanCard';
 import CreatePlanModal from './components/CreatePlanModal';
 import PlanMetrics from './components/PlanMetrics';
+import PlanAvailabilityGridModal from './components/PlanAvailabilityGridModal';
 
 const PlanManagement = () => {
   const { currentUser } = useAuth();
@@ -22,6 +23,7 @@ const PlanManagement = () => {
   // Estados de UI/Modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [selectedGridPlan, setSelectedGridPlan] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -57,16 +59,16 @@ const PlanManagement = () => {
           *,
           plan_features ( feature ),
           plan_schedule ( day, time ),
-          plan_coaches ( coach_id, coaches ( profiles ( full_name ) ) ),
-          enrollments ( count )
+          plan_coaches ( coach_id, coaches ( profiles ( full_name ) ) )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
+      const activeAthleteCountsByPlan = await fetchActiveAthleteCountsByPlan().catch(() => ({}));
+
       // 3. Formatear datos
       const formattedPlans = await Promise.all(plansData.map(async (p) => {
-        const enrolledCount = p.enrollments?.length || 0;
         const [pricingTiers, slotAvailability, availabilityWindows] = await Promise.all([
           fetchPlanPricing(p.id).catch(() => []),
           fetchPlanSlots(p.id).catch(() => []),
@@ -94,7 +96,7 @@ const PlanManagement = () => {
           capacity: p.capacity,
           status: p.status,
           sessionDurationMin: Number(p.session_duration_min || 60),
-          enrolled: enrolledCount,
+          enrolled: Number(activeAthleteCountsByPlan?.[p.id] ?? 0),
           features: p.plan_features?.map(f => f.feature) || [],
           pricingTiers,
           availabilityWindows,
@@ -292,6 +294,7 @@ const PlanManagement = () => {
                     }}
                     onDelete={handleDeletePlan}
                     onToggleStatus={handleToggleStatus}
+                    onViewGrid={setSelectedGridPlan}
                   />
                 ))}
               </div>
@@ -321,6 +324,14 @@ const PlanManagement = () => {
           </div>
         </div>
       </div>
+
+
+      {selectedGridPlan && (
+        <PlanAvailabilityGridModal
+          plan={selectedGridPlan}
+          onClose={() => setSelectedGridPlan(null)}
+        />
+      )}
 
       {isCreateModalOpen && (
         <CreatePlanModal

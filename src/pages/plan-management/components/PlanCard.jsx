@@ -1,7 +1,7 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
 
-const PlanCard = ({ plan, onEdit, onDelete, onToggleStatus, loading = false }) => {
+const PlanCard = ({ plan, onEdit, onDelete, onToggleStatus, onViewGrid, loading = false }) => {
   
   if (loading) {
     return (
@@ -143,6 +143,13 @@ const PlanCard = ({ plan, onEdit, onDelete, onToggleStatus, loading = false }) =
 
       {/* Botones de Acción */}
       <div className="flex gap-2 pt-4 border-t border-slate-100 mt-auto">
+        <button 
+          onClick={() => onViewGrid?.(plan)} 
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors"
+        >
+          <Icon name="LayoutGrid" size={14} /> Grilla
+        </button>
+        
         <button 
           onClick={() => onEdit(plan)} 
           className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
