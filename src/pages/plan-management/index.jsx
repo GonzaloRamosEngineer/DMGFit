@@ -12,47 +12,58 @@ import CreatePlanModal from './components/CreatePlanModal';
 import PlanMetrics from './components/PlanMetrics';
 import PlanAvailabilityGridModal from './components/PlanAvailabilityGridModal';
 
+const normalizeRelation = (value) => {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
+};
+
 const PlanManagement = () => {
   const { currentUser } = useAuth();
-  
-  // Estados de Datos
+
+  // Estados de datos
   const [plans, setPlans] = useState([]);
   const [availableCoaches, setAvailableCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // Estados de UI/Modal
+
+  // Estados de UI / Modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
-  const [selectedGridPlan, setSelectedGridPlan] = useState(null);
+  const [isGridModalOpen, setIsGridModalOpen] = useState(false);
+  const [selectedPlanForGrid, setSelectedPlanForGrid] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // Estados de Métricas
+  // Métricas
   const [metrics, setMetrics] = useState({
     totalPlans: 0,
     activePlans: 0,
     totalEnrolled: 0,
     avgOccupancy: 0,
-    monthlyRevenue: 0
+    monthlyRevenue: 0,
   });
 
-  // --- CARGA DE DATOS ---
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      // 1. Cargar Lista de Coaches Disponibles
+      // Coaches disponibles
       const { data: coachesData } = await supabase
         .from('coaches')
-        .select('id, profiles(full_name)');
-      
-      const formattedCoaches = coachesData?.map(c => ({
-        id: c.id,
-        name: c.profiles?.full_name || 'Entrenador'
-      })) || [];
+        .select('id, profiles:profile_id(full_name)');
+
+      const formattedCoaches =
+        coachesData?.map((coach) => {
+          const profile = normalizeRelation(coach.profiles);
+          return {
+            id: coach.id,
+            name: profile?.full_name || 'Entrenador',
+          };
+        }) || [];
+
       setAvailableCoaches(formattedCoaches);
 
-      // 2. Cargar Planes
+      // Planes
       const { data: plansData, error } = await supabase
         .from('plans')
         .select(`
@@ -108,9 +119,8 @@ const PlanManagement = () => {
 
       setPlans(formattedPlans);
       calculateMetrics(formattedPlans);
-
     } catch (error) {
-      console.error("Error cargando planes:", error);
+      console.error('Error cargando planes:', error);
     } finally {
       setLoading(false);
     }
@@ -122,35 +132,42 @@ const PlanManagement = () => {
 
   const calculateMetrics = (data) => {
     const total = data.length;
-    const active = data.filter(p => p.status === 'active').length;
-    const enrolled = data.reduce((sum, p) => sum + p.enrolled, 0);
-    const revenue = data.reduce((sum, p) => sum + (p.enrolled * p.price), 0);
-    
+    const active = data.filter((plan) => plan.status === 'active').length;
+    const enrolled = data.reduce((sum, plan) => sum + Number(plan.enrolled || 0), 0);
+    const revenue = data.reduce(
+      (sum, plan) => sum + Number(plan.enrolled || 0) * Number(plan.price || 0),
+      0
+    );
+
     let occupancySum = 0;
     let capacitySum = 0;
-    data.forEach(p => {
-        if(p.status === 'active') {
-            occupancySum += p.enrolled;
-            capacitySum += p.capacity;
-        }
+
+    data.forEach((plan) => {
+      if (plan.status === 'active') {
+        occupancySum += Number(plan.enrolled || 0);
+        capacitySum += Number(plan.capacity || 0);
+      }
     });
-    const occupancy = capacitySum > 0 ? Math.round((occupancySum / capacitySum) * 100) : 0;
+
+    const occupancy =
+      capacitySum > 0 ? Math.round((occupancySum / capacitySum) * 100) : 0;
 
     setMetrics({
       totalPlans: total,
       activePlans: active,
       totalEnrolled: enrolled,
       avgOccupancy: occupancy,
-      monthlyRevenue: revenue
+      monthlyRevenue: revenue,
     });
   };
 
-  // --- ACTIONS ---
   const handleSavePlan = async (planData) => {
     try {
       setLoading(true);
 
-      await savePlanConfiguration(planData, { planId: editingPlan ? planData.id : null });
+      await savePlanConfiguration(planData, {
+        planId: editingPlan ? planData.id : null,
+      });
 
       await fetchData();
       setIsCreateModalOpen(false);
@@ -165,34 +182,57 @@ const PlanManagement = () => {
 
   const handleDeletePlan = async (planId) => {
     if (!window.confirm('¿Estás seguro? Esta acción no se puede deshacer.')) return;
+
     try {
       const { error } = await supabase.from('plans').delete().eq('id', planId);
       if (error) throw error;
-      setPlans(prev => prev.filter(p => p.id !== planId));
-      calculateMetrics(plans.filter(p => p.id !== planId));
+
+      const nextPlans = plans.filter((plan) => plan.id !== planId);
+      setPlans(nextPlans);
+      calculateMetrics(nextPlans);
     } catch (error) {
-      console.error("Error eliminando plan:", error);
+      console.error('Error eliminando plan:', error);
     }
   };
 
   const handleToggleStatus = async (planId) => {
-    const plan = plans.find(p => p.id === planId);
+    const plan = plans.find((item) => item.id === planId);
+    if (!plan) return;
+
     const newStatus = plan.status === 'active' ? 'inactive' : 'active';
-    
+
     try {
       await supabase.from('plans').update({ status: newStatus }).eq('id', planId);
-      setPlans(prev => prev.map(p => p.id === planId ? { ...p, status: newStatus } : p));
-      calculateMetrics(plans.map(p => p.id === planId ? { ...p, status: newStatus } : p));
+
+      const nextPlans = plans.map((item) =>
+        item.id === planId ? { ...item, status: newStatus } : item
+      );
+
+      setPlans(nextPlans);
+      calculateMetrics(nextPlans);
+
+      if (selectedPlanForGrid?.id === planId) {
+        setSelectedPlanForGrid((prev) =>
+          prev ? { ...prev, status: newStatus } : prev
+        );
+      }
     } catch (error) {
-      console.error("Error actualizando estado:", error);
+      console.error('Error actualizando estado:', error);
     }
   };
 
-  // --- FILTROS ---
-  const filteredPlans = plans.filter(plan => {
-    const matchesSearch = plan.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          plan.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const handleOpenGrid = (plan) => {
+    setSelectedPlanForGrid(plan);
+    setIsGridModalOpen(true);
+  };
+
+  const filteredPlans = plans.filter((plan) => {
+    const matchesSearch =
+      plan.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      plan.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
     const matchesStatus = filterStatus === 'all' || plan.status === filterStatus;
+
     return matchesSearch && matchesStatus;
   });
 
@@ -201,27 +241,25 @@ const PlanManagement = () => {
       <Helmet>
         <title>Gestión de Planes - VC Fit</title>
       </Helmet>
-      
-      {/* Contenedor Principal con estilo unificado */}
+
       <div className="min-h-screen bg-[#F8FAFC] p-4 sm:p-6 md:p-10 pb-24">
         <div className="max-w-7xl mx-auto">
-          
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <BreadcrumbTrail 
+              <BreadcrumbTrail
                 items={[
-                  { label: 'Gestión de Planes', path: '/plan-management', active: true }
-                ]} 
+                  { label: 'Gestión de Planes', path: '/plan-management', active: true },
+                ]}
               />
               <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-2">
                 Gestión de Planes
               </h1>
               <p className="text-slate-500 font-medium mt-1">
-                Administra los servicios, precios y horarios de tu centro
+                Administra los servicios, precios, horarios y cupos.
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
               <button
                 onClick={() => {
@@ -230,23 +268,21 @@ const PlanManagement = () => {
                 }}
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
               >
-                <Icon name="Plus" size={16} /> Crear Plan
+                <Icon name="Plus" size={16} />
+                Crear Plan
               </button>
             </div>
           </div>
 
-          {/* MÉTRICAS (Componente Hijo) */}
+          {/* Métricas */}
           <div className="mb-8">
             <PlanMetrics metrics={metrics} loading={loading} />
           </div>
 
-          {/* ÁREA DE CONTENIDO (Filtros + Lista) */}
+          {/* Contenido */}
           <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-4 sm:p-6 md:p-8">
-            
-            {/* FILTROS Y BÚSQUEDA */}
+            {/* Filtros */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
-              
-              {/* Buscador */}
               <div className="flex-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Icon name="Search" size={18} className="text-slate-400" />
@@ -260,7 +296,6 @@ const PlanManagement = () => {
                 />
               </div>
 
-              {/* Selector de Estado */}
               <div className="sm:w-48 relative">
                 <select
                   value={filterStatus}
@@ -277,24 +312,26 @@ const PlanManagement = () => {
               </div>
             </div>
 
-            {/* LISTA DE PLANES (Grid Responsivo) */}
+            {/* Lista */}
             {loading ? (
-               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                 {[1,2,3].map(i => <PlanCard key={i} loading={true} />)}
-               </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {[1, 2].map((item) => (
+                  <PlanCard key={item} loading />
+                ))}
+              </div>
             ) : filteredPlans.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {filteredPlans.map((plan) => (
                   <PlanCard
                     key={plan.id}
                     plan={plan}
-                    onEdit={(p) => {
-                      setEditingPlan(p);
+                    onEdit={(selectedPlan) => {
+                      setEditingPlan(selectedPlan);
                       setIsCreateModalOpen(true);
                     }}
                     onDelete={handleDeletePlan}
                     onToggleStatus={handleToggleStatus}
-                    onViewGrid={setSelectedGridPlan}
+                    onViewGrid={handleOpenGrid}
                   />
                 ))}
               </div>
@@ -304,15 +341,16 @@ const PlanManagement = () => {
                   <Icon name="Package" size={28} className="text-slate-300" />
                 </div>
                 <h3 className="text-lg font-black text-slate-700 mb-1">
-                  {searchQuery ? "No hay coincidencias" : "No hay planes creados"}
+                  {searchQuery ? 'No hay coincidencias' : 'No hay planes creados'}
                 </h3>
                 <p className="text-sm font-medium text-slate-500">
-                  {searchQuery 
-                    ? "Prueba buscando con otros términos o cambia los filtros."
-                    : "Crea tu primer plan de entrenamiento para empezar."}
+                  {searchQuery
+                    ? 'Prueba buscando con otros términos o cambia los filtros.'
+                    : 'Crea tu primer plan de entrenamiento para empezar.'}
                 </p>
+
                 {!searchQuery && (
-                  <button 
+                  <button
                     onClick={() => setIsCreateModalOpen(true)}
                     className="mt-6 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all shadow-sm"
                   >
@@ -341,6 +379,16 @@ const PlanManagement = () => {
           onClose={() => {
             setIsCreateModalOpen(false);
             setEditingPlan(null);
+          }}
+        />
+      )}
+
+      {isGridModalOpen && selectedPlanForGrid && (
+        <PlanAvailabilityGridModal
+          plan={selectedPlanForGrid}
+          onClose={() => {
+            setIsGridModalOpen(false);
+            setSelectedPlanForGrid(null);
           }}
         />
       )}
