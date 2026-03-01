@@ -9,9 +9,9 @@ const INTERNAL_DOMAINS = ["@dmg.internal", "@vcfit.internal"];
 
 const formatCurrency = (amount) => {
   const value = Number(amount || 0);
-  return new Intl.NumberFormat('es-UY', {
+  return new Intl.NumberFormat('es-AR', {
     style: 'currency',
-    currency: 'UYU',
+    currency: 'ARS',
     minimumFractionDigits: 0,
   }).format(value);
 };

@@ -4,7 +4,7 @@ import Icon from '../../../components/AppIcon';
 
 // --- UTILS ---
 const formatCurrency = (amount) => 
-  new Intl.NumberFormat('es-UY', { style: 'currency', currency: 'UYU', minimumFractionDigits: 0 }).format(amount);
+  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
 
 const formatTimeAgo = (timestamp) => {
   if (!timestamp) return '';

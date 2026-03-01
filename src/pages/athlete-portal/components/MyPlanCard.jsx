@@ -23,9 +23,9 @@ const getActiveDays = (schedule = []) => {
 
 // Formateador de moneda
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('es-UY', {
+  return new Intl.NumberFormat('es-AR', {
     style: 'currency',
-    currency: 'UYU',
+    currency: 'ARS',
     minimumFractionDigits: 0
   }).format(amount);
 };
@@ -130,7 +130,7 @@ const MyPlanCard = ({ plan }) => {
               <div className="flex items-center gap-1.5 text-slate-300">
                  <Icon name="Calendar" size={12} />
                  <span className="text-xs font-bold">
-                    {renewalDate.toLocaleDateString('es-UY', { month: 'short', day: 'numeric' })}
+                    {renewalDate.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' })}
                  </span>
               </div>
            </div>

@@ -4,9 +4,9 @@ import Icon from "../../../components/AppIcon";
 
 // --- UTILS & HELPERS ---
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat("es-UY", {
+  return new Intl.NumberFormat("es-AR", {
     style: "currency",
-    currency: "UYU",
+    currency: "ARS",
     minimumFractionDigits: 0,
   }).format(Number(amount || 0));
 };
