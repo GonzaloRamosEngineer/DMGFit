@@ -95,6 +95,32 @@ export const fetchPlanSlots = async (planId) => {
   return data ?? [];
 };
 
+export const fetchActiveAthleteCountsByPlan = async () => {
+  const { data, error } = await supabase
+    .from('athletes')
+    .select('plan_id')
+    .eq('status', 'active')
+    .not('plan_id', 'is', null);
+
+  if (error) throw error;
+
+  return (data ?? []).reduce((acc, athlete) => {
+    const planId = athlete?.plan_id;
+    if (!planId) return acc;
+    acc[planId] = (acc[planId] ?? 0) + 1;
+    return acc;
+  }, {});
+};
+
+export const fetchPlanGridAvailability = async (planId) => {
+  const { data, error } = await supabase.rpc('plan_grid_availability', {
+    p_plan_id: planId,
+  });
+
+  if (error) throw error;
+  return data ?? [];
+};
+
 export const fetchPlanAvailabilityWindows = async (planId) => {
   const { data, error } = await supabase
     .from('plan_availability_windows')

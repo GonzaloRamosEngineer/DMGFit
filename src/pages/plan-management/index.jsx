@@ -4,12 +4,7 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
-import {
-  fetchPlanPricing,
-  fetchPlanSlots,
-  fetchPlanAvailabilityWindows,
-  savePlanConfiguration,
-} from '../../services/plans';
+import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, fetchActiveAthleteCountsByPlan, savePlanConfiguration } from '../../services/plans';
 
 // Componentes Hijos
 import PlanCard from './components/PlanCard';
@@ -75,80 +70,52 @@ const PlanManagement = () => {
           *,
           plan_features ( feature ),
           plan_schedule ( day, time ),
-          plan_coaches (
-            coach_id,
-            coaches:coach_id (
-              profiles:profile_id ( full_name )
-            )
-          ),
-          enrollments ( count )
+          plan_coaches ( coach_id, coaches ( profiles ( full_name ) ) )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedPlans = await Promise.all(
-        (plansData || []).map(async (planRow) => {
-          const enrolledCount =
-            Number(planRow.enrollments?.[0]?.count) ||
-            Number(planRow.enrollments?.count) ||
-            Number(planRow.enrollments?.length) ||
-            0;
+      const activeAthleteCountsByPlan = await fetchActiveAthleteCountsByPlan().catch(() => ({}));
 
-          const [pricingTiers, slotAvailability, availabilityWindows] =
-            await Promise.all([
-              fetchPlanPricing(planRow.id).catch(() => []),
-              fetchPlanSlots(planRow.id).catch(() => []),
-              fetchPlanAvailabilityWindows(planRow.id).catch(() => []),
-            ]);
+      // 3. Formatear datos
+      const formattedPlans = await Promise.all(plansData.map(async (p) => {
+        const [pricingTiers, slotAvailability, availabilityWindows] = await Promise.all([
+          fetchPlanPricing(p.id).catch(() => []),
+          fetchPlanSlots(p.id).catch(() => []),
+          fetchPlanAvailabilityWindows(p.id).catch(() => []),
+        ]);
 
-          const schedule =
-            slotAvailability.length > 0
-              ? slotAvailability.map((slot) => ({
-                  weeklyScheduleId: slot.weekly_schedule_id,
-                  day_of_week: Number(slot.day_of_week),
-                  day:
-                    ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][
-                      Number(slot.day_of_week)
-                    ] || 'Día',
-                  start_time: String(slot.start_time || '').slice(0, 5),
-                  end_time: String(slot.end_time || '').slice(0, 5),
-                  time: `${String(slot.start_time || '').slice(0, 5)} - ${String(
-                    slot.end_time || ''
-                  ).slice(0, 5)}`,
-                  capacity: Number(slot.capacity || 0),
-                  remaining: Number(slot.remaining ?? slot.capacity ?? 0),
-                }))
-              : (planRow.plan_schedule || []).map((scheduleRow) => ({
-                  day: scheduleRow.day,
-                  time: scheduleRow.time,
-                }));
+        const schedule = slotAvailability.length > 0
+          ? slotAvailability.map((slot) => ({
+              weeklyScheduleId: slot.weekly_schedule_id,
+              day_of_week: slot.day_of_week,
+              day: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][slot.day_of_week] || 'Día',
+              start_time: slot.start_time,
+              end_time: slot.end_time,
+              time: `${String(slot.start_time).slice(0, 5)} - ${String(slot.end_time).slice(0, 5)}`,
+              capacity: slot.capacity,
+              remaining: slot.remaining,
+            }))
+          : (p.plan_schedule?.map(s => ({ day: s.day, time: s.time })) || []);
 
-          return {
-            id: planRow.id,
-            name: planRow.name,
-            description: planRow.description,
-            price: Number(planRow.price || 0),
-            capacity: Number(planRow.capacity || 0),
-            status: planRow.status,
-            sessionDurationMin: Number(planRow.session_duration_min || 60),
-            enrolled: enrolledCount,
-            features: planRow.plan_features?.map((feature) => feature.feature) || [],
-            pricingTiers,
-            availabilityWindows,
-            schedule,
-            professors:
-              planRow.plan_coaches
-                ?.map((planCoach) => {
-                  const coach = normalizeRelation(planCoach.coaches);
-                  const profile = normalizeRelation(coach?.profiles);
-                  return profile?.full_name || null;
-                })
-                .filter(Boolean) || [],
-            professorIds: planRow.plan_coaches?.map((planCoach) => planCoach.coach_id) || [],
-          };
-        })
-      );
+        return {
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          price: Number(p.price),
+          capacity: p.capacity,
+          status: p.status,
+          sessionDurationMin: Number(p.session_duration_min || 60),
+          enrolled: Number(activeAthleteCountsByPlan?.[p.id] ?? 0),
+          features: p.plan_features?.map(f => f.feature) || [],
+          pricingTiers,
+          availabilityWindows,
+          schedule,
+          professors: p.plan_coaches?.map(pc => pc.coaches?.profiles?.full_name).filter(Boolean) || [],
+          professorIds: p.plan_coaches?.map(pc => pc.coach_id) || []
+        };
+      }));
 
       setPlans(formattedPlans);
       calculateMetrics(formattedPlans);
@@ -395,6 +362,14 @@ const PlanManagement = () => {
           </div>
         </div>
       </div>
+
+
+      {selectedGridPlan && (
+        <PlanAvailabilityGridModal
+          plan={selectedGridPlan}
+          onClose={() => setSelectedGridPlan(null)}
+        />
+      )}
 
       {isCreateModalOpen && (
         <CreatePlanModal
