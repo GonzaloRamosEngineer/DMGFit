@@ -5,7 +5,7 @@ import Icon from '../../components/AppIcon';
 import { featureFlags } from '../../lib/featureFlags';
 
 const AccessControl = () => {
-  const [dni, setDni] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [status, setStatus] = useState('idle'); // idle, loading, success, error
   const [message, setMessage] = useState(null);
   const [athleteData, setAthleteData] = useState(null);
@@ -18,7 +18,7 @@ const AccessControl = () => {
 
   const handleCheckIn = async (e) => {
     e.preventDefault();
-    if (!dni) return;
+    if (!identifier) return;
     setStatus('loading');
 
     try {
@@ -26,14 +26,17 @@ const AccessControl = () => {
         throw new Error('Kiosco en modo mantenimiento. Intenta nuevamente en unos minutos.');
       }
 
-      const result = await runKioskCheckIn({ dni });
+      const result = await runKioskCheckIn({ identifier });
       const reasonMessage = kioskReasonMessages[result.reason_code] || result.message || defaultKioskErrorMessage;
 
-      const hasIdentity = Boolean(result.athleteName || result.planName || result.avatarUrl);
+      const actorType = result.actorType || (result.coachId ? 'coach' : 'athlete');
+      const resolvedName = result.fullName || result.athleteName || (actorType === 'coach' ? 'Profesor' : 'Atleta');
+      const resolvedPlan = actorType === 'coach' ? 'Profesor' : (result.planName || 'Plan');
+      const hasIdentity = Boolean(resolvedName || result.avatarUrl || result.planName);
       if (hasIdentity) {
         setAthleteData({
-          name: result.athleteName || 'Atleta',
-          plan: result.planName || 'Plan',
+          name: resolvedName,
+          plan: resolvedPlan,
           photo: result.avatarUrl || null
         });
       }
@@ -44,15 +47,17 @@ const AccessControl = () => {
 
         setTimeout(() => {
           setStatus('idle');
-          setDni('');
+          setIdentifier('');
           setAthleteData(null);
         }, 4000);
         return;
       }
 
-      const displayMessage = typeof result.remaining === 'number'
-        ? `Te quedan ${result.remaining} accesos disponibles.`
-        : reasonMessage;
+      const displayMessage = actorType === 'coach'
+        ? (result.message || 'Acceso permitido.')
+        : (typeof result.remaining === 'number'
+            ? `Te quedan ${result.remaining} accesos disponibles.`
+            : reasonMessage);
 
       if (!hasIdentity) {
         setAthleteData({
@@ -66,7 +71,7 @@ const AccessControl = () => {
 
       setTimeout(() => {
         setStatus('idle');
-        setDni('');
+        setIdentifier('');
         setAthleteData(null);
       }, 4000);
 
@@ -77,27 +82,27 @@ const AccessControl = () => {
 
       setTimeout(() => {
         setStatus('idle');
-        setDni('');
+        setIdentifier('');
       }, 4000);
     }
   };
 
   // Funciones del teclado numérico
   const handleNumberClick = (num) => {
-    if (dni.length < 10 && status === 'idle') {
-      setDni(prev => prev + num);
+    if (identifier.length < 11 && status === 'idle') {
+      setIdentifier(prev => prev + num);
     }
   };
 
   const handleBackspace = () => {
     if (status === 'idle') {
-      setDni(prev => prev.slice(0, -1));
+      setIdentifier(prev => prev.slice(0, -1));
     }
   };
 
   const handleClear = () => {
     if (status === 'idle') {
-      setDni('');
+      setIdentifier('');
     }
   };
 
@@ -170,24 +175,24 @@ const AccessControl = () => {
             Control de Acceso
           </h1>
           <p className="text-lg sm:text-xl text-muted-foreground">
-            Ingresa tu DNI para validar tu acceso
+            Ingresá tu DNI o teléfono para validar tu acceso
           </p>
         </div>
 
         {/* Input Display & Keypad */}
         {status === 'idle' || status === 'loading' ? (
           <form onSubmit={handleCheckIn} className="space-y-6">
-            {/* DNI Display */}
+            {/* Identifier Display */}
             <div className="relative">
               <input
                 ref={inputRef}
                 type="text"
-                value={dni}
-                onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value.replace(/\D/g, ''))}
                 placeholder="_ _ _ _ _ _ _ _"
                 className="w-full text-center text-4xl sm:text-5xl lg:text-6xl font-bold py-6 sm:py-8 rounded-3xl border-4 border-border bg-white shadow-2xl focus:ring-4 focus:ring-primary/50 focus:border-primary outline-none transition-all placeholder:text-muted-foreground/20 tracking-widest"
                 autoFocus
-                maxLength={10}
+                maxLength={11}
                 disabled={status === 'loading'}
                 readOnly
               />
@@ -201,7 +206,7 @@ const AccessControl = () => {
 
               {/* Character Count
               <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm text-muted-foreground font-medium">
-                {dni.length} / 10 dígitos
+                {identifier.length} / 11 dígitos
               </div> */}
             </div>
 
@@ -213,7 +218,7 @@ const AccessControl = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={!dni || status === 'loading'}
+              disabled={!identifier || status === 'loading'}
               className="w-full h-16 sm:h-20 rounded-2xl bg-gradient-to-r from-primary to-primary-light text-white text-xl sm:text-2xl font-bold shadow-2xl hover:shadow-primary/50 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-3"
             >
               {status === 'loading' ? (

@@ -43,7 +43,11 @@ const AccessHistory = () => {
         .select(`
           id, check_in_time, access_granted, rejection_reason, reason_code, weekly_schedule_id, remaining_sessions,
           athletes (
-            id, 
+            id,
+            profiles (full_name, email)
+          ),
+          coaches (
+            id,
             profiles (full_name, email)
           )
         `)
@@ -54,7 +58,20 @@ const AccessHistory = () => {
 
       if (error) throw error;
       
-      setAllLogs(data || []);
+      const normalizedLogs = (data || []).map((log) => {
+        const athleteProfile = log?.athletes?.profiles;
+        const coachProfile = log?.coaches?.profiles;
+        const actorType = coachProfile ? 'Profesor' : 'Atleta';
+        const actorName = coachProfile?.full_name || athleteProfile?.full_name || 'Sin nombre';
+
+        return {
+          ...log,
+          actorType,
+          actorName,
+        };
+      });
+
+      setAllLogs(normalizedLogs);
 
       // Si hay datos, auto-seleccionamos el día más reciente que trajo la consulta
       if (data && data.length > 0) {
@@ -299,7 +316,7 @@ const AccessHistory = () => {
                   {/* Cabecera Tabla */}
                   <div className="grid grid-cols-[80px_minmax(150px,2fr)_100px_minmax(150px,1.5fr)] gap-4 px-8 py-4 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest items-center">
                     <div>Hora</div>
-                    <div>Atleta</div>
+                    <div>Persona</div>
                     <div>Estado</div>
                     <div>Detalle</div>
                   </div>
@@ -324,8 +341,11 @@ const AccessHistory = () => {
                           <div className="font-bold text-slate-600 text-sm">
                             {new Date(log.check_in_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                           </div>
-                          <div className="font-black text-slate-800 text-sm truncate">
-                            {log.athletes?.profiles?.full_name || 'Desconocido'}
+                          <div className="font-black text-slate-800 text-sm min-w-0">
+                            <p className="truncate">{log.actorName || 'Desconocido'}</p>
+                            <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${log.actorType === 'Profesor' ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                              {log.actorType}
+                            </span>
                           </div>
                           <div>
                             {log.access_granted ? (
