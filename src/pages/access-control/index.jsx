@@ -159,6 +159,7 @@ const AccessControl = () => {
 
         {(status === 'idle' || status === 'loading') && (
           <form onSubmit={handleCheckIn} className="space-y-6">
+            {/* Identifier Display */}
             <div className="relative">
               <input
                 ref={inputRef}
@@ -178,6 +179,11 @@ const AccessControl = () => {
                   <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full"></div>
                 </div>
               )}
+
+              {/* Character Count
+              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm text-muted-foreground font-medium">
+                {identifier.length} / 11 dígitos
+              </div> */}
             </div>
 
             <div className="pt-8">{renderKeypad()}</div>
