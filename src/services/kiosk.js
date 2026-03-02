@@ -30,7 +30,10 @@ export async function runKioskCheckIn({ identifier, dni, phone }) {
     avatarUrl: data?.avatar_url || null,
     actorType: data?.actor_type || null,
     coachId: data?.coach_id || null,
-    fullName: data?.full_name || null
+    fullName: data?.full_name || null,
+    uiStatus: data?.ui_status || null,
+    uiColor: data?.ui_color || null,
+    details: data?.details || null
   };
 }
 
