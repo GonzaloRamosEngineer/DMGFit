@@ -1,10 +1,11 @@
 import { supabase } from '../lib/supabaseClient';
 
-export async function runKioskCheckIn({ dni, phone }) {
-  const cleanDni = dni?.trim() || null;
-  const cleanPhone = phone?.trim() || null;
+export async function runKioskCheckIn({ identifier, dni, phone }) {
+  const normalizedIdentifier = identifier?.trim() || dni?.trim() || phone?.trim() || null;
+  const cleanDni = normalizedIdentifier;
+  const cleanPhone = null;
 
-  if (!cleanDni && !cleanPhone) {
+  if (!normalizedIdentifier) {
     throw new Error('Debes ingresar DNI o teléfono.');
   }
 
@@ -26,7 +27,13 @@ export async function runKioskCheckIn({ dni, phone }) {
     weeklyScheduleId: data?.weekly_schedule_id || null,
     athleteName: data?.athlete_name || null,
     planName: data?.plan_name || null,
-    avatarUrl: data?.avatar_url || null
+    avatarUrl: data?.avatar_url || null,
+    actorType: data?.actor_type || null,
+    coachId: data?.coach_id || null,
+    fullName: data?.full_name || null,
+    uiStatus: data?.ui_status || null,
+    uiColor: data?.ui_color || null,
+    details: data?.details || null
   };
 }
 
