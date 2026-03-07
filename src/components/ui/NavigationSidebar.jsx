@@ -4,7 +4,11 @@ import Icon from '../AppIcon';
 import AlertBadge from './AlertBadge';
 import { useAuth } from '../../contexts/AuthContext';
 
-const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
+const NavigationSidebar = ({
+  isCollapsed = false,
+  onToggleCollapse,
+  alertData = {}
+}) => {
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { currentUser, logout } = useAuth();
@@ -16,17 +20,8 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       icon: 'LayoutDashboard',
       path: '/main-dashboard',
       badge: alertData?.dashboard || 0,
-      roles: ['admin', 'profesor'],
+      roles: ['admin'],
       description: 'Vista general del sistema'
-    },
-    {
-      id: 'profesor-dashboard',
-      label: 'Mi Dashboard',
-      icon: 'LayoutDashboard',
-      path: '/professor-dashboard',
-      badge: alertData?.dashboard || 0,
-      roles: ['profesor'],
-      description: 'Panel de control personal'
     },
     {
       id: 'athlete-portal',
@@ -52,7 +47,7 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       icon: 'Users',
       path: '/athletes-management',
       badge: alertData?.atletas || 0,
-      roles: ['admin', 'profesor'],
+      roles: ['admin'],
       description: 'Gestión de atletas'
     },
     {
@@ -65,15 +60,6 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       description: 'Planes de entrenamiento'
     },
     {
-      id: 'rendimiento',
-      label: 'Rendimiento',
-      icon: 'TrendingUp',
-      path: '/performance-analytics',
-      badge: alertData?.rendimiento || 0,
-      roles: ['admin', 'profesor'],
-      description: 'Análisis de rendimiento'
-    },
-    {
       id: 'pagos',
       label: 'Pagos',
       icon: 'CreditCard',
@@ -83,15 +69,6 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       description: 'Gestión de pagos'
     },
     {
-      id: 'pdf-export',
-      label: 'Exportar PDF',
-      icon: 'FileText',
-      path: '/pdf-export-center',
-      badge: 0,
-      roles: ['admin', 'profesor'],
-      description: 'Centro de exportación'
-    },
-    {
       id: 'access-control',
       label: 'Modo Kiosco',
       icon: 'Monitor',
@@ -99,7 +76,7 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       badge: 0,
       roles: ['admin'],
       description: 'Control de acceso',
-      openInNewTab: true // ← ÚNICA LÍNEA AGREGADA
+      openInNewTab: true
     },
     {
       id: 'history-access',
@@ -115,12 +92,13 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
       label: 'Planificación',
       icon: 'Calendar',
       path: '/class-schedule',
+      badge: 0,
       roles: ['admin', 'profesor'],
       description: 'Calendario de clases'
     }
   ];
 
-  const menuItems = allMenuItems?.filter(item => 
+  const menuItems = allMenuItems.filter(item =>
     item?.roles?.includes(currentUser?.role)
   );
 
@@ -136,7 +114,6 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
     setIsMobileOpen(false);
   };
 
-  // Función para obtener las iniciales del usuario
   const getUserInitials = (name) => {
     if (!name) return 'US';
     const names = name.trim().split(' ');
@@ -144,61 +121,79 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
     return (names[0][0] + names[names.length - 1][0]).toUpperCase();
   };
 
-  // Traducción de roles
   const getRoleLabel = (role) => {
     const roleLabels = {
-      'admin': 'Administrador',
-      'profesor': 'Profesor',
-      'atleta': 'Atleta'
+      admin: 'Administrador',
+      profesor: 'Profesor',
+      atleta: 'Atleta'
     };
     return roleLabels[role] || role;
   };
 
   return (
     <>
-      {/* Botón Hamburguesa Mobile */}
+      {/* Botón Mobile */}
       <button
         onClick={handleMobileToggle}
-        className="fixed top-4 left-4 z-50 lg:hidden bg-card p-3 rounded-lg shadow-lg transition-smooth hover:bg-muted border border-border"
+        className="fixed top-4 left-4 z-40 lg:hidden bg-card p-3 rounded-lg shadow-lg transition-smooth hover:bg-muted border border-border"
         aria-label="Toggle navigation menu"
       >
-        <Icon name={isMobileOpen ? 'X' : 'Menu'} size={24} color="var(--color-foreground)" />
+        <Icon
+          name={isMobileOpen ? 'X' : 'Menu'}
+          size={24}
+          color="var(--color-foreground)"
+        />
       </button>
 
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:fixed top-0 left-0 h-full bg-card border-r border-border
-          transition-all duration-300 ease-in-out z-nav
+          fixed top-0 left-0 h-full bg-card border-r border-border
+          transition-all duration-300 ease-in-out z-30
           flex flex-col
           ${isCollapsed ? 'w-20' : 'w-60'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        {/* Header con Logo */}
-        <div className={`flex items-center h-16 px-4 border-b border-border flex-shrink-0 ${
-          isCollapsed ? 'justify-center' : 'justify-start'
-        }`}>
-          <div className="flex items-center gap-3">
+        {/* Header */}
+        <div
+          className={`flex items-center h-16 px-4 border-b border-border flex-shrink-0 ${
+            isCollapsed ? 'justify-center' : 'justify-between'
+          }`}
+        >
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
               <Icon name="Dumbbell" size={24} color="#FFFFFF" />
             </div>
+
             {!isCollapsed && (
               <span className="text-lg font-heading font-bold text-foreground whitespace-nowrap">
                 VC Fit
               </span>
             )}
           </div>
+
+          <button
+            onClick={onToggleCollapse}
+            className="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-white hover:bg-muted transition-all"
+            aria-label={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
+            title={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
+          >
+            <Icon
+              name={isCollapsed ? 'PanelLeftOpen' : 'PanelLeftClose'}
+              size={18}
+              color="var(--color-foreground)"
+            />
+          </button>
         </div>
 
-        {/* Navigation Menu - Con scroll */}
+        {/* Menu */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
           {menuItems?.map((item) => (
             <Link
               key={item?.id}
               to={item?.path}
               onClick={(e) => {
-                // ← ÚNICO CAMBIO: Lógica para abrir en nueva pestaña
                 if (item?.openInNewTab) {
                   e.preventDefault();
                   window.open(item.path, '_blank', 'noopener,noreferrer');
@@ -226,7 +221,7 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
                   color={isActive(item?.path) ? 'var(--color-primary)' : 'currentColor'}
                 />
               </div>
-              
+
               {!isCollapsed && (
                 <>
                   <span className="ml-3 font-medium text-sm truncate">{item?.label}</span>
@@ -239,8 +234,7 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
                   )}
                 </>
               )}
-              
-              {/* Badge cuando está colapsado - posición absoluta */}
+
               {isCollapsed && item?.badge > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-error text-white text-[10px] font-bold rounded-full px-1">
                   {item.badge > 9 ? '9+' : item.badge}
@@ -250,15 +244,14 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
           ))}
         </nav>
 
-        {/* User Info Section - Mejorada */}
+        {/* Usuario */}
         <div className="border-t border-border bg-card flex-shrink-0">
           <div className={`p-4 ${isCollapsed ? 'px-2' : 'px-4'}`}>
             <div className={`flex items-center gap-3 ${isCollapsed ? 'flex-col' : 'flex-row'}`}>
-              {/* Avatar/Icono del Usuario */}
               <div className="relative flex-shrink-0">
                 {currentUser?.avatar_url ? (
-                  <img 
-                    src={currentUser.avatar_url} 
+                  <img
+                    src={currentUser.avatar_url}
                     alt={currentUser?.name || 'Usuario'}
                     className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
                   />
@@ -269,12 +262,10 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
                     </span>
                   </div>
                 )}
-                
-                {/* Indicador de Estado Online */}
+
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-success border-2 border-card rounded-full" />
               </div>
 
-              {/* Info del Usuario - Solo visible cuando no está colapsado */}
               {!isCollapsed && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground truncate leading-tight mb-0.5">
@@ -296,26 +287,24 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
                 </div>
               )}
 
-              {/* Botón Logout */}
               <button
                 onClick={logout}
                 className={`
-                  p-2 hover:bg-error/10 rounded-lg transition-all duration-200 
+                  p-2 hover:bg-error/10 rounded-lg transition-all duration-200
                   hover:text-error group flex-shrink-0
                   ${isCollapsed ? 'w-full justify-center mt-2' : ''}
                 `}
                 title="Cerrar sesión"
               >
-                <Icon 
-                  name="LogOut" 
-                  size={18} 
-                  color="currentColor" 
+                <Icon
+                  name="LogOut"
+                  size={18}
+                  color="currentColor"
                   className="group-hover:scale-110 transition-transform"
                 />
               </button>
             </div>
 
-            {/* Versión Colapsada - Tooltip con info */}
             {isCollapsed && (
               <div className="mt-2 text-center">
                 <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-bold">
@@ -327,10 +316,10 @@ const NavigationSidebar = ({ isCollapsed = false, alertData = {} }) => {
         </div>
       </aside>
 
-      {/* Overlay para Mobile */}
+      {/* Overlay Mobile */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-20 lg:hidden"
           onClick={closeMobileMenu}
           aria-hidden="true"
         />

@@ -1,3 +1,4 @@
+// C:\Projects\DMG Fitness\src\pages\individual-athlete-profile\components\AthleteHeader.jsx
 import React, { useState } from 'react';
 import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
@@ -174,6 +175,7 @@ const AthleteHeader = ({
               )}
             </div>
 
+            {/* Chips de resumen (válido que estén acá; el detalle vive abajo en Membresía) */}
             <div className="flex flex-wrap gap-2">
               {athlete.planOption && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold">
@@ -223,6 +225,7 @@ const AthleteHeader = ({
             <button
               onClick={() => setShowDetails(!showDetails)}
               className="p-2 hover:bg-muted rounded-lg transition-colors"
+              title={showDetails ? 'Ocultar detalles' : 'Ver detalles'}
             >
               <Icon
                 name={showDetails ? 'ChevronUp' : 'ChevronDown'}
@@ -242,7 +245,8 @@ const AthleteHeader = ({
 
       {showDetails && (
         <div className="border-t border-border bg-muted/20 p-4 animate-in slide-in-from-top duration-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 mb-4">
+          {/* ✅ Detalles solo de identidad (sin repetir membresía) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
               <Icon name="Fingerprint" size={16} className="text-primary" />
               <div className="flex-1 min-w-0">
@@ -278,41 +282,6 @@ const AthleteHeader = ({
                     ? new Date(athlete.join_date || athlete.joinDate).toLocaleDateString('es-ES')
                     : '—'}
                 </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
-              <Icon name="CreditCard" size={16} className="text-secondary" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground uppercase font-medium">Plan / Variante</p>
-                <p className="text-sm font-bold text-foreground truncate">
-                  {athlete.planName || 'Sin Plan'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {athlete.planOption || '—'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
-              <Icon name="Wallet" size={16} className="text-emerald-600" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground uppercase font-medium">Frecuencia / Precio</p>
-                <p className="text-sm font-bold text-foreground truncate">
-                  {hasVisitsPerWeek ? `${athlete.visits_per_week}x / semana` : '—'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {hasTierPrice ? formatCurrency(athlete.plan_tier_price) : 'Sin precio acordado'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
-              <Icon name="CreditCard" size={16} className="text-secondary" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground uppercase font-medium">Plan / Variante</p>
-                <p className="text-sm font-bold text-foreground truncate">{athlete.planName || 'Sin Plan'}</p>
-                <p className="text-xs text-muted-foreground truncate">{athlete.planOption || '—'}</p>
               </div>
             </div>
           </div>

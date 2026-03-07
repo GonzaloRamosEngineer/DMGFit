@@ -1,3 +1,5 @@
+// C:\Projects\DMG Fitness\src\pages\payment-management\components\AddPaymentModal.jsx
+
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import Icon from "../../../components/AppIcon";
@@ -50,7 +52,9 @@ const getPlanChargeConcept = (athlete) => {
   const monthName = getCurrentMonthName();
 
   if (visits > 0) {
-    return `Cuota ${planName} - ${visits} ${visits === 1 ? "vez" : "veces"} por semana - ${monthName}`;
+    return `Cuota ${planName} - ${visits} ${
+      visits === 1 ? "vez" : "veces"
+    } por semana - ${monthName}`;
   }
 
   return `Cuota ${planName} - ${monthName}`;
@@ -73,15 +77,15 @@ const mapAthleteForPayment = (row) => {
     planPrice:
       row?.planPrice !== undefined && row?.planPrice !== null
         ? row.planPrice
-        : (planData?.price ?? null),
+        : planData?.price ?? null,
     planTierPrice:
       row?.planTierPrice !== undefined && row?.planTierPrice !== null
         ? row.planTierPrice
-        : (row?.plan_tier_price ?? null),
+        : row?.plan_tier_price ?? null,
     visitsPerWeek:
       row?.visitsPerWeek !== undefined && row?.visitsPerWeek !== null
         ? row.visitsPerWeek
-        : (row?.visits_per_week ?? null),
+        : row?.visits_per_week ?? null,
   };
 };
 
@@ -96,12 +100,17 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   // --- SELECCIÓN Y FLUJO ---
-  const [selectedAthlete, setSelectedAthlete] = useState(
-    initialAthlete || null,
-  );
+  const [selectedAthlete, setSelectedAthlete] = useState(initialAthlete || null);
   const [athleteDetail, setAthleteDetail] = useState(null);
+
+  // --- DEUDAS ---
   const [pendingDebts, setPendingDebts] = useState([]);
   const [selectedDebtIds, setSelectedDebtIds] = useState([]);
+
+  // --- MODO DE COBRO (UX) ---
+  // debts: cobrar deuda(s) existentes
+  // manual: registrar otro ingreso/pago manual
+  const [paymentMode, setPaymentMode] = useState("manual"); // 'debts' | 'manual'
 
   // --- FORMULARIO DE PAGO ---
   const [formData, setFormData] = useState({
@@ -118,16 +127,20 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
 
   useEffect(() => {
     setSelectedAthlete(initialAthlete || null);
+    // Regla UX:
+    // - Si viene initialAthlete (usualmente desde "Cobrar"), arranco en debts
+    // - Si no, en caja general arranco en manual
+    setPaymentMode(initialAthlete ? "debts" : "manual");
   }, [initialAthlete]);
 
   const effectiveAthlete = useMemo(
     () => athleteDetail || selectedAthlete,
-    [athleteDetail, selectedAthlete],
+    [athleteDetail, selectedAthlete]
   );
 
   const selectedAthleteResolvedPlanPrice = useMemo(
     () => getResolvedPlanPrice(effectiveAthlete),
-    [effectiveAthlete],
+    [effectiveAthlete]
   );
 
   // ----------------------------------------------------------------
@@ -148,7 +161,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
             visits_per_week,
             profiles ( full_name, email, avatar_url ),
             plans ( name, price )
-          `,
+          `
           )
           .eq("status", "active")
           .order("join_date", { ascending: false });
@@ -158,10 +171,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
           return;
         }
 
-        const mappedAthletes = (data || []).map((row) =>
-          mapAthleteForPayment(row),
-        );
-
+        const mappedAthletes = (data || []).map((row) => mapAthleteForPayment(row));
         setAthletes(mappedAthletes);
       } catch (err) {
         console.error("Error inesperado cargando atletas:", err);
@@ -195,7 +205,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
             visits_per_week,
             profiles ( full_name, email, avatar_url ),
             plans ( name, price )
-          `,
+          `
           )
           .eq("id", selectedAthlete.id)
           .single();
@@ -245,7 +255,13 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
       setFetchingDebts(false);
 
       if (data && data.length > 0) {
-        handleToggleDebt(data[0].id, data);
+        // UX: solo autoseleccionamos deuda si estamos en modo debts
+        if (paymentMode === "debts") {
+          handleToggleDebt(data[0].id, data);
+        } else {
+          // En manual no bloqueamos ni forzamos selección
+          setSelectedDebtIds([]);
+        }
       } else {
         handleResetForm();
       }
@@ -253,7 +269,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
 
     fetchDebts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAthlete?.id]);
+  }, [selectedAthlete?.id, paymentMode]);
 
   // ----------------------------------------------------------------
   // 4. LÓGICA DE NEGOCIO
@@ -283,13 +299,8 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
     setSelectedDebtIds(newSelection);
 
     if (newSelection.length > 0) {
-      const selectedItems = currentDebts.filter((d) =>
-        newSelection.includes(d.id),
-      );
-      const totalAmount = selectedItems.reduce(
-        (sum, d) => sum + Number(d.amount || 0),
-        0,
-      );
+      const selectedItems = currentDebts.filter((d) => newSelection.includes(d.id));
+      const totalAmount = selectedItems.reduce((sum, d) => sum + Number(d.amount || 0), 0);
       const combinedConcept = selectedItems.map((d) => d.concept).join(" + ");
 
       setFormData((prev) => ({
@@ -339,12 +350,37 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
     setSearchTerm("");
     setShowDiscount(false);
     setDiscountValue("");
+    setPaymentMode("manual");
     setFormData({
       amount: "",
       method: "efectivo",
       concept: "",
       paymentDate: new Date().toISOString().split("T")[0],
     });
+  };
+
+  const switchToManual = () => {
+    setPaymentMode("manual");
+    setSelectedDebtIds([]);
+    setShowDiscount(false);
+    setDiscountValue("");
+    setFormData((prev) => ({
+      ...prev,
+      amount: "",
+      concept: "",
+    }));
+  };
+
+  const switchToDebts = () => {
+    setPaymentMode("debts");
+    setShowDiscount(false);
+    setDiscountValue("");
+
+    if (pendingDebts?.length > 0) {
+      handleToggleDebt(pendingDebts[0].id, pendingDebts);
+    } else {
+      handleResetForm();
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -393,7 +429,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
   const filteredAthletes = useMemo(() => {
     if (!searchTerm) return [];
     return athletes.filter((athlete) =>
-      (athlete.name || "").toLowerCase().includes(searchTerm.toLowerCase()),
+      (athlete.name || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [athletes, searchTerm]);
 
@@ -426,13 +462,13 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
               <div className="relative group">
                 <Icon
                   name="Search"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none z-10"
                   size={20}
                 />
                 <input
                   type="text"
                   placeholder="Buscar atleta por nombre..."
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none text-lg font-bold text-slate-700 transition-all placeholder:font-medium placeholder:text-slate-400"
+                  className="relative z-0 w-full pl-14 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none text-lg font-bold text-slate-700 transition-all placeholder:font-medium placeholder:text-slate-400"
                   autoFocus
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -574,80 +610,110 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                 )}
               </div>
 
-              {/* Sección A: Deudas Pendientes */}
-              {fetchingDebts ? (
-                <div className="text-center py-4">
-                  <Icon
-                    name="Loader"
-                    className="animate-spin mx-auto text-blue-500"
-                  />
-                </div>
-              ) : pendingDebts.length > 0 ? (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
-                    Deudas Pendientes
-                  </label>
+              {/* Selector de modo (UX) */}
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={switchToDebts}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    paymentMode === "debts"
+                      ? "bg-white shadow-sm border border-slate-200 text-slate-900"
+                      : "text-slate-500 hover:bg-white/60"
+                  }`}
+                >
+                  Cobrar deuda
+                </button>
 
-                  <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 divide-y divide-slate-100">
-                    {pendingDebts.map((debt) => {
-                      const isSelected = selectedDebtIds.includes(debt.id);
+                <button
+                  type="button"
+                  onClick={switchToManual}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    paymentMode === "manual"
+                      ? "bg-white shadow-sm border border-slate-200 text-slate-900"
+                      : "text-slate-500 hover:bg-white/60"
+                  }`}
+                >
+                  Ingreso manual
+                </button>
+              </div>
 
-                      return (
-                        <div
-                          key={debt.id}
-                          onClick={() => handleToggleDebt(debt.id)}
-                          className={`p-4 cursor-pointer flex items-center justify-between transition-colors ${
-                            isSelected ? "bg-blue-50/80" : "hover:bg-slate-100"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
+              {/* Sección A: Deudas Pendientes (solo si modo debts) */}
+              {paymentMode === "debts" && (
+                <>
+                  {fetchingDebts ? (
+                    <div className="text-center py-4">
+                      <Icon name="Loader" className="animate-spin mx-auto text-blue-500" />
+                    </div>
+                  ) : pendingDebts.length > 0 ? (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
+                        Deudas Pendientes
+                      </label>
+
+                      <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 divide-y divide-slate-100">
+                        {pendingDebts.map((debt) => {
+                          const isSelected = selectedDebtIds.includes(debt.id);
+
+                          return (
                             <div
-                              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-                                isSelected
-                                  ? "bg-blue-500 border-blue-500"
-                                  : "border-slate-300 bg-white"
+                              key={debt.id}
+                              onClick={() => handleToggleDebt(debt.id)}
+                              className={`p-4 cursor-pointer flex items-center justify-between transition-colors ${
+                                isSelected ? "bg-blue-50/80" : "hover:bg-slate-100"
                               }`}
                             >
-                              {isSelected && (
-                                <Icon
-                                  name="Check"
-                                  size={12}
-                                  className="text-white"
-                                />
-                              )}
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                                    isSelected
+                                      ? "bg-blue-500 border-blue-500"
+                                      : "border-slate-300 bg-white"
+                                  }`}
+                                >
+                                  {isSelected && (
+                                    <Icon name="Check" size={12} className="text-white" />
+                                  )}
+                                </div>
+
+                                <div>
+                                  <p
+                                    className={`text-sm font-bold ${
+                                      isSelected ? "text-blue-900" : "text-slate-700"
+                                    }`}
+                                  >
+                                    {debt.concept}
+                                  </p>
+                                  <p className="text-[10px] font-bold text-rose-500">
+                                    Vencimiento:{" "}
+                                    {new Date(debt.payment_date).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <span className="font-mono font-bold text-slate-700">
+                                {formatCurrency(debt.amount)}
+                              </span>
                             </div>
+                          );
+                        })}
+                      </div>
 
-                            <div>
-                              <p
-                                className={`text-sm font-bold ${
-                                  isSelected
-                                    ? "text-blue-900"
-                                    : "text-slate-700"
-                                }`}
-                              >
-                                {debt.concept}
-                              </p>
-                              <p className="text-[10px] font-bold text-rose-500">
-                                Vencimiento:{" "}
-                                {new Date(
-                                  debt.payment_date,
-                                ).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
+                      {/* Escape UX: si hay deudas pero el usuario quiere manual */}
+                      <div className="mt-2 text-[11px] text-slate-500 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                        ¿No querés pagar una cuota? Cambiá a <b>Ingreso manual</b> para registrar
+                        otra cosa (venta, extra, etc.).
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-slate-500 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                      No hay deudas pendientes. Podés registrar un ingreso manual si corresponde.
+                    </div>
+                  )}
+                </>
+              )}
 
-                          <span className="font-mono font-bold text-slate-700">
-                            {formatCurrency(debt.amount)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Sección B: Acciones Rápidas */}
-              {selectedDebtIds.length === 0 && (
+              {/* Sección B: Acciones Rápidas (solo si modo manual) */}
+              {paymentMode === "manual" && selectedDebtIds.length === 0 && (
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -668,9 +734,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                         {formatCurrency(selectedAthleteResolvedPlanPrice)}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400">
-                        Sin monto
-                      </span>
+                      <span className="text-[10px] text-slate-400">Sin monto</span>
                     )}
                   </button>
 
@@ -777,13 +841,8 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                   onClick={() => setShowDiscount(!showDiscount)}
                   className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  <Icon
-                    name={showDiscount ? "MinusCircle" : "PlusCircle"}
-                    size={14}
-                  />
-                  {showDiscount
-                    ? "Quitar Descuento"
-                    : "Aplicar Descuento / Promo"}
+                  <Icon name={showDiscount ? "MinusCircle" : "PlusCircle"} size={14} />
+                  {showDiscount ? "Quitar Descuento" : "Aplicar Descuento / Promo"}
                 </button>
 
                 {showDiscount && (
@@ -820,9 +879,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                           type="number"
                           value={discountValue}
                           onChange={(e) => setDiscountValue(e.target.value)}
-                          placeholder={
-                            discountType === "percent" ? "Ej: 15" : "Ej: 500"
-                          }
+                          placeholder={discountType === "percent" ? "Ej: 15" : "Ej: 500"}
                           className="w-full min-h-[48px] h-[48px] rounded-xl border border-blue-200 bg-white px-4 text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 placeholder:text-blue-300/70"
                           style={{ lineHeight: "1.2" }}
                         />

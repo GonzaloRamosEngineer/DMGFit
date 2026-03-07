@@ -1,296 +1,356 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import Icon from '../../../components/AppIcon';
 
-const ClassSlotModal = ({ slotInfo, onClose, onSuccess }) => {
-  const [loading, setLoading] = useState(false);
-  const [classTypes, setClassTypes] = useState([]);
-  const [coaches, setCoaches] = useState([]);
-  
-  const isEditing = !!slotInfo.id;
+const DAY_LABELS = {
+  1: 'Lunes',
+  2: 'Martes',
+  3: 'Miércoles',
+  4: 'Jueves',
+  5: 'Viernes',
+  6: 'Sábado',
+  7: 'Domingo',
+};
 
-  const [formData, setFormData] = useState({
-    classTypeId: slotInfo.classTypeId || '',
-    selectedCoachIds: slotInfo.coachIds || [],
-    capacity: slotInfo.capacity || 20,
-    startTime: slotInfo.startTime || '10:00',
-    endTime: slotInfo.endTime || '11:00',
-    dayOfWeek: slotInfo.dayOfWeek
-  });
+const normalizeTime = (t) => String(t || '').slice(0, 5);
 
-  // CARGA DE DATOS: Con manejo de errores silenciosos
+const humanizeDbError = (err) => {
+  const msg = String(err?.message || '');
+  // Caso típico: constraint pssc_unique_coach_same_timeslot
+  if (msg.includes('pssc_unique_coach_same_timeslot') || msg.includes('duplicate key value')) {
+    return 'Ese profesor ya está asignado a otro plan en ese mismo horario. Elegí otro profesor o liberá el horario.';
+  }
+  return msg || 'No se pudo guardar. Revisá los datos e intentá de nuevo.';
+};
+
+const ClassSlotModal = ({ slot, onClose, onSuccess, isStaff, classTypes = [], coaches = [] }) => {
+  const readOnly = !isStaff;
+
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [activityId, setActivityId] = useState(slot.activityId || '');
+  const [activityDetail, setActivityDetail] = useState(slot.activityDetail || '');
+
+  const initialCoachIds = useMemo(() => (slot.coaches || []).map((c) => c.id), [slot.coaches]);
+  const [selectedCoachIds, setSelectedCoachIds] = useState(initialCoachIds);
+
+  const [coachSearch, setCoachSearch] = useState('');
+  const [formError, setFormError] = useState('');
+  const [infoNote, setInfoNote] = useState('');
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [typesRes, coachesRes] = await Promise.all([
-          supabase.from('class_types').select('*').order('name'),
-          supabase.from('coaches').select('id, profiles:profile_id(full_name)')
-        ]);
-        
-        if (typesRes.data) {
-          setClassTypes(typesRes.data);
-        }
-        
-        if (coachesRes.data) {
-          setCoaches(coachesRes.data.map(c => ({
-            id: c.id, 
-            name: c.profiles?.full_name || 'Sin Nombre'
-          })));
-        }
-      } catch (err) {
-        console.error("Error en fetchData:", err);
-      }
-    };
-    fetchData();
+    // Si te abren el modal con data ya cargada, no hace falta “meta fetch”
+    setLoading(false);
   }, []);
 
+  const dayLabel = DAY_LABELS[Number(slot.dayOfWeek)] || 'Día';
+  const timeLabel = `${normalizeTime(slot.startTime)}–${normalizeTime(slot.endTime)}`;
+
+  const filteredCoaches = useMemo(() => {
+    const term = coachSearch.trim().toLowerCase();
+    if (!term) return coaches;
+    return coaches.filter((c) => String(c.name || '').toLowerCase().includes(term));
+  }, [coaches, coachSearch]);
+
   const toggleCoach = (coachId) => {
-    setFormData(prev => {
-      const exists = prev.selectedCoachIds.includes(coachId);
-      if (exists) return { ...prev, selectedCoachIds: prev.selectedCoachIds.filter(id => id !== coachId) };
-      return { ...prev, selectedCoachIds: [...prev.selectedCoachIds, coachId] };
+    setFormError('');
+    setSelectedCoachIds((prev) => {
+      const exists = prev.includes(coachId);
+      return exists ? prev.filter((x) => x !== coachId) : [...prev, coachId];
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.classTypeId) {
-      alert("Por favor selecciona una actividad");
-      return;
-    }
+  const saveChanges = async () => {
+    if (readOnly) return;
+    setSaving(true);
+    setFormError('');
+    setInfoNote('');
 
-    setLoading(true);
     try {
-      const schedulePayload = {
-        class_type_id: formData.classTypeId,
-        day_of_week: formData.dayOfWeek,
-        start_time: formData.startTime,
-        end_time: formData.endTime,
-        capacity: formData.capacity
-      };
+      // 1) Update actividad + detalle en el plan-slot (misma row)
+      const { error: updErr } = await supabase
+        .from('plan_schedule_slots')
+        .update({
+          class_type_id: activityId ? activityId : null,
+          activity_detail: activityDetail ? activityDetail.trim() : null,
+        })
+        .eq('id', slot.planScheduleSlotId);
 
-      let scheduleId = slotInfo.id;
+      if (updErr) throw updErr;
 
-      if (isEditing) {
-        await supabase.from('weekly_schedule').update(schedulePayload).eq('id', scheduleId);
-        await supabase.from('schedule_coaches').delete().eq('schedule_id', scheduleId);
-      } else {
-        const { data, error } = await supabase.from('weekly_schedule').insert(schedulePayload).select().single();
+      // 2) Diff de coaches
+      const before = new Set(initialCoachIds.map(String));
+      const after = new Set((selectedCoachIds || []).map(String));
+
+      const toAdd = [...after].filter((x) => !before.has(x));
+      const toRemove = [...before].filter((x) => !after.has(x));
+
+      // Removals primero (evita bloqueos innecesarios)
+      for (const coachId of toRemove) {
+        const { error } = await supabase.rpc('unassign_coach_from_plan_slot', {
+          p_plan_id: slot.planId,
+          p_weekly_schedule_id: slot.weeklyScheduleId,
+          p_coach_id: coachId,
+        });
         if (error) throw error;
-        scheduleId = data.id;
       }
 
-      if (formData.selectedCoachIds.length > 0) {
-        const coachRelations = formData.selectedCoachIds.map(coachId => ({
-          schedule_id: scheduleId,
-          coach_id: coachId
-        }));
-        await supabase.from('schedule_coaches').insert(coachRelations);
+      // Adds (si choca, DB impone regla y devolvemos mensaje “humano”)
+      for (const coachId of toAdd) {
+        const { error } = await supabase.rpc('assign_coach_to_plan_slot', {
+          p_plan_id: slot.planId,
+          p_weekly_schedule_id: slot.weeklyScheduleId,
+          p_coach_id: coachId,
+        });
+        if (error) throw error;
       }
 
-      onSuccess();
-      onClose();
-    } catch (error) {
-      alert("Error al guardar: " + error.message);
+      await onSuccess?.();
+    } catch (err) {
+      console.error('Error guardando slot:', err);
+      setFormError(humanizeDbError(err));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm("¿Borrar este horario?")) return;
-    setLoading(true);
-    try {
-      await supabase.from('weekly_schedule').delete().eq('id', slotInfo.id);
-      onSuccess();
-      onClose();
-    } catch (error) {
-      alert("Error al eliminar: " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-
-  // Clases Reutilizables
-  const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium transition-all";
-  const labelClasses = "text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2 ml-1";
+  const selectedCount = selectedCoachIds.length;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
-      
-      {/* Contenedor Modal */}
-      <div className="bg-white border-t md:border border-slate-100 rounded-t-[2rem] md:rounded-[2rem] w-full max-w-md shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-300">
-        
-        {/* Agarradera Mobile */}
-        <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-3 mb-1 md:hidden" />
+    <div className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-lg rounded-t-[2rem] md:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] md:max-h-[90vh]">
+        {/* Mobile grabber */}
+        <div className="md:hidden w-12 h-1.5 bg-slate-200 rounded-full mx-auto mt-3 mb-1 shrink-0" />
 
         {/* Header */}
-        <div className="flex justify-between items-center p-5 md:p-6 border-b border-slate-100 shrink-0">
-          <div>
-            <h3 className="font-black text-xl text-slate-800 tracking-tight">
-              {isEditing ? 'Editar Clase' : 'Programar Clase'}
+        <div className="px-5 md:px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 shrink-0">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-600 border border-slate-200 px-2 py-1 rounded-full">
+                {slot.planName || 'Plan'}
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded-full">
+                {dayLabel}
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-600 border border-slate-200 px-2 py-1 rounded-full">
+                {timeLabel}
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-600 border border-slate-200 px-2 py-1 rounded-full">
+                Cupo {slot.capacity ?? '-'}
+              </span>
+            </div>
+
+            <h3 className="mt-3 text-xl font-black text-slate-900 tracking-tight truncate">
+              Configuración del horario
             </h3>
-            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest mt-1 bg-blue-50 inline-block px-2 py-0.5 rounded-md">
-              {days[formData.dayOfWeek]}
+
+            <p className="mt-1 text-xs text-slate-500 font-medium">
+              Regla: un profesor no puede estar asignado a dos planes en el mismo horario.
             </p>
           </div>
-          <button 
-            onClick={onClose} 
-            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Cerrar"
           >
             <Icon name="X" size={18} />
           </button>
         </div>
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="p-5 md:p-6 space-y-6 overflow-y-auto custom-scrollbar">
-          
-          {/* ACTIVIDAD */}
-          <div>
-            <label className={labelClasses}>Actividad <span className="text-rose-500">*</span></label>
-            <div className="relative">
-              <select 
-                className={`${inputClasses} appearance-none cursor-pointer`}
-                value={formData.classTypeId}
-                onChange={e => setFormData({...formData, classTypeId: e.target.value})}
-                required
-              >
-                <option value="" disabled>Seleccionar actividad...</option>
-                {classTypes.map(t => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-              <Icon name="ChevronDown" className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-6 space-y-5">
+          {loading ? (
+            <div className="space-y-4 animate-pulse">
+              <div className="h-12 bg-slate-100 rounded-2xl" />
+              <div className="h-24 bg-slate-100 rounded-2xl" />
+              <div className="h-40 bg-slate-100 rounded-2xl" />
             </div>
-          </div>
-
-          {/* PROFESORES */}
-          <div>
-            <div className="flex justify-between items-end mb-2 ml-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                Profesores a Cargo
-              </label>
-              {formData.selectedCoachIds.length === 0 && (
-                <span className="text-[9px] text-rose-500 font-bold uppercase tracking-wider bg-rose-50 px-2 py-0.5 rounded-md">
-                  Requerido
-                </span>
+          ) : (
+            <>
+              {formError && (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 font-medium">
+                  {formError}
+                </div>
               )}
-            </div>
-            
-            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-              {coaches.map(c => {
-                const isSelected = formData.selectedCoachIds.includes(c.id);
-                return (
-                  <label 
-                    key={c.id} 
-                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
-                      isSelected 
-                        ? 'bg-blue-50 border-blue-200 shadow-sm' 
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
-                        {isSelected ? <Icon name="Check" size={14} strokeWidth={3} /> : <Icon name="User" size={14} />}
-                      </div>
-                      <span className={`text-sm font-bold ${isSelected ? 'text-blue-900' : 'text-slate-700'}`}>
-                        {c.name}
-                      </span>
-                    </div>
-                    {/* Checkbox Oculto para accesibilidad */}
-                    <input 
-                      type="checkbox" 
-                      className="sr-only"
-                      checked={isSelected}
-                      onChange={() => toggleCoach(c.id)}
+
+              {infoNote && (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 font-medium">
+                  {infoNote}
+                </div>
+              )}
+
+              {/* Actividad */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Actividad (opcional)
+                  </p>
+                  {readOnly && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
+                      Solo lectura
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3">
+                  <div className="relative">
+                    <select
+                      value={activityId}
+                      onChange={(e) => setActivityId(e.target.value)}
+                      disabled={readOnly}
+                      className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-800 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all disabled:opacity-60"
+                    >
+                      <option value="">Sin actividad</option>
+                      {classTypes.map((ct) => (
+                        <option key={ct.id} value={ct.id}>
+                          {ct.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Icon
+                      name="ChevronDown"
+                      size={16}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                     />
-                  </label>
-                );
-              })}
-            </div>
-          </div>
+                  </div>
 
-          {/* HORARIOS */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Inicia</label>
-              <input 
-                type="time" 
-                className={`${inputClasses} font-mono font-bold text-center`}
-                value={formData.startTime}
-                onChange={e => setFormData({...formData, startTime: e.target.value})}
-                required 
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Finaliza</label>
-              <input 
-                type="time" 
-                className={`${inputClasses} font-mono font-bold text-center`}
-                value={formData.endTime}
-                onChange={e => setFormData({...formData, endTime: e.target.value})}
-                required 
-              />
-            </div>
-          </div>
+                  <div className="mt-3">
+                    <textarea
+                      value={activityDetail}
+                      onChange={(e) => setActivityDetail(e.target.value)}
+                      disabled={readOnly}
+                      rows={3}
+                      placeholder="Detalle opcional (ej: Técnica + movilidad / WOD específico / Trabajo de fuerza...)"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all disabled:opacity-60"
+                    />
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      Podés dejarlo vacío. El objetivo es que el profe tenga contexto operativo.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          {/* CUPO */}
-          <div>
-            <label className={labelClasses}>Cupo Máximo</label>
-            <div className="relative">
-              <input 
-                type="number" 
-                className={`${inputClasses} pl-12 font-bold`}
-                value={formData.capacity}
-                onChange={e => setFormData({...formData, capacity: e.target.value})}
-                min="1"
-              />
-              <Icon name="Users" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold uppercase tracking-widest pointer-events-none">
-                Atletas
-              </span>
-            </div>
-          </div>
+              {/* Profes */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      Profesores asignados
+                    </p>
+                    <p className="text-sm font-black text-slate-900 mt-1">
+                      {selectedCount} seleccionado{selectedCount === 1 ? '' : 's'}
+                    </p>
+                  </div>
 
-        </form>
+                  {!readOnly && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
+                      Multi-selección
+                    </span>
+                  )}
+                </div>
 
-        {/* FOOTER - Botones */}
-        <div className="p-5 md:p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-between gap-3 shrink-0 pb-8 md:pb-6 rounded-b-[2rem]">
-          {isEditing && (
-            <button 
-              type="button" 
-              onClick={handleDelete}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors order-2 sm:order-1"
-            >
-              <Icon name="Trash2" size={14} /> Eliminar
-            </button>
+                <div className="mt-3">
+                  <div className="relative">
+                    <Icon
+                      name="Search"
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      value={coachSearch}
+                      onChange={(e) => setCoachSearch(e.target.value)}
+                      placeholder="Buscar profesor..."
+                      className="w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all"
+                    />
+                  </div>
+
+                  <div className="mt-3 max-h-64 overflow-y-auto custom-scrollbar space-y-2">
+                    {filteredCoaches.map((c) => {
+                      const selected = selectedCoachIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => !readOnly && toggleCoach(c.id)}
+                          disabled={readOnly}
+                          className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border transition-all ${
+                            selected
+                              ? 'bg-blue-50 border-blue-200'
+                              : 'bg-white border-slate-200 hover:bg-slate-50'
+                          } ${readOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-9 h-9 rounded-full overflow-hidden border flex items-center justify-center ${
+                              selected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-100 border-slate-200 text-slate-500'
+                            }`}>
+                              {c.avatar ? (
+                                <img src={c.avatar} alt={c.name} className="w-full h-full object-cover" />
+                              ) : (
+                                (c.name || 'P').charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-slate-900 truncate">{c.name}</p>
+                              <p className="text-[11px] text-slate-500 truncate">Disponible según regla de horario</p>
+                            </div>
+                          </div>
+
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+                            selected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-400'
+                          }`}>
+                            {selected ? <Icon name="Check" size={16} /> : <Icon name="Plus" size={16} />}
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {filteredCoaches.length === 0 && (
+                      <div className="py-8 text-center text-slate-500">
+                        <Icon name="SearchX" size={22} className="mx-auto text-slate-300 mb-2" />
+                        <p className="text-sm font-black text-slate-700">Sin resultados</p>
+                        <p className="text-xs text-slate-500 mt-1">Probá con otro nombre.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="mt-3 text-[11px] text-slate-500">
+                    Podés dejar el horario sin profesor y asignarlo después.
+                  </p>
+                </div>
+              </div>
+            </>
           )}
-          
-          <div className={`flex gap-3 w-full sm:w-auto ${isEditing ? 'order-1 sm:order-2 ml-auto' : 'w-full justify-end'}`}>
-            <button 
-              type="button" 
-              onClick={onClose}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-bold text-xs text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-colors uppercase tracking-wider"
-            >
-              Cancelar
-            </button>
-            <button 
-              onClick={handleSubmit}
-              disabled={loading}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs text-white uppercase tracking-wider transition-all shadow-md ${
-                loading 
-                  ? 'bg-blue-400 cursor-wait' 
-                  : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-0.5 shadow-blue-200'
-              }`}
-            >
-              {loading ? <Icon name="Loader" size={14} className="animate-spin" /> : <Icon name="Save" size={14} />}
-              {isEditing ? 'Guardar' : 'Crear'}
-            </button>
-          </div>
         </div>
 
+        {/* Footer */}
+        <div className="px-5 md:px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl font-black text-xs text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors uppercase tracking-widest"
+          >
+            Cerrar
+          </button>
+
+          <button
+            type="button"
+            onClick={saveChanges}
+            disabled={readOnly || saving}
+            className={`px-5 py-2.5 rounded-xl font-black text-xs text-white uppercase tracking-widest transition-all flex items-center gap-2 ${
+              readOnly
+                ? 'bg-slate-300 cursor-not-allowed'
+                : saving
+                  ? 'bg-blue-400 cursor-wait'
+                  : 'bg-blue-600 hover:bg-blue-700 hover:-translate-y-[1px] shadow-md shadow-blue-200'
+            }`}
+          >
+            {saving ? <Icon name="Loader" size={16} className="animate-spin" /> : <Icon name="Save" size={16} />}
+            Guardar
+          </button>
+        </div>
       </div>
     </div>
   );

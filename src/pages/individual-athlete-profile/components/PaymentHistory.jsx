@@ -1,12 +1,20 @@
+// C:\Projects\DMG Fitness\src\pages\individual-athlete-profile\components\PaymentHistory.jsx
 import React from 'react';
 import Icon from '../../../components/AppIcon';
 
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 0,
+  }).format(Number(amount || 0));
+};
+
 const PaymentHistory = ({ payments, loading = false }) => {
-  
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-         {[1,2,3].map(i => <div key={i} className="h-20 bg-muted/30 rounded-lg"></div>)}
+        {[1,2,3].map(i => <div key={i} className="h-20 bg-muted/30 rounded-lg"></div>)}
       </div>
     );
   }
@@ -46,7 +54,7 @@ const PaymentHistory = ({ payments, loading = false }) => {
   return (
     <div className="space-y-3 md:space-y-4">
       {payments.map((payment) => (
-        <div 
+        <div
           key={payment.id}
           className="bg-muted/30 border border-border rounded-lg p-3 md:p-4 transition-smooth hover:bg-muted/50"
         >
@@ -64,10 +72,10 @@ const PaymentHistory = ({ payments, loading = false }) => {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 md:gap-3 sm:flex-shrink-0">
               <span className="text-base md:text-lg font-semibold text-foreground data-text whitespace-nowrap">
-                ${payment.amount}
+                {formatCurrency(payment.amount)}
               </span>
               <span className={`px-2 md:px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(payment.status)}`}>
                 {getStatusLabel(payment.status)}

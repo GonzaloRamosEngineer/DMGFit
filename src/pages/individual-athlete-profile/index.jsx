@@ -59,7 +59,7 @@ const isAssignmentCurrentlyActive = (assignment, todayStr) => {
 
 const getNextDateForDayOfWeek = (targetDay) => {
   const now = new Date();
-  const today = now.getDay(); // 0 domingo ... 6 sábado
+  const today = now.getDay();
   const diff = (Number(targetDay) - today + 7) % 7;
   const next = new Date(now);
   next.setHours(0, 0, 0, 0);
@@ -156,7 +156,28 @@ const normalizeAvailablePlanSlots = (response) => {
 };
 
 // --- SUB-COMPONENTE INTERNO: HISTORIAL DE ACCESOS (MOLINETE) ---
-const AthleteAccessLog = ({ logs }) => {
+const AthleteAccessLog = ({
+  logs,
+  loading = false,
+  showLimit = 5,
+  onViewMore = null,
+}) => {
+  if (loading) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6 animate-pulse">
+        <div className="h-6 bg-muted/50 rounded w-1/3 mb-6"></div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-14 bg-muted/30 rounded-lg"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const visibleLogs =
+    typeof showLimit === "number" ? (logs || []).slice(0, showLimit) : logs || [];
+
   return (
     <div className="bg-card border border-border rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
@@ -164,12 +185,14 @@ const AthleteAccessLog = ({ logs }) => {
           <Icon name="CreditCard" size={20} className="text-primary" />
           Historial de Ingresos (DNI)
         </h3>
-        <span className="text-xs text-muted-foreground">{logs.length} registros</span>
+        <span className="text-xs text-muted-foreground">
+          {(logs || []).length} registros
+        </span>
       </div>
 
       <div className="space-y-0 divide-y divide-border border border-border rounded-lg overflow-hidden">
-        {logs.length > 0 ? (
-          logs.slice(0, 5).map((log) => (
+        {visibleLogs.length > 0 ? (
+          visibleLogs.map((log) => (
             <div
               key={log.id}
               className="flex justify-between items-center p-3 bg-card hover:bg-muted/30 transition-colors text-sm"
@@ -207,19 +230,40 @@ const AthleteAccessLog = ({ logs }) => {
           </div>
         )}
       </div>
-      {logs.length > 5 && (
-        <div className="pt-3 text-center">
-          <button className="text-xs text-primary hover:underline">
-            Ver historial completo
-          </button>
-        </div>
-      )}
+
+      {typeof showLimit === "number" &&
+        (logs || []).length > showLimit &&
+        typeof onViewMore === "function" && (
+          <div className="pt-3 text-center">
+            <button
+              type="button"
+              onClick={onViewMore}
+              className="text-xs text-primary hover:underline"
+            >
+              Ver historial completo
+            </button>
+          </div>
+        )}
     </div>
   );
 };
 
-// --- SUB-COMPONENTE INTERNO: MEMBRESÍA ESTRUCTURAL ---
-const StructuralMembershipCard = ({ athlete, assignedSlots = [], loading = false }) => {
+// --- SUB-COMPONENTE INTERNO: MEMBRESÍA ESTRUCTURAL / GESTIÓN ---
+const StructuralMembershipCard = ({
+  athlete,
+  assignedSlots = [],
+  loading = false,
+  canManageMembership = false,
+  membershipForm,
+  availablePlans = [],
+  availablePlanOptions = [],
+  onMembershipChange,
+  onSaveMembership,
+  savingMembership = false,
+  onModifySchedule,
+  canModifySchedule = false,
+  loadingScheduleModal = false,
+}) => {
   if (loading) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4 animate-pulse">
@@ -240,31 +284,53 @@ const StructuralMembershipCard = ({ athlete, assignedSlots = [], loading = false
     day,
     slots: assignedSlots.filter(
       (assignment) =>
-        Number(normalizeRelation(assignment.weekly_schedule)?.day_of_week) === index
+        Number(normalizeRelation(assignment.weekly_schedule)?.day_of_week) ===
+        index
     ),
   })).filter((group) => group.slots.length > 0);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
-      <div className="flex items-center justify-between gap-4 mb-4">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
         <div>
-          <h3 className="text-sm font-black text-slate-800">Membresía Estructural</h3>
+          <h3 className="text-sm font-black text-slate-800">
+            Membresía Estructural
+          </h3>
           <p className="text-xs text-slate-500">
-            Resumen real del plan contratado, frecuencia y horarios asignados.
+            Resumen real del plan contratado, frecuencia, precio y horarios
+            asignados.
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-            Estado
-          </p>
-          <p
-            className={`text-xs font-black ${
-              athlete.status === "active" ? "text-emerald-600" : "text-slate-500"
-            }`}
-          >
-            {athlete.status === "active" ? "Activa" : "Inactiva"}
-          </p>
-        </div>
+
+        {canManageMembership && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onModifySchedule}
+              disabled={!canModifySchedule || loadingScheduleModal}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
+                canModifySchedule && !loadingScheduleModal
+                  ? "bg-violet-600 text-white hover:bg-violet-700"
+                  : "bg-slate-200 text-slate-500 cursor-not-allowed"
+              }`}
+            >
+              {loadingScheduleModal ? "Cargando horarios..." : "Modificar horarios"}
+            </button>
+
+            <button
+              type="button"
+              onClick={onSaveMembership}
+              disabled={savingMembership}
+              className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors ${
+                savingMembership
+                  ? "bg-slate-400 cursor-wait"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              {savingMembership ? "Guardando..." : "Guardar membresía"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
@@ -309,6 +375,62 @@ const StructuralMembershipCard = ({ athlete, assignedSlots = [], loading = false
         </div>
       </div>
 
+      {canManageMembership && (
+        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Icon name="Settings2" size={16} className="text-slate-600" />
+            <h4 className="text-sm font-black text-slate-800">
+              Editar asignación actual
+            </h4>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Plan
+              </label>
+              <select
+                name="planId"
+                value={membershipForm.planId}
+                onChange={onMembershipChange}
+                className="mt-1 w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm"
+              >
+                <option value="">Seleccionar...</option>
+                {availablePlans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Opción / Variante
+              </label>
+              <select
+                name="planOption"
+                value={membershipForm.planOption}
+                onChange={onMembershipChange}
+                disabled={!membershipForm.planId || availablePlanOptions.length === 0}
+                className="mt-1 w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm disabled:opacity-60"
+              >
+                <option value="">
+                  {membershipForm.planId
+                    ? "Sin opción"
+                    : "Selecciona un plan primero"}
+                </option>
+                {availablePlanOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border border-slate-200 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
           <Icon name="CalendarDays" size={16} className="text-blue-600" />
@@ -330,7 +452,9 @@ const StructuralMembershipCard = ({ athlete, assignedSlots = [], loading = false
                   {group.slots
                     .map((assignment) => normalizeRelation(assignment.weekly_schedule))
                     .filter(Boolean)
-                    .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
+                    .sort((a, b) =>
+                      String(a.start_time).localeCompare(String(b.start_time))
+                    )
                     .map((schedule) => (
                       <span
                         key={schedule.id}
@@ -348,9 +472,65 @@ const StructuralMembershipCard = ({ athlete, assignedSlots = [], loading = false
       </div>
 
       <div className="mt-3 text-[11px] text-slate-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-        La reasignación de plan/frecuencia/slots debe hacerse desde el flujo de gestión
-        estructural para evitar inconsistencias entre cupos, pricing, kiosk y pagos.
+        La reasignación de plan, frecuencia y slots debe hacerse desde este flujo
+        para evitar inconsistencias entre cupos, pricing, kiosk y pagos.
       </div>
+    </div>
+  );
+};
+
+// --- PREVIEW SIMPLE DE NOTAS PARA EL TAB RESUMEN ---
+const NotesPreview = ({ notes = [], loading = false, onViewMore }) => {
+  if (loading) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+        <div className="h-6 bg-muted/50 rounded w-1/3 mb-4 animate-pulse"></div>
+        <div className="space-y-3 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 bg-muted/30 rounded-lg"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+      <div className="flex items-center justify-between mb-3 md:mb-4">
+        <h3 className="text-base md:text-lg font-heading font-semibold text-foreground">
+          Notas recientes
+        </h3>
+        <button
+          type="button"
+          onClick={onViewMore}
+          className="text-xs font-bold text-primary hover:underline"
+        >
+          Ver todas
+        </button>
+      </div>
+
+      {!notes || notes.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-lg">
+          <Icon name="FileText" size={32} className="mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No hay notas registradas</p>
+        </div>
+      ) : (
+        <div className="space-y-2 md:space-y-3">
+          {notes.slice(0, 3).map((note) => (
+            <div
+              key={note.id}
+              className="bg-muted/30 border border-border rounded-lg p-3 transition-smooth hover:bg-muted/50"
+            >
+              <p className="text-xs text-muted-foreground mb-1">
+                {new Date(note.date || note.timestamp).toLocaleDateString()}
+              </p>
+              <p className="text-sm text-foreground leading-relaxed">
+                {note.content}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -360,15 +540,19 @@ const IndividualAthleteProfile = () => {
   const { id: athleteId } = useParams();
   const { currentUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState("performance");
+  const [activeTab, setActiveTab] = useState("summary");
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
   const [enableTarget, setEnableTarget] = useState(null);
+
   const [availablePlans, setAvailablePlans] = useState([]);
   const [availablePlanOptions, setAvailablePlanOptions] = useState([]);
-  const [membershipForm, setMembershipForm] = useState({ planId: "", planOption: "" });
+  const [membershipForm, setMembershipForm] = useState({
+    planId: "",
+    planOption: "",
+  });
   const [savingMembership, setSavingMembership] = useState(false);
 
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -389,7 +573,6 @@ const IndividualAthleteProfile = () => {
     kioskRemaining: null,
   });
 
-  // --- CARGA DE DATOS ---
   useEffect(() => {
     const fetchProfileData = async () => {
       if (!athleteId) return;
@@ -458,7 +641,7 @@ const IndividualAthleteProfile = () => {
             .select("*")
             .eq("athlete_id", athleteId)
             .order("check_in_time", { ascending: false })
-            .limit(20),
+            .limit(50),
 
           fetchKioskRemaining({ athleteId }).catch(() => null),
 
@@ -617,7 +800,10 @@ const IndividualAthleteProfile = () => {
 
       setAvailablePlanOptions(normalized);
 
-      if (membershipForm.planOption && !normalized.includes(membershipForm.planOption)) {
+      if (
+        membershipForm.planOption &&
+        !normalized.includes(membershipForm.planOption)
+      ) {
         setMembershipForm((prev) => ({ ...prev, planOption: "" }));
       }
     };
@@ -727,7 +913,6 @@ const IndividualAthleteProfile = () => {
     }
   };
 
-  // --- KPIs CALCULADOS ---
   const kpiStats = useMemo(() => {
     const totalAtt = profileData.attendance.length;
     const totalAccess = profileData.accessLogs.filter((l) => l.access_granted).length;
@@ -763,8 +948,22 @@ const IndividualAthleteProfile = () => {
         icon: "Wallet",
         iconColor: "var(--color-accent)",
       },
+      {
+        title: "Slots Activos",
+        value: profileData.assignedSlots?.length ?? 0,
+        unit: "slots",
+        change: "Estructural",
+        changeType: "neutral",
+        icon: "CalendarDays",
+        iconColor: "var(--color-secondary)",
+      },
     ];
-  }, [profileData.attendance, profileData.accessLogs, profileData.kioskRemaining]);
+  }, [
+    profileData.attendance,
+    profileData.accessLogs,
+    profileData.kioskRemaining,
+    profileData.assignedSlots,
+  ]);
 
   const isInternalEmail = (email = "") =>
     email.includes("@dmg.internal") || email.includes("@vcfit.internal");
@@ -781,7 +980,6 @@ const IndividualAthleteProfile = () => {
     setIsEnableModalOpen(true);
   };
 
-  // --- HANDLERS ---
   const handleAddNote = async (content) => {
     try {
       const { data, error } = await supabase
@@ -838,116 +1036,26 @@ const IndividualAthleteProfile = () => {
           <AthleteHeader
             athlete={profileData.athlete}
             loading={loading}
+            onScheduleSession={canModifySchedule ? handleOpenScheduleModal : undefined}
             onExport={handleExportPDF}
             canEnable={currentUser?.role === "admin"}
             onEnableAccess={handleEnableAccess}
           />
 
-          {canManageMembership && profileData.athlete && (
-            <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
-              <div className="flex items-center justify-between gap-4 mb-3">
-                <div>
-                  <h3 className="text-sm font-black text-slate-800">
-                    Plan y Opción / Variante
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Gestiona la asignación actual del atleta.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleOpenScheduleModal}
-                    disabled={!canModifySchedule || loadingScheduleModal}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
-                      canModifySchedule && !loadingScheduleModal
-                        ? "bg-violet-600 text-white hover:bg-violet-700"
-                        : "bg-slate-200 text-slate-500 cursor-not-allowed"
-                    }`}
-                  >
-                    {loadingScheduleModal ? "Cargando horarios..." : "Modificar horarios"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveMembership}
-                    disabled={savingMembership}
-                    className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors ${
-                      savingMembership
-                        ? "bg-slate-400 cursor-wait"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }`}
-                  >
-                    {savingMembership ? "Guardando..." : "Guardar asignación"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Plan
-                  </label>
-                  <select
-                    name="planId"
-                    value={membershipForm.planId}
-                    onChange={handleMembershipChange}
-                    className="mt-1 w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm"
-                  >
-                    <option value="">Seleccionar...</option>
-                    {availablePlans.map((plan) => (
-                      <option key={plan.id} value={plan.id}>
-                        {plan.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Opción / Variante
-                  </label>
-                  <select
-                    name="planOption"
-                    value={membershipForm.planOption}
-                    onChange={handleMembershipChange}
-                    disabled={!membershipForm.planId || availablePlanOptions.length === 0}
-                    className="mt-1 w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm disabled:opacity-60"
-                  >
-                    <option value="">
-                      {membershipForm.planId
-                        ? "Sin opción"
-                        : "Selecciona un plan primero"}
-                    </option>
-                    {availablePlanOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                    Asignación actual
-                  </label>
-                  <p className="mt-1 text-sm font-semibold text-slate-700">
-                    {profileData.athlete.planName || "Sin Plan"}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {profileData.athlete.planOption || "—"}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Horarios activos: {profileData.assignedSlots.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           <StructuralMembershipCard
             athlete={profileData.athlete}
             assignedSlots={profileData.assignedSlots}
             loading={loading}
+            canManageMembership={canManageMembership}
+            membershipForm={membershipForm}
+            availablePlans={availablePlans}
+            availablePlanOptions={availablePlanOptions}
+            onMembershipChange={handleMembershipChange}
+            onSaveMembership={handleSaveMembership}
+            savingMembership={savingMembership}
+            onModifySchedule={handleOpenScheduleModal}
+            canModifySchedule={canModifySchedule}
+            loadingScheduleModal={loadingScheduleModal}
           />
 
           {/* KPI STRIP */}
@@ -962,55 +1070,113 @@ const IndividualAthleteProfile = () => {
               : kpiStats.map((stat, i) => <MetricCard key={i} {...stat} />)}
           </div>
 
-          {/* MAIN CONTENT GRID */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              {/* TABS DE NAVEGACIÓN */}
-              <div className="bg-card border border-border rounded-xl p-1 overflow-x-auto">
-                <div className="flex space-x-1 min-w-max">
-                  {["performance", "attendance", "payments"].map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        activeTab === tab
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                    >
-                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </button>
-                  ))}
+          {/* TABS */}
+          <div className="bg-card border border-border rounded-xl p-1 overflow-x-auto mb-6">
+            <div className="flex space-x-1 min-w-max">
+              {[
+                { key: "summary", label: "Resumen" },
+                { key: "performance", label: "Rendimiento" },
+                { key: "attendance", label: "Asistencia" },
+                { key: "payments", label: "Pagos" },
+                { key: "health", label: "Salud" },
+                { key: "notes", label: "Notas" },
+                { key: "access", label: "Accesos" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === tab.key
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* CONTENIDO */}
+          <div className="min-h-[420px] space-y-6">
+            {activeTab === "summary" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  <UpcomingSessions sessions={profileData.sessions} loading={loading} />
+
+                  <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base md:text-lg font-heading font-semibold text-foreground">
+                        Últimos Pagos
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("payments")}
+                        className="text-xs font-bold text-primary hover:underline"
+                      >
+                        Ver todos
+                      </button>
+                    </div>
+                    <PaymentHistory
+                      payments={(profileData.payments || []).slice(0, 5)}
+                      loading={loading}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <HealthMetrics metrics={profileData.latestMetrics} loading={loading} />
+
+                  <AthleteAccessLog
+                    logs={profileData.accessLogs}
+                    loading={loading}
+                    showLimit={5}
+                    onViewMore={() => setActiveTab("access")}
+                  />
+
+                  <NotesPreview
+                    notes={profileData.notes}
+                    loading={loading}
+                    onViewMore={() => setActiveTab("notes")}
+                  />
                 </div>
               </div>
+            )}
 
-              {/* CONTENIDO DE TABS */}
-              <div className="min-h-[400px]">
-                {activeTab === "performance" && (
-                  <PerformanceChart data={profileData.metrics} loading={loading} />
-                )}
-                {activeTab === "attendance" && (
-                  <AttendanceCalendar data={profileData.attendance} loading={loading} />
-                )}
-                {activeTab === "payments" && (
-                  <PaymentHistory payments={profileData.payments} loading={loading} />
-                )}
-              </div>
-            </div>
+            {activeTab === "performance" && (
+              <PerformanceChart data={profileData.metrics} loading={loading} />
+            )}
 
-            <div className="space-y-6">
+            {activeTab === "attendance" && (
+              <AttendanceCalendar
+                attendanceData={profileData.attendance}
+                loading={loading}
+              />
+            )}
+
+            {activeTab === "payments" && (
+              <PaymentHistory payments={profileData.payments} loading={loading} />
+            )}
+
+            {activeTab === "health" && (
               <HealthMetrics metrics={profileData.latestMetrics} loading={loading} />
+            )}
 
-              <AthleteAccessLog logs={profileData.accessLogs} />
-
-              <UpcomingSessions sessions={profileData.sessions} loading={loading} />
-
+            {activeTab === "notes" && (
               <CoachNotes
                 notes={profileData.notes}
                 onAddNote={handleAddNote}
                 loading={loading}
               />
-            </div>
+            )}
+
+            {activeTab === "access" && (
+              <AthleteAccessLog
+                logs={profileData.accessLogs}
+                loading={loading}
+                showLimit={null}
+              />
+            )}
           </div>
         </div>
 
