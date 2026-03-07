@@ -256,7 +256,7 @@ const NavigationSidebar = ({
         </nav>
 
         {/* Usuario */}
-        <div className="mt-auto border-t border-border bg-card flex-shrink-0">
+        <div className="mt-auto border-t border-border bg-slate-50/70 backdrop-blur-sm flex-shrink-0">
           <div className={`p-4 ${isCollapsed ? 'px-2' : 'px-4'}`}>
             <div className={`flex items-center gap-3 ${isCollapsed ? 'flex-col' : 'flex-row'}`}>
               <div className="relative flex-shrink-0">
