@@ -351,7 +351,7 @@ const AthletesManagement = () => {
         <title>Gestión de Atletas - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-[#F8FAFC] p-6 md:p-10 pb-24">
+      <div className="min-h-screen bg-[#F8FAFC] px-4 py-6 sm:px-5 lg:px-6 lg:py-8 pb-24">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <BreadcrumbTrail currentPath="/athletes-management" />

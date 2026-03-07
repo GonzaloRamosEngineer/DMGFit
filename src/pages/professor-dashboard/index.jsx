@@ -175,7 +175,7 @@ const ProfessorDashboard = () => {
     <>
       <Helmet><title>Panel del Entrenador | DMG Fitness</title></Helmet>
       
-      <div className="min-h-screen bg-[#F8FAFC] p-6 md:p-10 pb-24">
+      <div className="min-h-screen bg-[#F8FAFC] px-4 py-6 sm:px-5 lg:px-6 lg:py-8 pb-24">
         <BreadcrumbTrail items={[{ label: 'Portal Staff', path: '/professor-dashboard', active: true }]} />
         
         {/* HEADER */}
