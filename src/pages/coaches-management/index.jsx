@@ -134,8 +134,8 @@ const CoachesManagement = () => {
         <title>Gestión de Profesores - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-[#F8FAFC] p-4 sm:p-6 md:p-10 pb-24">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-[#F8FAFC] p-4 sm:p-6 md:p-8 pb-24">
+        <div className="w-full">
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>

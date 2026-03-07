@@ -434,7 +434,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
   }, [athletes, searchTerm]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-2xl rounded-[1.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* HEADER */}
         <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
