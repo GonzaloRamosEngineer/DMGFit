@@ -57,11 +57,11 @@ const Routes = () => {
           {/* --- Rutas Protegidas --- */}
           <Route element={<AppLayout />}>
             
-            {/* Admin & Profesor Routes */}
+            {/* Solo Admin */}
             <Route
               path="/main-dashboard"
               element={
-                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                <ProtectedRoute allowedRoles={["admin"]}>
                   <MainDashboard />
                 </ProtectedRoute>
               }
@@ -105,7 +105,7 @@ const Routes = () => {
             <Route
               path="/athletes-management"
               element={
-                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                <ProtectedRoute allowedRoles={["admin"]}>
                   <AthletesManagement />
                 </ProtectedRoute>
               }
@@ -121,7 +121,7 @@ const Routes = () => {
             <Route
               path="/performance-analytics"
               element={
-                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                <ProtectedRoute allowedRoles={["admin"]}>
                   <PerformanceAnalytics />
                 </ProtectedRoute>
               }
@@ -129,7 +129,7 @@ const Routes = () => {
             <Route
               path="/individual-athlete-profile/:id"
               element={
-                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                <ProtectedRoute allowedRoles={["admin"]}>
                   <IndividualAthleteProfile />
                 </ProtectedRoute>
               }
@@ -137,17 +137,17 @@ const Routes = () => {
             <Route
               path="/pdf-export-center"
               element={
-                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                <ProtectedRoute allowedRoles={["admin"]}>
                   <PDFExportCenter />
                 </ProtectedRoute>
               }
             />
 
-            {/* Solo Profesor */}
+            {/* Ruta legacy del profesor (restringida) */}
             <Route
               path="/professor-dashboard"
               element={
-                <ProtectedRoute allowedRoles={["profesor"]}>
+                <ProtectedRoute allowedRoles={["admin"]}>
                   <ProfessorDashboard />
                 </ProtectedRoute>
               }
