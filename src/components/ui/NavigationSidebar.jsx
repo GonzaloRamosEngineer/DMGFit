@@ -98,9 +98,19 @@ const NavigationSidebar = ({
     }
   ];
 
-  const menuItems = allMenuItems.filter(item =>
-    item?.roles?.includes(currentUser?.role)
-  );
+  const menuItems = allMenuItems.filter((item) => {
+    const role = currentUser?.role;
+
+    if (role === 'profesor') {
+      return item.id === 'horarios';
+    }
+
+    if (role === 'atleta') {
+      return item.id === 'athlete-portal';
+    }
+
+    return item?.roles?.includes(role);
+  });
 
   const isActive = (path) => {
     return location?.pathname === path || location?.pathname?.startsWith(path + '/');
