@@ -144,7 +144,6 @@ const AthletesManagement = () => {
 
           const planData = Array.isArray(athlete.plans) ? athlete.plans[0] : athlete.plans;
 
-          // ✅ Precio correcto: prioriza precio acordado del atleta (plan_tier_price), fallback a precio base del plan
           const hasTierPrice =
             athlete.plan_tier_price !== null &&
             athlete.plan_tier_price !== undefined &&
@@ -154,7 +153,6 @@ const AthletesManagement = () => {
             ? Number(athlete.plan_tier_price)
             : Number(planData?.price ?? 0);
 
-          // ✅ Para la tabla: separador de miles (sin símbolo, porque AthleteCard ya antepone "$")
           const resolvedPlanPriceDisplay = formatThousands(resolvedPlanPriceValue);
 
           return {
@@ -167,12 +165,8 @@ const AthletesManagement = () => {
             avatar: athlete.profiles?.avatar_url,
 
             planName: planData?.name || "Sin Plan",
-            // 👇 planPrice se usa en la tabla (con separador)
             planPrice: resolvedPlanPriceDisplay,
-            // 👇 planPriceValue se usa para operaciones (quick pay / modal)
             planPriceValue: resolvedPlanPriceValue,
-
-            // 👇 extra: también pasamos el tier price real por si el modal lo quiere usar sin esperar refresh
             planTierPrice: hasTierPrice ? Number(athlete.plan_tier_price) : null,
             visitsPerWeek:
               athlete.visits_per_week !== null &&
@@ -192,7 +186,6 @@ const AthletesManagement = () => {
 
             paymentStatus: latestPayment?.status || "pending",
 
-            // NOTE: estos siguen siendo mocks (fuera de este ajuste quirúrgico)
             attendanceLast30Days: [80, 90, 75, 85],
             needsActivation: isInternalEmail || rawEmail === "",
           };
@@ -352,9 +345,11 @@ const AthletesManagement = () => {
       </Helmet>
 
       <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+
+        {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <BreadcrumbTrail currentPath="/athletes-management" />
+            {/* <BreadcrumbTrail currentPath="/athletes-management" /> */}
             <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-2">
               Gestión de Atletas
             </h1>
@@ -547,8 +542,6 @@ const AthletesManagement = () => {
             avatar: payTarget.profileImage,
             email: payTarget.email,
             planName: payTarget.planName,
-
-            // ✅ Para pagos: valor numérico real (tier > base)
             planPrice:
               payTarget.planPriceValue !== undefined && payTarget.planPriceValue !== null
                 ? payTarget.planPriceValue
