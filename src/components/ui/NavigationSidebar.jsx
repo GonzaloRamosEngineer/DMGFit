@@ -256,10 +256,10 @@ const NavigationSidebar = ({
         </nav>
 
         {/* Footer / Usuario */}
-        <footer className="border-t border-border bg-muted/30 shadow-[0_-12px_24px_-20px_rgba(15,23,42,0.85)]">
-          <div className={`p-4 ${isCollapsed ? 'px-2' : 'px-4'}`}>
+        <footer className="border-t-2 border-border/80 bg-muted/50 shadow-[0_-14px_28px_-18px_rgba(15,23,42,0.9)]">
+          <div className={`m-2 rounded-xl border border-border/70 bg-card/95 p-3 ${isCollapsed ? 'px-2' : 'px-3'}`}>
             {!isCollapsed && (
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/80">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                 Cuenta
               </p>
             )}

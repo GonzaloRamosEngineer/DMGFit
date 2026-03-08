@@ -25,7 +25,7 @@ const AppLayout = () => {
           isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'
         }`}
       >
-        <div className="w-full h-full bg-[#F8FAFC] px-4 sm:px-6 md:px-8 lg:px-10">
+        <div className="w-full h-full bg-[#F8FAFC] px-3 sm:px-4 md:px-5 lg:px-6 xl:px-7">
           <Outlet />
         </div>
       </main>
