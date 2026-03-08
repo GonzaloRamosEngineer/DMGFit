@@ -18,7 +18,6 @@ const CoachesManagement = () => {
   const [coaches, setCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados de modales
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [coachToEdit, setCoachToEdit] = useState(null);
 
@@ -136,8 +135,9 @@ const CoachesManagement = () => {
 
       <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
         <div className="w-full">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+
+          {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <BreadcrumbTrail
                 items={[
@@ -154,7 +154,7 @@ const CoachesManagement = () => {
 
             <button
               onClick={handleCreate}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all w-full md:w-auto mt-2 md:mt-0"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all w-full md:w-auto"
             >
               <Icon name="UserPlus" size={16} />
               Nuevo Profesor
