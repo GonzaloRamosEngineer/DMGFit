@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
-import { useAuth } from '../../contexts/AuthContext';
-import { generateDashboardSummaryPDF } from '../../utils/pdfExport';
 
 // Componentes UI
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
@@ -11,14 +9,12 @@ import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 // Componentes del Dashboard
 import DashboardHeader from './components/DashboardHeader';
 import KPICard from './components/KPICard';
-import AttendancePerformanceChart from './components/AttendancePerformanceChart';
 import AlertFeed from './components/AlertFeed';
 import SessionSummaryGrid from './components/SessionSummaryGrid';
 
 const MainDashboard = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
-  
+
   // Estados de UI
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -26,180 +22,191 @@ const MainDashboard = () => {
 
   // Estados de Datos
   const [kpiStats, setKpiStats] = useState([]);
-  const [chartData, setChartData] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [alertBadgeCount, setAlertBadgeCount] = useState({
-    dashboard: 0,
-    atletas: 0,
-    rendimiento: 0,
-    pagos: 0
-  });
+
+  const getLocalDateString = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const getDateOnlyString = (dateLike) => {
+    if (!dateLike) return null;
+
+    if (typeof dateLike === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateLike)) {
+      return dateLike;
+    }
+
+    const dt = new Date(dateLike);
+    if (Number.isNaN(dt.getTime())) return null;
+    return getLocalDateString(dt);
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      const todayDate = new Date();
-      const today = todayDate.toISOString().split('T')[0];
 
-      // Array con las fechas de los últimos 7 días (para el gráfico)
-      const last7Days = Array.from({length: 7}, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - 6 + i);
-        return d.toISOString().split('T')[0];
-      });
+      const now = new Date();
+      const today = getLocalDateString(now);
 
-      // --- 1. CONSULTAS A BASE DE DATOS (Múltiples Promesas para rapidez) ---
       const [
         { count: activeAthletes },
         { count: totalAthletes },
-        { data: pendingPayments },
-        { count: attendanceToday },
-        { data: attendance7Days },
-        { data: metrics7Days },
+        { data: paymentsRaw },
+        { data: todayAccessLogs },
+        { data: todayAttendance },
         { data: todaysSessions },
-        { data: overduePayments }
       ] = await Promise.all([
         supabase.from('athletes').select('*', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('athletes').select('*', { count: 'exact', head: true }),
-        supabase.from('payments').select('amount').neq('status', 'paid'),
-        supabase.from('attendance').select('*', { count: 'exact', head: true }).eq('date', today).eq('status', 'present'),
-        supabase.from('attendance').select('date, session_id').in('date', last7Days).eq('status', 'present'),
-        supabase.from('metrics').select('date, value').in('date', last7Days),
+        supabase.from('payments').select('id, amount, status, payment_date, athletes ( profiles ( full_name ) )').neq('status', 'paid'),
+        supabase
+          .from('access_logs')
+          .select('id, check_in_time, access_granted, reason_code, rejection_reason, athletes ( profiles ( full_name ) ), coaches ( profiles ( full_name ) )')
+          .eq('local_checkin_date', today)
+          .order('check_in_time', { ascending: false }),
+        supabase.from('attendance').select('session_id').eq('date', today).eq('status', 'present'),
         supabase.from('sessions').select(`
           id, time, capacity, status, type,
           plans ( name ),
           coaches ( profiles ( full_name, avatar_url ) )
         `).eq('session_date', today).order('time', { ascending: true }),
-        supabase.from('payments').select(`
-          id, payment_date, amount,
-          athletes ( id, profile_id, profiles ( full_name ) )
-        `).neq('status', 'paid').lt('payment_date', today).limit(5)
       ]);
 
-      // --- 2. PROCESAMIENTO DE DATOS REALES ---
-      
-      // A. Cálculos de Pagos
-      const pendingAmount = pendingPayments?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
-      const pendingCount = pendingPayments?.length || 0;
+      const parsedPayments = (paymentsRaw || []).map((payment) => {
+        const paymentDateOnly = getDateOnlyString(payment.payment_date);
+        const isOverdue = Boolean(paymentDateOnly && paymentDateOnly < today);
+        const dueToday = Boolean(paymentDateOnly && paymentDateOnly === today);
 
-      // B. Cálculos de Rendimiento (Promedio de los últimos 7 días)
-      const avgPerformance = metrics7Days?.length > 0 
-        ? (metrics7Days.reduce((sum, m) => sum + Number(m.value), 0) / metrics7Days.length).toFixed(1)
-        : "0.0";
+        return {
+          ...payment,
+          paymentDateOnly,
+          isOverdue,
+          dueToday,
+          athleteName: payment.athletes?.profiles?.full_name || 'Atleta Desconocido',
+        };
+      });
 
-      // C. Armado de KPIs
+      const overduePayments = parsedPayments.filter((payment) => payment.isOverdue);
+      const dueTodayPayments = parsedPayments.filter((payment) => payment.dueToday);
+      const overdueAmount = overduePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      const accessLogs = todayAccessLogs || [];
+      const grantedCount = accessLogs.filter((log) => log.access_granted).length;
+      const deniedLogs = accessLogs.filter((log) => !log.access_granted);
+      const deniedCount = deniedLogs.length;
+
+      const warningCount = null;
+
       setKpiStats([
         {
-          title: "Atletas Activos",
+          title: 'Atletas Activos',
           value: activeAthletes || 0,
-          trend: "neutral", // En el futuro puedes comparar con el mes pasado
-          trendValue: "",
-          icon: "Users",
-          threshold: "green",
-          subtitle: `De ${totalAthletes || 0} totales`
+          trend: 'neutral',
+          trendValue: '',
+          icon: 'Users',
+          threshold: 'green',
+          subtitle: `De ${totalAthletes || 0} totales`,
         },
         {
-          title: "Asistencia Hoy",
-          value: attendanceToday || 0,
-          trend: "neutral",
-          trendValue: "",
-          icon: "TrendingUp",
-          threshold: attendanceToday > 0 ? "green" : "yellow",
-          subtitle: "Check-ins registrados"
+          title: 'Accesos Hoy',
+          value: grantedCount,
+          trend: deniedCount > 0 ? 'down' : 'neutral',
+          trendValue: deniedCount > 0 ? `${deniedCount} denegados` : 'Sin denegados',
+          icon: 'DoorOpen',
+          threshold: deniedCount > 0 ? 'yellow' : 'green',
+          subtitle: warningCount !== null
+            ? `${warningCount} warnings`
+            : 'Basado en access_logs',
         },
         {
-          title: "Pagos Pendientes",
-          value: pendingCount,
-          trend: pendingCount > 5 ? "down" : "neutral",
-          trendValue: pendingCount > 0 ? "Requiere atención" : "Al día",
-          icon: "CreditCard",
-          threshold: pendingCount > 10 ? "red" : pendingCount > 0 ? "yellow" : "green",
-          subtitle: `$${pendingAmount.toLocaleString('es-AR')} total`
+          title: 'Pagos Vencidos',
+          value: overduePayments.length,
+          trend: overduePayments.length > 0 ? 'down' : 'neutral',
+          trendValue: dueTodayPayments.length > 0 ? `${dueTodayPayments.length} vencen hoy` : 'Sin vencimientos hoy',
+          icon: 'CreditCard',
+          threshold: overduePayments.length > 0 ? 'red' : dueTodayPayments.length > 0 ? 'yellow' : 'green',
+          subtitle: `$${overdueAmount.toLocaleString('es-AR')} vencido`,
         },
         {
-          title: "Rendimiento Prom.",
-          value: avgPerformance,
-          trend: "up",
-          trendValue: "Últ. 7 días",
-          icon: "Award",
-          threshold: avgPerformance >= 7 ? "green" : "yellow",
-          subtitle: "Puntuación global"
-        }
+          title: 'Sesiones Hoy',
+          value: todaysSessions?.length || 0,
+          trend: 'neutral',
+          trendValue: 'Planificación diaria',
+          icon: 'Calendar',
+          threshold: 'green',
+          subtitle: 'Agenda operativa',
+        },
       ]);
 
-      // --- 3. ALERTAS (Reales) ---
-      const generatedAlerts = overduePayments?.map(p => ({
-        id: `pay-${p.id}`,
+      const paymentAlerts = overduePayments.slice(0, 5).map((payment) => ({
+        id: `pay-${payment.id}`,
         severity: 'critical',
         title: 'Pago Vencido',
-        description: `El pago de $${p.amount} venció el ${p.payment_date}.`,
-        athleteName: p.athletes?.profiles?.full_name || 'Atleta Desconocido',
-        timestamp: new Date(p.payment_date),
+        description: `El pago de $${Number(payment.amount || 0).toLocaleString('es-AR')} venció el ${payment.payment_date || 'fecha no informada'}.`,
+        athleteName: payment.athleteName,
+        timestamp: payment.payment_date ? new Date(payment.payment_date) : new Date(),
         actionable: true,
-        actionLabel: 'Verificar'
-      })) || [];
+        actionLabel: 'Ir a Cobros',
+        target: '/payment-management',
+      }));
+
+      const accessAlerts = deniedLogs.slice(0, 5).map((log) => {
+        const coachName = log.coaches?.profiles?.full_name;
+        const athleteName = log.athletes?.profiles?.full_name;
+        return {
+          id: `acc-${log.id}`,
+          severity: 'warning',
+          title: 'Acceso denegado',
+          description: log.reason_code || log.rejection_reason || 'Sin motivo informado',
+          athleteName: coachName || athleteName || 'Usuario sin identificar',
+          timestamp: log.check_in_time ? new Date(log.check_in_time) : new Date(),
+          actionable: true,
+          actionLabel: 'Ver Historial',
+          target: '/access-history',
+        };
+      });
+
+      const generatedAlerts = [...paymentAlerts, ...accessAlerts]
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, 10);
 
       if (generatedAlerts.length === 0) {
         generatedAlerts.push({
           id: 'sys-ok',
           severity: 'info',
-          title: 'Sistema al día',
-          description: 'No hay alertas críticas pendientes en este momento.',
+          title: 'Operación al día',
+          description: 'No hay alertas críticas de cobros ni accesos en este momento.',
           timestamp: new Date(),
-          actionable: false
+          actionable: false,
         });
       }
+
       setAlerts(generatedAlerts);
-      setAlertBadgeCount(prev => ({ ...prev, pagos: pendingCount }));
 
-      // --- 4. SESIONES DE HOY (Reales) ---
-      const formattedSessions = todaysSessions?.map(s => {
-        // Contamos cuántos check-ins reales hay para esta sesión específica hoy
-        const realAttendanceCount = attendance7Days?.filter(a => a.date === today && a.session_id === s.id).length || 0;
-        
+      const formattedSessions = (todaysSessions || []).map((session) => {
+        const attendanceCount = (todayAttendance || []).filter(
+          (record) => record.session_id === session.id,
+        ).length;
+
         return {
-          id: s.id,
-          time: s.time || '00:00',
-          coachName: s.coaches?.profiles?.full_name || 'Por asignar',
-          coachAvatar: s.coaches?.profiles?.avatar_url,
-          program: s.plans?.name || s.type || 'Entrenamiento',
-          attendanceCount: realAttendanceCount, // ¡Dato real!
-          capacity: s.capacity || 20,
-          status: s.status || 'scheduled'
-        };
-      }) || [];
-
-      setSessions(formattedSessions);
-
-      // --- 5. GRÁFICO (Últimos 7 días reales) ---
-      const realChartData = last7Days.map(dateStr => {
-        // Obtenemos el nombre del día en español (ej: "Lun")
-        const d = new Date(`${dateStr}T12:00:00`); // T12:00:00 evita problemas de zona horaria
-        const dayName = d.toLocaleDateString('es-ES', { weekday: 'short' });
-        
-        // Asistencia de ese día
-        const dayAttendance = attendance7Days?.filter(a => a.date === dateStr).length || 0;
-        
-        // Promedio de rendimiento de ese día
-        const dayMetrics = metrics7Days?.filter(m => m.date === dateStr) || [];
-        const dayAvgPerf = dayMetrics.length > 0 
-          ? (dayMetrics.reduce((sum, m) => sum + Number(m.value), 0) / dayMetrics.length).toFixed(1)
-          : 0;
-
-        return { 
-          period: dayName.charAt(0).toUpperCase() + dayName.slice(1), // Capitaliza (lun -> Lun)
-          attendance: dayAttendance, 
-          performance: Number(dayAvgPerf) 
+          id: session.id,
+          time: session.time || '00:00',
+          coachName: session.coaches?.profiles?.full_name || 'Por asignar',
+          coachAvatar: session.coaches?.profiles?.avatar_url,
+          program: session.plans?.name || session.type || 'Entrenamiento',
+          attendanceCount,
+          capacity: session.capacity || 20,
+          status: session.status || 'scheduled',
         };
       });
 
-      setChartData(realChartData);
+      setSessions(formattedSessions);
       setLastUpdated(new Date());
-
     } catch (error) {
-      console.error("Error cargando dashboard:", error);
+      console.error('Error cargando dashboard:', error);
     } finally {
       setLoading(false);
     }
@@ -210,72 +217,49 @@ const MainDashboard = () => {
 
     let interval;
     if (autoRefresh) {
-      interval = setInterval(fetchData, 30000); // Refrescar cada 30 segundos
+      interval = setInterval(fetchData, 30000);
     }
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
-  // Handlers
-  const handleRefreshToggle = () => setAutoRefresh(!autoRefresh);
-  
+  const handleRefreshToggle = () => setAutoRefresh((prev) => !prev);
+
   const handleAlertAction = (alertId, action) => {
-    if (action === 'view') navigate('/payment-management');
+    if (action !== 'view') return;
+    const alert = alerts.find((item) => item.id === alertId);
+    if (alert?.target) navigate(alert.target);
   };
 
   return (
     <>
       <Helmet>
-        <title>Dashboard Principal - VC Fit</title>
+        <title>Dashboard Operativo - DMG Fitness</title>
       </Helmet>
 
       <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
-        
         <div className="w-full space-y-6 md:space-y-8">
-          
-          {/* Header del Dashboard */}
           <div>
             <BreadcrumbTrail currentPath="/main-dashboard" />
             <DashboardHeader
               onRefreshToggle={handleRefreshToggle}
               autoRefresh={autoRefresh}
-              lastUpdated={lastUpdated} 
+              lastUpdated={lastUpdated}
             />
           </div>
 
-          {/* GRID DE KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {loading 
-              ? [1,2,3,4].map(i => <KPICard key={i} loading={true} />)
-              : kpiStats.map((kpi, index) => <KPICard key={index} {...kpi} />)
-            }
+            {loading
+              ? [1, 2, 3, 4].map((i) => <KPICard key={i} loading={true} />)
+              : kpiStats.map((kpi, index) => <KPICard key={index} {...kpi} />)}
           </div>
 
-          {/* GRÁFICO Y ALERTAS */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 md:gap-6 items-start">
-            <div className="xl:col-span-8 w-full min-w-0">
-              <AttendancePerformanceChart
-                data={chartData}
-                loading={loading}
-                onDrillDown={() => navigate('/performance-analytics')} 
-              />
-            </div>
-            <div className="xl:col-span-4 w-full min-w-0">
-              <AlertFeed
-                alerts={alerts}
-                loading={loading}
-                onActionClick={handleAlertAction} 
-              />
-            </div>
-          </div>
-
-          {/* SESIONES */}
           <div className="w-full">
-            <SessionSummaryGrid 
-              sessions={sessions} 
-              loading={loading} 
-            />
+            <AlertFeed alerts={alerts} loading={loading} onActionClick={handleAlertAction} />
           </div>
-          
+
+          <div className="w-full">
+            <SessionSummaryGrid sessions={sessions} loading={loading} />
+          </div>
         </div>
       </div>
     </>
