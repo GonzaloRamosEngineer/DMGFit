@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import NavigationSidebar from './components/ui/NavigationSidebar';
-import { useAuth } from './contexts/AuthContext';
 
 const AppLayout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const { currentUser } = useAuth();
 
   const alertData = {
     dashboard: 0,
@@ -27,7 +25,7 @@ const AppLayout = () => {
           isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'
         }`}
       >
-        <div className="w-full h-full">
+        <div className="w-full h-full bg-[#F8FAFC] px-4 sm:px-6 md:px-8 lg:px-10">
           <Outlet />
         </div>
       </main>

@@ -160,7 +160,7 @@ const NavigationSidebar = ({
         className={`
           fixed top-0 left-0 h-full bg-card border-r border-border
           transition-all duration-300 ease-in-out z-30
-          flex flex-col relative
+          grid grid-rows-[auto_minmax(0,1fr)_auto] relative
           ${isCollapsed ? 'w-20' : 'w-60'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
@@ -199,7 +199,7 @@ const NavigationSidebar = ({
         </div>
 
         {/* Menu */}
-        <nav className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
+        <nav className="min-h-0 overflow-y-auto custom-scrollbar p-3 space-y-1">
           {menuItems?.map((item) => (
             <Link
               key={item?.id}
@@ -255,8 +255,8 @@ const NavigationSidebar = ({
           ))}
         </nav>
 
-        {/* Usuario */}
-        <div className="border-t border-border bg-card flex-shrink-0">
+        {/* Footer / Usuario */}
+        <footer className="border-t border-border bg-card">
           <div className={`p-4 ${isCollapsed ? 'px-2' : 'px-4'}`}>
             <div className={`flex items-center gap-3 ${isCollapsed ? 'flex-col' : 'flex-row'}`}>
               <div className="relative flex-shrink-0">
@@ -324,7 +324,7 @@ const NavigationSidebar = ({
               </div>
             )}
           </div>
-        </div>
+        </footer>
       </aside>
 
       {/* Overlay Mobile */}
