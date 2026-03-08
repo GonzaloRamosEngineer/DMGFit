@@ -15,3 +15,6 @@ _local/
 .env
 .env.local
 .env.*.local
+# Vite build output (Vercel builds in CI)
+dist/
+
