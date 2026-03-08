@@ -160,28 +160,15 @@ const NavigationSidebar = ({
         className={`
           fixed top-0 left-0 h-full bg-card border-r border-border
           transition-all duration-300 ease-in-out z-30
-          flex flex-col relative
+          flex flex-col
           ${isCollapsed ? 'w-20' : 'w-60'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        <button
-          onClick={onToggleCollapse}
-          className="hidden lg:flex absolute top-6 -right-4 items-center justify-center w-8 h-8 rounded-full border border-border bg-white shadow-sm hover:bg-muted transition-all"
-          aria-label={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
-          title={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
-        >
-          <Icon
-            name={isCollapsed ? 'PanelLeftOpen' : 'PanelLeftClose'}
-            size={16}
-            color="var(--color-foreground)"
-          />
-        </button>
-
         {/* Header */}
         <div
           className={`flex items-center h-16 px-4 border-b border-border flex-shrink-0 ${
-            isCollapsed ? 'justify-center' : 'justify-start'
+            isCollapsed ? 'justify-center' : 'justify-between'
           }`}
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -196,6 +183,35 @@ const NavigationSidebar = ({
             )}
           </div>
 
+          {!isCollapsed && (
+            <button
+              onClick={onToggleCollapse}
+              className="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-white hover:bg-muted transition-all"
+              aria-label="Contraer sidebar"
+              title="Contraer sidebar"
+            >
+              <Icon
+                name="PanelLeftClose"
+                size={18}
+                color="var(--color-foreground)"
+              />
+            </button>
+          )}
+
+          {isCollapsed && (
+            <button
+              onClick={onToggleCollapse}
+              className="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-white hover:bg-muted transition-all"
+              aria-label="Expandir sidebar"
+              title="Expandir sidebar"
+            >
+              <Icon
+                name="PanelLeftOpen"
+                size={18}
+                color="var(--color-foreground)"
+              />
+            </button>
+          )}
         </div>
 
         {/* Menu */}
@@ -286,12 +302,14 @@ const NavigationSidebar = ({
                     {currentUser?.email || 'usuario@email.com'}
                   </p>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <div className={`
-                      px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide
-                      ${currentUser?.role === 'admin' ? 'bg-primary/15 text-primary' : ''}
-                      ${currentUser?.role === 'profesor' ? 'bg-accent/15 text-accent' : ''}
-                      ${currentUser?.role === 'atleta' ? 'bg-success/15 text-success' : ''}
-                    `}>
+                    <div
+                      className={`
+                        px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide
+                        ${currentUser?.role === 'admin' ? 'bg-primary/15 text-primary' : ''}
+                        ${currentUser?.role === 'profesor' ? 'bg-accent/15 text-accent' : ''}
+                        ${currentUser?.role === 'atleta' ? 'bg-success/15 text-success' : ''}
+                      `}
+                    >
                       {getRoleLabel(currentUser?.role)}
                     </div>
                   </div>

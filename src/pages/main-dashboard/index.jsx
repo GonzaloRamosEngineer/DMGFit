@@ -228,9 +228,9 @@ const MainDashboard = () => {
         <title>Dashboard Principal - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-[#F8FAFC] p-4 sm:p-6 md:p-10 pb-24">
+      <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
         
-        <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-8">
+        <div className="w-full space-y-6 md:space-y-8">
           
           {/* Header del Dashboard */}
           <div>
