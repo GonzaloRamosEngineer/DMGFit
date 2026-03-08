@@ -21,7 +21,7 @@ const AppLayout = () => {
       />
 
       <div
-        className={`hidden lg:block shrink-0 ${
+        className={`hidden lg:block shrink-0 transition-all duration-300 ease-in-out ${
           isSidebarCollapsed ? 'w-20' : 'w-60'
         }`}
         aria-hidden="true"
