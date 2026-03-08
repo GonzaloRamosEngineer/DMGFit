@@ -20,12 +20,10 @@ const normalizeRelation = (value) => {
 const PlanManagement = () => {
   const { currentUser } = useAuth();
 
-  // Estados de datos
   const [plans, setPlans] = useState([]);
   const [availableCoaches, setAvailableCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados de UI / Modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [isGridModalOpen, setIsGridModalOpen] = useState(false);
@@ -34,7 +32,6 @@ const PlanManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // Métricas
   const [metrics, setMetrics] = useState({
     totalPlans: 0,
     activePlans: 0,
@@ -47,7 +44,6 @@ const PlanManagement = () => {
     try {
       setLoading(true);
 
-      // Coaches disponibles
       const { data: coachesData } = await supabase
         .from('coaches')
         .select('id, profiles:profile_id(full_name)');
@@ -55,15 +51,11 @@ const PlanManagement = () => {
       const formattedCoaches =
         coachesData?.map((coach) => {
           const profile = normalizeRelation(coach.profiles);
-          return {
-            id: coach.id,
-            name: profile?.full_name || 'Entrenador',
-          };
+          return { id: coach.id, name: profile?.full_name || 'Entrenador' };
         }) || [];
 
       setAvailableCoaches(formattedCoaches);
 
-      // Planes
       const { data: plansData, error } = await supabase
         .from('plans')
         .select(`
@@ -78,7 +70,6 @@ const PlanManagement = () => {
 
       const activeAthleteCountsByPlan = await fetchActiveAthleteCountsByPlan().catch(() => ({}));
 
-      // 3. Formatear datos
       const formattedPlans = await Promise.all(plansData.map(async (p) => {
         const [pricingTiers, slotAvailability, availabilityWindows] = await Promise.all([
           fetchPlanPricing(p.id).catch(() => []),
@@ -141,7 +132,6 @@ const PlanManagement = () => {
 
     let occupancySum = 0;
     let capacitySum = 0;
-
     data.forEach((plan) => {
       if (plan.status === 'active') {
         occupancySum += Number(plan.enrolled || 0);
@@ -149,26 +139,15 @@ const PlanManagement = () => {
       }
     });
 
-    const occupancy =
-      capacitySum > 0 ? Math.round((occupancySum / capacitySum) * 100) : 0;
+    const occupancy = capacitySum > 0 ? Math.round((occupancySum / capacitySum) * 100) : 0;
 
-    setMetrics({
-      totalPlans: total,
-      activePlans: active,
-      totalEnrolled: enrolled,
-      avgOccupancy: occupancy,
-      monthlyRevenue: revenue,
-    });
+    setMetrics({ totalPlans: total, activePlans: active, totalEnrolled: enrolled, avgOccupancy: occupancy, monthlyRevenue: revenue });
   };
 
   const handleSavePlan = async (planData) => {
     try {
       setLoading(true);
-
-      await savePlanConfiguration(planData, {
-        planId: editingPlan ? planData.id : null,
-      });
-
+      await savePlanConfiguration(planData, { planId: editingPlan ? planData.id : null });
       await fetchData();
       setIsCreateModalOpen(false);
       setEditingPlan(null);
@@ -182,11 +161,9 @@ const PlanManagement = () => {
 
   const handleDeletePlan = async (planId) => {
     if (!window.confirm('¿Estás seguro? Esta acción no se puede deshacer.')) return;
-
     try {
       const { error } = await supabase.from('plans').delete().eq('id', planId);
       if (error) throw error;
-
       const nextPlans = plans.filter((plan) => plan.id !== planId);
       setPlans(nextPlans);
       calculateMetrics(nextPlans);
@@ -198,23 +175,16 @@ const PlanManagement = () => {
   const handleToggleStatus = async (planId) => {
     const plan = plans.find((item) => item.id === planId);
     if (!plan) return;
-
     const newStatus = plan.status === 'active' ? 'inactive' : 'active';
-
     try {
       await supabase.from('plans').update({ status: newStatus }).eq('id', planId);
-
       const nextPlans = plans.map((item) =>
         item.id === planId ? { ...item, status: newStatus } : item
       );
-
       setPlans(nextPlans);
       calculateMetrics(nextPlans);
-
       if (selectedPlanForGrid?.id === planId) {
-        setSelectedPlanForGrid((prev) =>
-          prev ? { ...prev, status: newStatus } : prev
-        );
+        setSelectedPlanForGrid((prev) => prev ? { ...prev, status: newStatus } : prev);
       }
     } catch (error) {
       console.error('Error actualizando estado:', error);
@@ -230,9 +200,7 @@ const PlanManagement = () => {
     const matchesSearch =
       plan.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       plan.description?.toLowerCase().includes(searchQuery.toLowerCase());
-
     const matchesStatus = filterStatus === 'all' || plan.status === filterStatus;
-
     return matchesSearch && matchesStatus;
   });
 
@@ -244,8 +212,9 @@ const PlanManagement = () => {
 
       <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
         <div className="w-full">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+
+          {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <BreadcrumbTrail
                 items={[
@@ -260,7 +229,7 @@ const PlanManagement = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+            <div className="flex items-center gap-3 w-full md:w-auto">
               <button
                 onClick={() => {
                   setEditingPlan(null);
@@ -348,7 +317,6 @@ const PlanManagement = () => {
                     ? 'Prueba buscando con otros términos o cambia los filtros.'
                     : 'Crea tu primer plan de entrenamiento para empezar.'}
                 </p>
-
                 {!searchQuery && (
                   <button
                     onClick={() => setIsCreateModalOpen(true)}

@@ -16,6 +16,8 @@ import {
 import { es } from "date-fns/locale";
 
 import { supabase } from "../../lib/supabaseClient";
+import { fetchPlanGridAvailability } from "../../services/plans";
+import { useAuth } from "../../contexts/AuthContext";
 import BreadcrumbTrail from "../../components/ui/BreadcrumbTrail";
 import Icon from "../../components/AppIcon";
 
@@ -33,10 +35,10 @@ const DAY_LABELS = {
 };
 
 const normalizeTime = (t) => String(t || "").slice(0, 5);
-const jsDowToDb = (jsDow) => (jsDow === 0 ? 7 : jsDow); // JS: 0 domingo, DB: 7 domingo
+const jsDowToDb = (jsDow) => (jsDow === 0 ? 7 : jsDow);
 
 const TIME_START = 7;
-const TIME_END = 22; // inclusive (7..22) => 16 filas si es 7..22
+const TIME_END = 22;
 
 const buildHours = () =>
   Array.from(
@@ -51,9 +53,6 @@ const computeDurationMinutes = (startTime, endTime) => {
   const end = eh * 60 + (em || 0);
   return Math.max(0, end - start);
 };
-
-const pillBase =
-  "inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border";
 
 const Segmented = ({ value, onChange, options = [] }) => (
   <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
@@ -77,19 +76,34 @@ const Segmented = ({ value, onChange, options = [] }) => (
   </div>
 );
 
+// ─── CUPOS: chip sutil según lugares libres ──────────────────────────────────
+const getRemainingStyle = (remaining) => {
+  const r = Number(remaining ?? -1);
+  if (r < 0)  return null; // sin datos
+  if (r === 0) return { chip: "bg-rose-100 text-rose-700 border-rose-200",   dot: "bg-rose-500",   label: "Completo" };
+  if (r <= 7)  return { chip: "bg-rose-50 text-rose-600 border-rose-200",    dot: "bg-rose-400",   label: `${r} lugar${r === 1 ? "" : "es"}` };
+  if (r <= 14) return { chip: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-400",  label: `${r} lugares` };
+               return { chip: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500", label: `${r} lugares` };
+};
+
+// ─── CARD ────────────────────────────────────────────────────────────────────
 const PlanSlotCard = ({ slot, onClick }) => {
   const planName = slot.planName || "Plan";
-  const timeLabel = `${normalizeTime(slot.startTime)}–${normalizeTime(slot.endTime)}`;
+  const timeLabel = `${normalizeTime(slot.startTime)} – ${normalizeTime(slot.endTime)}`;
 
   const activityName = slot.activityName || "Sin actividad";
-  const activityColor = slot.activityColor || "#64748b"; // slate-500
+  const activityColor = slot.activityColor || "#94a3b8";
   const hasActivity = Boolean(slot.activityId);
 
   const coaches = slot.coaches || [];
   const coachCount = coaches.length;
-  const hasCoach = coachCount > 0;
 
-  const needsConfig = !hasActivity || !hasCoach;
+  const needsConfig = !hasActivity || coachCount === 0;
+
+  // Cupos
+  const remaining = slot.remaining ?? null;
+  const capacity  = slot.capacity  ?? null;
+  const remStyle  = getRemainingStyle(remaining);
 
   return (
     <button
@@ -98,108 +112,121 @@ const PlanSlotCard = ({ slot, onClick }) => {
         e.stopPropagation();
         onClick(slot);
       }}
-      className="group w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-[1px] transition-all overflow-hidden"
+      className="group w-full text-left bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
+      style={{ borderLeft: `3px solid ${activityColor}` }}
     >
-      {/* Accent */}
-      <div className="h-1" style={{ backgroundColor: activityColor }} />
+      {/* Top section */}
+      <div className="px-3 pt-3 pb-2">
+        {/* Plan badge + config status */}
+        <div className="flex items-center justify-between gap-1 mb-2">
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full leading-tight truncate max-w-[70%]">
+            {planName}
+          </span>
 
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
-                {planName}
-              </span>
-
-              {needsConfig ? (
-                <span
-                  className={`${pillBase} bg-amber-50 text-amber-700 border-amber-200`}
-                >
-                  <Icon name="AlertTriangle" size={12} />
-                  Pendiente
-                </span>
-              ) : (
-                <span
-                  className={`${pillBase} bg-emerald-50 text-emerald-700 border-emerald-200`}
-                >
-                  <Icon name="CheckCircle2" size={12} />
-                  OK
-                </span>
-              )}
-            </div>
-
-            <p className="mt-2 font-black text-sm text-slate-900 leading-tight truncate">
-              {activityName}
-            </p>
-
-            <p className="mt-0.5 text-[11px] text-slate-500 truncate">
-              {slot.activityDetail
-                ? slot.activityDetail
-                : "Sin detalle (opcional)"}
-            </p>
-          </div>
-
-          <div className="shrink-0 flex flex-col items-end gap-2">
-            <span className="text-[10px] font-black text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
-              {timeLabel}
+          {needsConfig ? (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+              <Icon name="AlertTriangle" size={9} />
+              Pendiente
             </span>
-
-            <span className="text-[10px] font-black text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-full">
-              <span className="inline-flex items-center gap-1">
-                <Icon name="Users" size={12} />
-                Cupo {slot.capacity ?? "-"}
-              </span>
+          ) : (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+              <Icon name="CheckCircle2" size={9} />
+              OK
             </span>
-          </div>
+          )}
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="flex -space-x-2">
-              {coaches.slice(0, 3).map((c) => (
-                <div
-                  key={c.id}
-                  className="w-7 h-7 rounded-full ring-2 ring-white bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-[10px] font-black text-slate-600"
-                  title={c.name}
-                >
-                  {c.avatar ? (
-                    <img
-                      src={c.avatar}
-                      alt={c.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    (c.name || "P").charAt(0).toUpperCase()
-                  )}
-                </div>
-              ))}
+        {/* Activity name */}
+        <p
+          className="font-black text-sm leading-tight mb-0.5 truncate"
+          style={{ color: hasActivity ? activityColor : "#94a3b8" }}
+        >
+          {activityName}
+        </p>
 
-              {coachCount === 0 && (
-                <div className="w-7 h-7 rounded-full ring-2 ring-white bg-rose-50 border border-rose-200 flex items-center justify-center">
-                  <Icon name="UserX" size={14} className="text-rose-500" />
-                </div>
-              )}
-            </div>
+        {/* Detail */}
+        {slot.activityDetail ? (
+          <p className="text-[10px] text-slate-400 truncate leading-tight">
+            {slot.activityDetail}
+          </p>
+        ) : (
+          <p className="text-[10px] text-slate-300 italic leading-tight">Sin detalle</p>
+        )}
+      </div>
 
-            <span className="text-[11px] font-bold text-slate-600 truncate">
-              {coachCount > 0
-                ? `${coachCount} profe${coachCount > 1 ? "s" : ""}`
-                : "Sin profesor"}
+      {/* Divider */}
+      <div className="mx-3 border-t border-slate-100" />
+
+      {/* Bottom: time + cupo chip + arrow */}
+      <div className="px-3 py-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="inline-flex items-center gap-1 text-[9px] font-black text-slate-500 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-lg whitespace-nowrap">
+            <Icon name="Clock" size={9} />
+            {timeLabel}
+          </span>
+
+          {/* Chip de cupos restantes */}
+          {remStyle ? (
+            <span className={`inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-lg border whitespace-nowrap ${remStyle.chip}`}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${remStyle.dot}`} />
+              {remStyle.label}
             </span>
-          </div>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[9px] font-black text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-lg whitespace-nowrap">
+              <Icon name="Users" size={9} />
+              {capacity ?? "–"}
+            </span>
+          )}
+        </div>
 
-          <div className="text-slate-300 group-hover:text-slate-500 transition-colors">
-            <Icon name="ChevronRight" size={18} />
+        <Icon
+          name="ChevronRight"
+          size={14}
+          className="text-slate-300 group-hover:text-slate-500 transition-colors shrink-0"
+        />
+      </div>
+
+      {/* Coaches row */}
+      <div className="px-3 pb-3">
+        <div className="flex items-center gap-2">
+          <div className="flex -space-x-1.5">
+            {coaches.slice(0, 4).map((c) => (
+              <div
+                key={c.id}
+                className="w-5 h-5 rounded-full ring-1 ring-white bg-slate-200 border border-slate-300 overflow-hidden flex items-center justify-center text-[8px] font-black text-slate-600"
+                title={c.name}
+              >
+                {c.avatar ? (
+                  <img src={c.avatar} alt={c.name} className="w-full h-full object-cover" />
+                ) : (
+                  (c.name || "P").charAt(0).toUpperCase()
+                )}
+              </div>
+            ))}
+            {coachCount === 0 && (
+              <div className="w-5 h-5 rounded-full ring-1 ring-white bg-rose-50 border border-rose-200 flex items-center justify-center">
+                <Icon name="UserX" size={10} className="text-rose-400" />
+              </div>
+            )}
           </div>
+          <span className="text-[10px] font-bold text-slate-500 truncate">
+            {coachCount > 0
+              ? `${coachCount} profe${coachCount > 1 ? "s" : ""}`
+              : "Sin profesor"}
+          </span>
         </div>
       </div>
     </button>
   );
 };
 
+// ────────────────────────────────────────────────────────────────────────────
+
 const ClassSchedule = () => {
+  const { currentUser } = useAuth();
+
   const [loading, setLoading] = useState(true);
-  const [slots, setSlots] = useState([]); // plan_schedule_slots "enriquecidos"
+  const [slots, setSlots] = useState([]);
   const [allPlans, setAllPlans] = useState([]);
   const [allCoaches, setAllCoaches] = useState([]);
   const [allActivities, setAllActivities] = useState([]);
@@ -216,13 +243,12 @@ const ClassSchedule = () => {
   const [isStaff, setIsStaff] = useState(false);
   const [currentCoachId, setCurrentCoachId] = useState(null);
 
-  const [viewMode, setViewMode] = useState("global"); // 'global' | 'coach'
+  const [viewMode, setViewMode] = useState("global");
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [showActivityManager, setShowActivityManager] = useState(false);
 
-  // Analytics
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [teamWeek, setTeamWeek] = useState({
     hours: 0,
@@ -247,22 +273,22 @@ const ClassSchedule = () => {
 
   const fetchIdentity = useCallback(async () => {
     try {
-      const staffRes = await supabase.rpc("is_staff");
-      const staff = Boolean(staffRes?.data);
-      setIsStaff(staff);
+      // Usamos el rol del perfil directamente (ya disponible en AuthContext)
+      // en lugar de is_staff que devuelve true tanto para 'admin' como 'profesor'
+      const isAdmin = currentUser?.role === "admin";
+      setIsStaff(isAdmin);
 
+      // Solo buscamos coachId si es profesor (para el caso admin+profe no aplica)
       const coachRes = await supabase.rpc("current_coach_id");
       setCurrentCoachId(coachRes?.data || null);
 
-      // Si no es staff, forzamos modo coach
-      if (!staff) setViewMode("coach");
+      if (!isAdmin) setViewMode("coach");
     } catch (e) {
-      // Si falla, degradamos a modo coach-only (seguro)
       setIsStaff(false);
       setViewMode("coach");
       setCurrentCoachId(null);
     }
-  }, []);
+  }, [currentUser?.role]);
 
   const fetchMeta = useCallback(async () => {
     const [plansRes, coachesRes, activitiesRes] = await Promise.all([
@@ -291,11 +317,7 @@ const ClassSchedule = () => {
   const fetchSlots = useCallback(async () => {
     setLoading(true);
     try {
-      /**
-       * Nota:
-       * - Si algún alias/relación no te lo toma Supabase, ajustá el select.
-       * - La idea es: plan_schedule_slots + weekly_schedule + plans + class_types + coaches asignados.
-       */
+      // ── 1. Slots base con coaches y actividad ────────────────────────────
       const { data, error } = await supabase.from("plan_schedule_slots")
         .select(`
         id,
@@ -315,6 +337,38 @@ const ClassSchedule = () => {
 
       if (error) throw error;
 
+      // ── 2. Ocupación real usando el mismo servicio que PlanAvailabilityGridModal
+      // La RPC plan_grid_availability devuelve los conteos POR plan (plan_assignments_count
+      // = inscriptos de ESE plan en ese slot). Construimos un mapa keyed por
+      // "planId|weeklyScheduleId" para mantener la ocupación separada por plan.
+      let occupancyMap = new Map(); // key: `${planId}|${weeklyScheduleId}`
+      try {
+        const planIds = [...new Set((data || []).map((r) => r.plan_id).filter(Boolean))];
+
+        const gridResults = await Promise.allSettled(
+          planIds.map(async (pid) => {
+            const rows = await fetchPlanGridAvailability(pid);
+            return { pid, rows };
+          })
+        );
+
+        gridResults.forEach((result) => {
+          if (result.status !== "fulfilled") return;
+          const { pid, rows } = result.value;
+          if (!Array.isArray(rows)) return;
+          rows.forEach((slot) => {
+            if (!slot.weekly_schedule_id) return;
+            const key = `${pid}|${slot.weekly_schedule_id}`;
+            const capacity  = Math.max(0, Number(slot.capacity || 0));
+            const occupied  = Math.max(0, Number(slot.plan_assignments_count ?? 0));
+            const remaining = Math.max(0, Number(slot.remaining_total ?? (capacity - occupied)));
+            occupancyMap.set(key, { occupied, remaining });
+          });
+        });
+      } catch (occErr) {
+        console.warn("No se pudo cargar ocupacion:", occErr);
+      }
+
       const normalized = (data || [])
         .map((row) => {
           const ws = row.weekly_schedule || {};
@@ -329,16 +383,23 @@ const ClassSchedule = () => {
             }))
             .filter((c) => Boolean(c.id));
 
+          const capacity  = Number(ws?.capacity || 0);
+          const occKey    = `${row.plan_id}|${row.weekly_schedule_id}`;
+          const occ       = occupancyMap.get(occKey) ?? null;
+          const occupied  = occ !== null ? occ.occupied  : null;
+          const remaining = occ !== null ? occ.remaining : null;
+
           return {
             planScheduleSlotId: row.id,
             planId: row.plan_id,
             planName: plan?.name || "Plan",
             weeklyScheduleId: row.weekly_schedule_id,
 
-            dayOfWeek: Number(ws?.day_of_week),
+            // Normalizar: si la DB guarda domingo como 0 (JS), convertir a 7 (convención grilla)
+            dayOfWeek: Number(ws?.day_of_week) === 0 ? 7 : Number(ws?.day_of_week),
             startTime: ws?.start_time,
             endTime: ws?.end_time,
-            capacity: ws?.capacity,
+            capacity,
 
             activityId: row.class_type_id || null,
             activityName: ct?.name || null,
@@ -347,13 +408,17 @@ const ClassSchedule = () => {
 
             coaches,
             updatedAt: row.updated_at,
+
+            // ── Ocupación ──────────────────────────────────────────────────
+            occupied,    // null si no disponible
+            remaining,   // null si no disponible
           };
         })
         .filter(
-          (s) => s.weeklyScheduleId && s.dayOfWeek && s.startTime && s.endTime,
+          // dayOfWeek puede ser 0 (domingo en convención JS) → no usar &&
+          (s) => s.weeklyScheduleId && s.dayOfWeek != null && s.startTime && s.endTime,
         );
 
-      // Orden determinista
       normalized.sort((a, b) => {
         if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
         if (normalizeTime(a.startTime) !== normalizeTime(b.startTime))
@@ -382,20 +447,23 @@ const ClassSchedule = () => {
     refreshAll();
   }, [refreshAll]);
 
+  // Re-evaluar identidad cuando el rol del usuario carga desde AuthContext
+  // (el perfil puede llegar en background después del primer render)
+  useEffect(() => {
+    if (currentUser?.role) fetchIdentity();
+  }, [currentUser?.role, fetchIdentity]);
+
   const filteredSlots = useMemo(() => {
     return (slots || []).filter((s) => {
-      // Plan filter
       if (filterPlan !== "all" && String(s.planId) !== String(filterPlan))
         return false;
 
-      // Activity filter
       if (
         filterActivity !== "all" &&
         String(s.activityId) !== String(filterActivity)
       )
         return false;
 
-      // Coach filter (busca dentro del array)
       if (filterCoach !== "all") {
         const has = (s.coaches || []).some(
           (c) => String(c.id) === String(filterCoach),
@@ -403,7 +471,6 @@ const ClassSchedule = () => {
         if (!has) return false;
       }
 
-      // View mode: coach => solo slots donde está asignado
       if (viewMode === "coach") {
         if (!currentCoachId) return false;
         const hasSelf = (s.coaches || []).some(
@@ -469,7 +536,7 @@ const ClassSchedule = () => {
         "• El Admin asigna profesores y (opcionalmente) define actividad + detalle.",
         "• Regla: un profesor no puede estar asignado a dos planes en el mismo horario.",
         "",
-        "Tip: si ves muchos “Pendiente”, empezá por asignar profes (es lo más crítico).",
+        "Tip: si ves muchos 'Pendiente', empeza por asignar profes (es lo mas critico).",
       ].join("\n"),
     );
   };
@@ -477,15 +544,11 @@ const ClassSchedule = () => {
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
-      // Semana visible
       const wStart = startOfWeek(currentDate, { weekStartsOn: 1 });
       const wEnd = addDays(wStart, 6);
-
-      // Mes del currentDate
       const mStart = startOfMonth(currentDate);
       const mEnd = endOfMonth(currentDate);
 
-      // Week
       const weekRes = await supabase.rpc("coach_planned_hours", {
         p_start: wStart.toISOString().slice(0, 10),
         p_end: wEnd.toISOString().slice(0, 10),
@@ -493,7 +556,6 @@ const ClassSchedule = () => {
         p_coach_id: viewMode === "coach" ? currentCoachId : null,
       });
 
-      // Month
       const monthRes = await supabase.rpc("coach_planned_hours", {
         p_start: mStart.toISOString().slice(0, 10),
         p_end: mEnd.toISOString().slice(0, 10),
@@ -547,7 +609,6 @@ const ClassSchedule = () => {
   }, [currentDate, viewMode, currentCoachId, allCoaches]);
 
   useEffect(() => {
-    // Analytics: no pegues cada render. Solo cuando cambian week/mes o viewMode.
     fetchAnalytics();
   }, [fetchAnalytics]);
 
@@ -563,7 +624,9 @@ const ClassSchedule = () => {
         {/* Header fijo */}
         <div className="bg-white border-b border-slate-200 z-30 flex-shrink-0 shadow-sm">
           <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+
+            {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
+            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm px-6 py-4 mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="min-w-0">
                 <div className="hidden md:block scale-90 origin-left opacity-80 mb-1">
                   <BreadcrumbTrail
@@ -583,13 +646,15 @@ const ClassSchedule = () => {
               </div>
 
               <div className="flex items-center gap-2 w-full lg:w-auto">
-                <button
-                  onClick={() => setShowActivityManager(true)}
-                  className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors text-xs uppercase tracking-wider"
-                >
-                  <Icon name="Settings" size={16} />
-                  Actividades
-                </button>
+                {isStaff && (
+                  <button
+                    onClick={() => setShowActivityManager(true)}
+                    className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors text-xs uppercase tracking-wider"
+                  >
+                    <Icon name="Settings" size={16} />
+                    Actividades
+                  </button>
+                )}
 
                 <button
                   onClick={handleHowItWorks}
@@ -634,7 +699,6 @@ const ClassSchedule = () => {
                   Hoy
                 </button>
 
-                {/* Stats compactas */}
                 <div className="hidden lg:flex items-center gap-3 pl-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-white border border-slate-200 px-3 py-2 rounded-xl">
                     {visiblePlanSlotsCount} slots visibles
@@ -647,77 +711,95 @@ const ClassSchedule = () => {
 
               {/* View mode + filtros */}
               <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto items-stretch sm:items-center">
-                {canToggleViewMode ? (
+                {/* Control de modo: solo para staff que además es profe */}
+                {canToggleViewMode && (
                   <Segmented
                     value={viewMode}
-                    onChange={setViewMode}
+                    onChange={(v) => {
+                      setViewMode(v);
+                      if (v === "coach") {
+                        setFilterPlan("all");
+                        setFilterCoach("all");
+                      }
+                    }}
                     options={[
                       { value: "global", label: "Global" },
                       { value: "coach", label: "Ver como profe" },
                     ]}
                   />
-                ) : (
-                  <div className="bg-white border border-slate-200 rounded-2xl px-3 py-2 shadow-sm">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                      {isStaff ? "Global" : "Modo Profe"}
-                    </span>
-                  </div>
                 )}
 
-                <select
-                  className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
-                  value={filterPlan}
-                  onChange={(e) => setFilterPlan(e.target.value)}
-                  title="Filtrar por plan"
-                >
-                  <option value="all">Todos los planes</option>
-                  {allPlans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                {/* Filtros: solo visibles en modo global */}
+                {viewMode === "global" && (
+                  <>
+                    <select
+                      className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                      value={filterPlan}
+                      onChange={(e) => setFilterPlan(e.target.value)}
+                    >
+                      <option value="all">Todos los planes</option>
+                      {allPlans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
 
-                <select
-                  className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
-                  value={filterActivity}
-                  onChange={(e) => setFilterActivity(e.target.value)}
-                  title="Filtrar por actividad"
-                >
-                  <option value="all">Todas las actividades</option>
-                  {allActivities.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
+                    <select
+                      className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                      value={filterActivity}
+                      onChange={(e) => setFilterActivity(e.target.value)}
+                    >
+                      <option value="all">Todas las actividades</option>
+                      {allActivities.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
 
-                <select
-                  className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
-                  value={filterCoach}
-                  onChange={(e) => setFilterCoach(e.target.value)}
-                  title="Filtrar por profesor"
-                >
-                  <option value="all">Todos los profes</option>
-                  {allCoaches.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                    <select
+                      className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                      value={filterCoach}
+                      onChange={(e) => setFilterCoach(e.target.value)}
+                    >
+                      <option value="all">Todos los profes</option>
+                      {allCoaches.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
 
-                <button
-                  type="button"
-                  onClick={() => setAnalyticsOpen((v) => !v)}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 transition-colors text-xs font-black uppercase tracking-widest text-slate-700"
-                  title="Analítica"
-                >
-                  <Icon
-                    name={analyticsOpen ? "ChevronUp" : "BarChart3"}
-                    size={16}
-                  />
-                  Analítica
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => setAnalyticsOpen((v) => !v)}
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 transition-colors text-xs font-black uppercase tracking-widest text-slate-700"
+                    >
+                      <Icon
+                        name={analyticsOpen ? "ChevronUp" : "BarChart3"}
+                        size={16}
+                      />
+                      Analítica
+                    </button>
+                  </>
+                )}
+
+                {/* Vista profe: solo filtro de actividad, sin filtro de profes ni analítica */}
+                {viewMode === "coach" && (
+                  <select
+                    className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                    value={filterActivity}
+                    onChange={(e) => setFilterActivity(e.target.value)}
+                  >
+                    <option value="all">Todas las actividades</option>
+                    {allActivities.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
@@ -857,7 +939,7 @@ const ClassSchedule = () => {
               </div>
             )}
 
-            {/* Header días desktop — MISMO TEMPLATE que el body para evitar desalineación */}
+            {/* Header días desktop */}
             <div className="hidden md:grid sticky top-0 z-30 grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
               <div className="h-14 border-r border-slate-100 flex items-center justify-center">
                 <Icon name="Clock" size={16} className="text-slate-400" />
@@ -895,7 +977,7 @@ const ClassSchedule = () => {
                   className="grid grid-cols-[64px_1fr] md:grid-cols-[64px_repeat(7,minmax(0,1fr))] min-h-[120px]"
                 >
                   {/* Col hora */}
-                  <div className="sticky left-0 z-20 bg-white border-r border-slate-100 border-b border-dashed border-slate-100 flex justify-center items-start pt-2">
+                  <div className="sticky left-0 z-20 bg-white border-r border-b border-dashed border-slate-100 flex justify-center items-start pt-2">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                       {hour}
                     </span>
@@ -912,15 +994,15 @@ const ClassSchedule = () => {
                     return (
                       <div
                         key={`${dbDay}-${hour}`}
-                        className={`relative border-r border-b border-slate-100 border-dashed p-2 flex flex-col gap-2 ${
+                        className={`relative border-r border-b border-slate-100 border-dashed p-1.5 flex flex-col gap-1.5 ${
                           !isVisible ? "hidden md:flex" : "flex"
                         } ${today ? "bg-blue-50/10" : ""}`}
                       >
                         {/* Empty state */}
                         {!loading && cellSlots.length === 0 && (
-                          <div className="flex-1 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
-                              Sin slots habilitados
+                          <div className="flex-1 rounded-xl border border-dashed border-slate-100 flex items-center justify-center min-h-[100px]">
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-200">
+                              —
                             </span>
                           </div>
                         )}
@@ -930,9 +1012,6 @@ const ClassSchedule = () => {
                             key={slot.planScheduleSlotId}
                             slot={slot}
                             onClick={handleOpenSlot}
-                            density={
-                              cellSlots.length > 1 ? "compact" : "normal"
-                            }
                           />
                         ))}
                       </div>
