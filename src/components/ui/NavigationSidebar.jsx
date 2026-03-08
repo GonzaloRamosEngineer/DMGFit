@@ -256,8 +256,14 @@ const NavigationSidebar = ({
         </nav>
 
         {/* Footer / Usuario */}
-        <footer className="border-t border-border bg-card">
+        <footer className="border-t border-border bg-muted/30 shadow-[0_-12px_24px_-20px_rgba(15,23,42,0.85)]">
           <div className={`p-4 ${isCollapsed ? 'px-2' : 'px-4'}`}>
+            {!isCollapsed && (
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground/80">
+                Cuenta
+              </p>
+            )}
+
             <div className={`flex items-center gap-3 ${isCollapsed ? 'flex-col' : 'flex-row'}`}>
               <div className="relative flex-shrink-0">
                 {currentUser?.avatar_url ? (

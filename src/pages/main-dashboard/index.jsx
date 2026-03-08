@@ -230,7 +230,7 @@ const MainDashboard = () => {
 
       <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
         
-        <div className="max-w-[1600px] mx-auto space-y-6 md:space-y-8">
+        <div className="w-full space-y-6 md:space-y-8">
           
           {/* Header del Dashboard */}
           <div>
