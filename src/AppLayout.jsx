@@ -21,11 +21,11 @@ const AppLayout = () => {
       />
 
       <main
-        className={`flex-1 min-w-0 overflow-x-hidden transition-all duration-300 pt-20 lg:pt-0 ${
-          isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-60'
+        className={`min-w-0 overflow-x-hidden transition-all duration-300 pt-20 lg:pt-0 ${
+          isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-60'
         }`}
       >
-        <div className="w-full h-full bg-[#F8FAFC] px-2 sm:px-3 md:px-4 lg:px-4 xl:px-5">
+        <div className="w-full h-full bg-[#F8FAFC] px-3 sm:px-4 md:px-5 lg:px-5 xl:px-6">
           <Outlet />
         </div>
       </main>
