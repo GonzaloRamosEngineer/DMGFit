@@ -77,15 +77,15 @@ const mapAthleteForPayment = (row) => {
     planPrice:
       row?.planPrice !== undefined && row?.planPrice !== null
         ? row.planPrice
-        : planData?.price ?? null,
+        : (planData?.price ?? null),
     planTierPrice:
       row?.planTierPrice !== undefined && row?.planTierPrice !== null
         ? row.planTierPrice
-        : row?.plan_tier_price ?? null,
+        : (row?.plan_tier_price ?? null),
     visitsPerWeek:
       row?.visitsPerWeek !== undefined && row?.visitsPerWeek !== null
         ? row.visitsPerWeek
-        : row?.visits_per_week ?? null,
+        : (row?.visits_per_week ?? null),
   };
 };
 
@@ -100,7 +100,9 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   // --- SELECCIÓN Y FLUJO ---
-  const [selectedAthlete, setSelectedAthlete] = useState(initialAthlete || null);
+  const [selectedAthlete, setSelectedAthlete] = useState(
+    initialAthlete || null,
+  );
   const [athleteDetail, setAthleteDetail] = useState(null);
 
   // --- DEUDAS ---
@@ -135,12 +137,12 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
 
   const effectiveAthlete = useMemo(
     () => athleteDetail || selectedAthlete,
-    [athleteDetail, selectedAthlete]
+    [athleteDetail, selectedAthlete],
   );
 
   const selectedAthleteResolvedPlanPrice = useMemo(
     () => getResolvedPlanPrice(effectiveAthlete),
-    [effectiveAthlete]
+    [effectiveAthlete],
   );
 
   // ----------------------------------------------------------------
@@ -161,7 +163,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
             visits_per_week,
             profiles ( full_name, email, avatar_url ),
             plans ( name, price )
-          `
+          `,
           )
           .eq("status", "active")
           .order("join_date", { ascending: false });
@@ -171,7 +173,9 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
           return;
         }
 
-        const mappedAthletes = (data || []).map((row) => mapAthleteForPayment(row));
+        const mappedAthletes = (data || []).map((row) =>
+          mapAthleteForPayment(row),
+        );
         setAthletes(mappedAthletes);
       } catch (err) {
         console.error("Error inesperado cargando atletas:", err);
@@ -205,7 +209,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
             visits_per_week,
             profiles ( full_name, email, avatar_url ),
             plans ( name, price )
-          `
+          `,
           )
           .eq("id", selectedAthlete.id)
           .single();
@@ -299,8 +303,13 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
     setSelectedDebtIds(newSelection);
 
     if (newSelection.length > 0) {
-      const selectedItems = currentDebts.filter((d) => newSelection.includes(d.id));
-      const totalAmount = selectedItems.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+      const selectedItems = currentDebts.filter((d) =>
+        newSelection.includes(d.id),
+      );
+      const totalAmount = selectedItems.reduce(
+        (sum, d) => sum + Number(d.amount || 0),
+        0,
+      );
       const combinedConcept = selectedItems.map((d) => d.concept).join(" + ");
 
       setFormData((prev) => ({
@@ -429,7 +438,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
   const filteredAthletes = useMemo(() => {
     if (!searchTerm) return [];
     return athletes.filter((athlete) =>
-      (athlete.name || "").toLowerCase().includes(searchTerm.toLowerCase())
+      (athlete.name || "").toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [athletes, searchTerm]);
 
@@ -642,7 +651,10 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                 <>
                   {fetchingDebts ? (
                     <div className="text-center py-4">
-                      <Icon name="Loader" className="animate-spin mx-auto text-blue-500" />
+                      <Icon
+                        name="Loader"
+                        className="animate-spin mx-auto text-blue-500"
+                      />
                     </div>
                   ) : pendingDebts.length > 0 ? (
                     <div className="space-y-2">
@@ -659,7 +671,9 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                               key={debt.id}
                               onClick={() => handleToggleDebt(debt.id)}
                               className={`p-4 cursor-pointer flex items-center justify-between transition-colors ${
-                                isSelected ? "bg-blue-50/80" : "hover:bg-slate-100"
+                                isSelected
+                                  ? "bg-blue-50/80"
+                                  : "hover:bg-slate-100"
                               }`}
                             >
                               <div className="flex items-center gap-3">
@@ -671,21 +685,29 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                                   }`}
                                 >
                                   {isSelected && (
-                                    <Icon name="Check" size={12} className="text-white" />
+                                    <Icon
+                                      name="Check"
+                                      size={12}
+                                      className="text-white"
+                                    />
                                   )}
                                 </div>
 
                                 <div>
                                   <p
                                     className={`text-sm font-bold ${
-                                      isSelected ? "text-blue-900" : "text-slate-700"
+                                      isSelected
+                                        ? "text-blue-900"
+                                        : "text-slate-700"
                                     }`}
                                   >
                                     {debt.concept}
                                   </p>
                                   <p className="text-[10px] font-bold text-rose-500">
                                     Vencimiento:{" "}
-                                    {new Date(debt.payment_date).toLocaleDateString()}
+                                    {new Date(
+                                      debt.payment_date,
+                                    ).toLocaleDateString()}
                                   </p>
                                 </div>
                               </div>
@@ -700,13 +722,15 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
 
                       {/* Escape UX: si hay deudas pero el usuario quiere manual */}
                       <div className="mt-2 text-[11px] text-slate-500 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                        ¿No querés pagar una cuota? Cambiá a <b>Ingreso manual</b> para registrar
-                        otra cosa (venta, extra, etc.).
+                        ¿No querés pagar una cuota? Cambiá a{" "}
+                        <b>Ingreso manual</b> para registrar otra cosa (venta,
+                        extra, etc.).
                       </div>
                     </div>
                   ) : (
                     <div className="text-[11px] text-slate-500 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
-                      No hay deudas pendientes. Podés registrar un ingreso manual si corresponde.
+                      No hay deudas pendientes. Podés registrar un ingreso
+                      manual si corresponde.
                     </div>
                   )}
                 </>
@@ -734,7 +758,9 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                         {formatCurrency(selectedAthleteResolvedPlanPrice)}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400">Sin monto</span>
+                      <span className="text-[10px] text-slate-400">
+                        Sin monto
+                      </span>
                     )}
                   </button>
 
@@ -760,6 +786,23 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
 
               {/* Sección C: Inputs Monetarios */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Fecha del Pago
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.paymentDate}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        paymentDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-xl outline-none font-bold text-slate-700 text-sm transition-all"
+                  />
+                </div>
+
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                     Monto
@@ -841,8 +884,13 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                   onClick={() => setShowDiscount(!showDiscount)}
                   className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  <Icon name={showDiscount ? "MinusCircle" : "PlusCircle"} size={14} />
-                  {showDiscount ? "Quitar Descuento" : "Aplicar Descuento / Promo"}
+                  <Icon
+                    name={showDiscount ? "MinusCircle" : "PlusCircle"}
+                    size={14}
+                  />
+                  {showDiscount
+                    ? "Quitar Descuento"
+                    : "Aplicar Descuento / Promo"}
                 </button>
 
                 {showDiscount && (
@@ -879,7 +927,9 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                           type="number"
                           value={discountValue}
                           onChange={(e) => setDiscountValue(e.target.value)}
-                          placeholder={discountType === "percent" ? "Ej: 15" : "Ej: 500"}
+                          placeholder={
+                            discountType === "percent" ? "Ej: 15" : "Ej: 500"
+                          }
                           className="w-full min-h-[48px] h-[48px] rounded-xl border border-blue-200 bg-white px-4 text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 placeholder:text-blue-300/70"
                           style={{ lineHeight: "1.2" }}
                         />

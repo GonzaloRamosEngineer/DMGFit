@@ -31,9 +31,18 @@ const isSameDay = (a, b) =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 
+// FIX: parseo local para evitar desfase UTC → timezone del browser
 const formatTxDateTime = (dateLike) => {
   if (!dateLike) return '—';
-  const dt = new Date(dateLike);
+
+  let dt;
+  if (typeof dateLike === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateLike)) {
+    const [y, m, d] = dateLike.split('-').map(Number);
+    dt = new Date(y, m - 1, d); // constructor LOCAL, sin UTC
+  } else {
+    dt = new Date(dateLike);
+  }
+
   if (Number.isNaN(dt.getTime())) return '—';
 
   const now = new Date();
@@ -43,7 +52,6 @@ const formatTxDateTime = (dateLike) => {
 
   const dtDay = startOfDay(dt);
 
-  // Suprimir hora si es 00:00 (típico de campos DATE sin tiempo)
   const hasMeaningfulTime = !(dt.getHours() === 0 && dt.getMinutes() === 0);
   const timeStr = hasMeaningfulTime
     ? dt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
@@ -87,6 +95,131 @@ const KpiCard = ({ title, value, variant = 'neutral' }) => {
   );
 };
 
+// --- MODAL DETALLE DE PAGO ---
+const PaymentDetailModal = ({ payment, onClose, onNavigate }) => {
+  if (!payment) return null;
+
+  const amount = Number(payment.amount || 0);
+  const baseAmount = Number(payment.base_amount || amount);
+  const hasDiscount = payment.discount_value && Number(payment.discount_value) > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full max-w-md rounded-[1.5rem] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h2 className="text-lg font-black text-slate-800 tracking-tight">Detalle del Pago</h2>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+              {formatTxDateTime(payment.payment_date)}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500"
+          >
+            <Icon name="X" size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4">
+          {/* Atleta */}
+          <div className="flex items-center justify-between gap-3 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-200 overflow-hidden shrink-0">
+                {payment.athleteImage
+                  ? <img src={payment.athleteImage} alt={payment.athleteName} className="w-full h-full object-cover" />
+                  : payment.athleteName?.charAt(0) || 'A'
+                }
+              </div>
+              <div className="min-w-0">
+                <p className="font-black text-slate-800 truncate">{payment.athleteName}</p>
+                {payment.athleteEmail && (
+                  <p className="text-xs text-slate-500 truncate">{payment.athleteEmail}</p>
+                )}
+              </div>
+            </div>
+            {payment.athleteId && (
+              <button
+                onClick={() => onNavigate(payment.athleteId)}
+                className="shrink-0 text-[10px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest hover:underline"
+              >
+                Ver perfil
+              </button>
+            )}
+          </div>
+
+          {/* Concepto */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Concepto</p>
+            <p className="text-sm font-bold text-slate-700 bg-slate-50 px-4 py-3 rounded-xl">
+              {payment.concept || 'Pago registrado'}
+            </p>
+          </div>
+
+          {/* Grilla de datos */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Método</p>
+              <p className="text-sm font-bold text-slate-700">{mapMethodLabel(payment.method)}</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Estado</p>
+              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                payment.status === 'paid'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : payment.isPastDue
+                    ? 'bg-rose-100 text-rose-700'
+                    : 'bg-amber-100 text-amber-700'
+              }`}>
+                {payment.status === 'paid' ? 'Pagado' : payment.isPastDue ? 'Vencido' : 'Pendiente'}
+              </span>
+            </div>
+          </div>
+
+          {/* Montos */}
+          <div className="border-t border-slate-100 pt-4 space-y-2">
+            {hasDiscount && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500 font-medium">Monto base</span>
+                  <span className="font-bold text-slate-700">{formatCurrency(baseAmount)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500 font-medium">
+                    Descuento ({payment.discount_type === 'percent'
+                      ? `${payment.discount_value}%`
+                      : formatCurrency(payment.discount_value)})
+                  </span>
+                  <span className="font-bold text-emerald-600">
+                    -{formatCurrency(
+                      payment.discount_type === 'percent'
+                        ? baseAmount * (Number(payment.discount_value) / 100)
+                        : Number(payment.discount_value)
+                    )}
+                  </span>
+                </div>
+                <div className="h-px bg-slate-100" />
+              </>
+            )}
+            <div className="flex justify-between items-baseline">
+              <span className="text-sm font-black text-slate-700 uppercase tracking-wide">Total</span>
+              <span className="text-2xl font-black text-slate-900">{formatCurrency(amount)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PaymentManagement = () => {
   const navigate = useNavigate();
 
@@ -97,9 +230,12 @@ const PaymentManagement = () => {
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'debtors'
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal
+  // Modal registro
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialAthlete, setInitialAthlete] = useState(null);
+
+  // Modal detalle
+  const [detailPayment, setDetailPayment] = useState(null);
 
   // Data
   const [allPayments, setAllPayments] = useState([]);
@@ -134,6 +270,9 @@ const PaymentManagement = () => {
           payment_date,
           method,
           concept,
+          base_amount,
+          discount_value,
+          discount_type,
           athletes ( id, profiles ( full_name, avatar_url, email ) )
         `)
         .order('payment_date', { ascending: false });
@@ -142,7 +281,17 @@ const PaymentManagement = () => {
 
       const processed = (paymentsData || []).map((p) => {
         const paymentDate = p.payment_date || null;
-        const dt = paymentDate ? new Date(paymentDate) : null;
+        // FIX: parseo local para evitar desfase UTC
+        let dt = null;
+        if (paymentDate) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
+            const [y, m, d] = paymentDate.split('-').map(Number);
+            dt = new Date(y, m - 1, d);
+          } else {
+            dt = new Date(paymentDate);
+          }
+        }
+
         const isPastDue = (p.status === 'overdue') || (p.status === 'pending' && dt && dt < today);
 
         const daysOverdue =
@@ -168,28 +317,34 @@ const PaymentManagement = () => {
       const paid = processed.filter((p) => p.status === 'paid');
       setPaidMovements(paid);
 
-      // Deudores: pending + overdue (independiente de si ya se venció o no)
+      // Deudores: pending + overdue
       const due = processed.filter((p) => p.status === 'pending' || p.status === 'overdue');
-      // Orden: más atrasados primero, luego monto desc
       due.sort((a, b) => (b.daysOverdue - a.daysOverdue) || (Number(b.amount) - Number(a.amount)));
       setDebtors(due);
 
-      // KPI: ingresos del mes (paid desde inicio de mes)
+      // KPI: ingresos del mes
       const monthlyRevenue = paid.reduce((sum, p) => {
-        const dt = p.payment_date ? new Date(p.payment_date) : null;
+        if (!p.payment_date) return sum;
+        let dt;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(p.payment_date)) {
+          const [y, m, d] = p.payment_date.split('-').map(Number);
+          dt = new Date(y, m - 1, d);
+        } else {
+          dt = new Date(p.payment_date);
+        }
         if (!dt || Number.isNaN(dt.getTime())) return sum;
         if (dt >= startMonth) return sum + Number(p.amount || 0);
         return sum;
       }, 0);
       setKpiMonthlyRevenue(monthlyRevenue);
 
-      // KPI: total vencido (a cobrar) => sólo deudas con fecha pasada o status overdue
+      // KPI: total vencido
       const overdueAmount = due
         .filter((p) => p.isPastDue)
         .reduce((sum, p) => sum + Number(p.amount || 0), 0);
       setKpiOverdueAmount(overdueAmount);
 
-      // KPI: alumnos con deuda (unique athleteId) sobre pending+overdue
+      // KPI: alumnos con deuda
       const uniqueDebtors = new Set(due.map((p) => p.athleteId).filter(Boolean));
       setKpiDebtorsCount(uniqueDebtors.size);
 
@@ -237,9 +392,7 @@ const PaymentManagement = () => {
 
   const currentRows = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-
     const base = activeTab === 'transactions' ? paidMovements : debtors;
-
     const filtered = !term
       ? base
       : base.filter((r) => {
@@ -247,7 +400,6 @@ const PaymentManagement = () => {
           const c = String(r.concept || '').toLowerCase();
           return a.includes(term) || c.includes(term);
         });
-
     return filtered;
   }, [activeTab, paidMovements, debtors, searchTerm]);
 
@@ -259,7 +411,6 @@ const PaymentManagement = () => {
   const pageRows = currentRows.slice(pageStart, pageEnd);
 
   useEffect(() => {
-    // Cuando cambia tab o búsqueda, volvemos a página 1
     resetPagination();
   }, [activeTab, searchTerm]);
 
@@ -334,7 +485,7 @@ const PaymentManagement = () => {
           )}
         </div>
 
-        {/* CARD PRINCIPAL: Tabs + Search + Table + Pagination */}
+        {/* CARD PRINCIPAL */}
         <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
           {/* Tabs + Search */}
           <div className="px-6 py-4 border-b border-slate-100">
@@ -432,9 +583,7 @@ const PaymentManagement = () => {
                       <tr
                         key={row.id}
                         className="hover:bg-slate-50/70 transition-colors cursor-pointer"
-                        onClick={() => {
-                          if (row.athleteId) navigate(`/individual-athlete-profile/${row.athleteId}`);
-                        }}
+                        onClick={() => setDetailPayment(row)}
                       >
                         <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                           {formatTxDateTime(row.payment_date)}
@@ -557,6 +706,7 @@ const PaymentManagement = () => {
         </div>
       </div>
 
+      {/* Modal: Registrar / Cobrar */}
       {isModalOpen && (
         <AddPaymentModal
           initialAthlete={initialAthlete}
@@ -568,6 +718,18 @@ const PaymentManagement = () => {
             fetchPaymentData();
             setIsModalOpen(false);
             setInitialAthlete(null);
+          }}
+        />
+      )}
+
+      {/* Modal: Detalle de pago */}
+      {detailPayment && (
+        <PaymentDetailModal
+          payment={detailPayment}
+          onClose={() => setDetailPayment(null)}
+          onNavigate={(athleteId) => {
+            setDetailPayment(null);
+            navigate(`/individual-athlete-profile/${athleteId}`);
           }}
         />
       )}
