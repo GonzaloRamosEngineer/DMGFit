@@ -256,8 +256,9 @@ const NavigationSidebar = ({
         </nav>
 
         {/* Footer / Usuario */}
-        <footer className="border-t-2 border-border/80 bg-muted/50 shadow-[0_-14px_28px_-18px_rgba(15,23,42,0.9)]">
-          <div className={`m-2 rounded-xl border border-border/70 bg-card/95 p-3 ${isCollapsed ? 'px-2' : 'px-3'}`}>
+        <footer className="relative border-t-2 border-border bg-background shadow-[0_-14px_26px_-16px_rgba(15,23,42,0.22)]">
+          <div className="h-0.5 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+          <div className={`m-2 mt-2 rounded-xl border border-border bg-card p-3 ${isCollapsed ? 'px-2' : 'px-3'}`}>
             {!isCollapsed && (
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                 Cuenta
