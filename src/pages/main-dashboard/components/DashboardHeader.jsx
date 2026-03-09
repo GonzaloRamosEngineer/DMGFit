@@ -20,7 +20,7 @@ const DashboardHeader = ({ onRefreshToggle, autoRefresh = false, lastUpdated }) 
             Dashboard Operativo
           </h1>
           <p className="text-slate-500 font-medium mt-1">
-            Estado diario de cobros, accesos y agenda en DMG Fitness
+            Estado diario de cobros, accesos y agenda en VC FIT
           </p>
         </div>
 

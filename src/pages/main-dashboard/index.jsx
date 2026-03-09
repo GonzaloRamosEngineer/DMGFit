@@ -15,12 +15,10 @@ import SessionSummaryGrid from './components/SessionSummaryGrid';
 const MainDashboard = () => {
   const navigate = useNavigate();
 
-  // Estados de UI
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [loading, setLoading] = useState(true);
 
-  // Estados de Datos
   const [kpiStats, setKpiStats] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -34,11 +32,7 @@ const MainDashboard = () => {
 
   const getDateOnlyString = (dateLike) => {
     if (!dateLike) return null;
-
-    if (typeof dateLike === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateLike)) {
-      return dateLike;
-    }
-
+    if (typeof dateLike === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateLike)) return dateLike;
     const dt = new Date(dateLike);
     if (Number.isNaN(dt.getTime())) return null;
     return getLocalDateString(dt);
@@ -79,26 +73,17 @@ const MainDashboard = () => {
         const paymentDateOnly = getDateOnlyString(payment.payment_date);
         const isOverdue = Boolean(paymentDateOnly && paymentDateOnly < today);
         const dueToday = Boolean(paymentDateOnly && paymentDateOnly === today);
-
-        return {
-          ...payment,
-          paymentDateOnly,
-          isOverdue,
-          dueToday,
-          athleteName: payment.athletes?.profiles?.full_name || 'Atleta Desconocido',
-        };
+        return { ...payment, paymentDateOnly, isOverdue, dueToday, athleteName: payment.athletes?.profiles?.full_name || 'Atleta Desconocido' };
       });
 
-      const overduePayments = parsedPayments.filter((payment) => payment.isOverdue);
-      const dueTodayPayments = parsedPayments.filter((payment) => payment.dueToday);
+      const overduePayments = parsedPayments.filter((p) => p.isOverdue);
+      const dueTodayPayments = parsedPayments.filter((p) => p.dueToday);
       const overdueAmount = overduePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
       const accessLogs = todayAccessLogs || [];
       const grantedCount = accessLogs.filter((log) => log.access_granted).length;
       const deniedLogs = accessLogs.filter((log) => !log.access_granted);
       const deniedCount = deniedLogs.length;
-
-      const warningCount = null;
 
       setKpiStats([
         {
@@ -117,9 +102,7 @@ const MainDashboard = () => {
           trendValue: deniedCount > 0 ? `${deniedCount} denegados` : 'Sin denegados',
           icon: 'DoorOpen',
           threshold: deniedCount > 0 ? 'yellow' : 'green',
-          subtitle: warningCount !== null
-            ? `${warningCount} warnings`
-            : 'Basado en access_logs',
+          subtitle: 'Basado en access_logs',
         },
         {
           title: 'Pagos Vencidos',
@@ -187,10 +170,7 @@ const MainDashboard = () => {
       setAlerts(generatedAlerts);
 
       const formattedSessions = (todaysSessions || []).map((session) => {
-        const attendanceCount = (todayAttendance || []).filter(
-          (record) => record.session_id === session.id,
-        ).length;
-
+        const attendanceCount = (todayAttendance || []).filter((r) => r.session_id === session.id).length;
         return {
           id: session.id,
           time: session.time || '00:00',
@@ -214,11 +194,8 @@ const MainDashboard = () => {
 
   useEffect(() => {
     fetchData();
-
     let interval;
-    if (autoRefresh) {
-      interval = setInterval(fetchData, 30000);
-    }
+    if (autoRefresh) interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
@@ -233,12 +210,14 @@ const MainDashboard = () => {
   return (
     <>
       <Helmet>
-        <title>Dashboard Operativo - DMG Fitness</title>
+        <title>Dashboard Operativo - VC FIT</title>
       </Helmet>
 
       <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
         <div className="w-full space-y-6 md:space-y-8">
-          <div>
+
+          {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-7">
             <BreadcrumbTrail currentPath="/main-dashboard" />
             <DashboardHeader
               onRefreshToggle={handleRefreshToggle}
@@ -247,19 +226,23 @@ const MainDashboard = () => {
             />
           </div>
 
+          {/* GRID DE KPIs */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {loading
               ? [1, 2, 3, 4].map((i) => <KPICard key={i} loading={true} />)
               : kpiStats.map((kpi, index) => <KPICard key={index} {...kpi} />)}
           </div>
 
+          {/* ALERTAS */}
           <div className="w-full">
             <AlertFeed alerts={alerts} loading={loading} onActionClick={handleAlertAction} />
           </div>
 
+          {/* SESIONES */}
           <div className="w-full">
             <SessionSummaryGrid sessions={sessions} loading={loading} />
           </div>
+
         </div>
       </div>
     </>
