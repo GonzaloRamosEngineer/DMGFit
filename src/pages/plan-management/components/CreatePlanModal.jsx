@@ -220,6 +220,8 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
   });
 
   const [timeBlocks, setTimeBlocks] = useState([buildDefaultTimeBlock()]);
+  // Ajustes por turno puntual (cupo personalizado / turno eliminado), sobre la franja base
+  const [slotOverrides, setSlotOverrides] = useState({});
 
   useEffect(() => {
     if (!plan) {
@@ -286,15 +288,34 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
     );
   }, [availabilityWindows, formData.sessionDurationMin]);
 
+  const slotKey = (s) => `${s.day_of_week}-${s.start_time}-${s.end_time}`;
+
+  // Aplica los ajustes por turno (cupo personalizado / eliminado) sobre los slots de la franja
+  const applyOverrides = (slots) =>
+    (slots || [])
+      .map((s) => {
+        const ov = slotOverrides[slotKey(s)];
+        if (ov?.removed) return null;
+        if (ov?.capacity != null && ov.capacity !== "")
+          return { ...s, capacity: Math.max(0, Number(ov.capacity)) };
+        return s;
+      })
+      .filter(Boolean);
+
+  const effectiveSlots = useMemo(
+    () => applyOverrides(generatedSlots),
+    [generatedSlots, slotOverrides],
+  );
+
   const generatedSlotsByDay = useMemo(() => {
     return DAYS.map((day, dayIndex) => ({
       day,
       dayIndex,
-      slots: generatedSlots.filter(
+      slots: effectiveSlots.filter(
         (slot) => Number(slot.day_of_week) === dayIndex,
       ),
     })).filter((group) => group.slots.length > 0);
-  }, [generatedSlots]);
+  }, [effectiveSlots]);
 
   const sortedPricingTiers = useMemo(() => {
     return [...(formData.pricingTiers || [])].sort(
@@ -509,9 +530,11 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
       ).values(),
     ).sort((a, b) => a.visits_per_week - b.visits_per_week);
 
-    const expandedSlots = expandWindowsToSlots(
-      normalizedWindows,
-      Number(formData.sessionDurationMin || 60),
+    const expandedSlots = applyOverrides(
+      expandWindowsToSlots(
+        normalizedWindows,
+        Number(formData.sessionDurationMin || 60),
+      ),
     );
 
     const fallbackPrice = Number(normalizedPricingTiers[0]?.price || 0);
@@ -893,7 +916,9 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                           </h4>
 
                           <div className="flex flex-wrap gap-2">
-                            {group.slots.map((slot, idx) => (
+                            {group.slots.map((slot, idx) => {
+                              const key = `${slot.day_of_week}-${slot.start_time}-${slot.end_time}`;
+                              return (
                               <span
                                 key={`${group.dayIndex}-${slot.start_time}-${slot.end_time}-${idx}`}
                                 className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-black text-white flex items-center gap-2"
@@ -901,11 +926,37 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                                 <span>
                                   {slot.start_time} - {slot.end_time}
                                 </span>
-                                <span className="px-2 py-0.5 rounded-lg bg-slate-800 text-emerald-400 text-[10px] uppercase tracking-widest">
-                                  Cupo: {slot.capacity}
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-800 text-emerald-400 text-[10px] uppercase tracking-widest">
+                                  Cupo:
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={slot.capacity}
+                                    onChange={(e) =>
+                                      setSlotOverrides((prev) => ({
+                                        ...prev,
+                                        [key]: { ...prev[key], capacity: e.target.value },
+                                      }))
+                                    }
+                                    className="w-12 bg-transparent text-emerald-300 text-center outline-none border-b border-slate-600 focus:border-emerald-400"
+                                  />
                                 </span>
+                                <button
+                                  type="button"
+                                  title="Eliminar este turno"
+                                  onClick={() =>
+                                    setSlotOverrides((prev) => ({
+                                      ...prev,
+                                      [key]: { ...prev[key], removed: true },
+                                    }))
+                                  }
+                                  className="text-slate-500 hover:text-rose-400 transition-colors"
+                                >
+                                  <Icon name="X" size={12} />
+                                </button>
                               </span>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       ))}

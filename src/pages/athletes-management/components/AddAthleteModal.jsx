@@ -16,8 +16,7 @@ const DAYS = [
 
 const STEPS = [
   { id: 1, label: "1. Datos del Atleta" },
-  { id: 2, label: "2. Membresía Inicial" },
-  { id: 3, label: "3. Disponibilidad Semanal" },
+  { id: 2, label: "2. Membresía y Pago" },
 ];
 
 const normalizeRelation = (value) => {
@@ -456,22 +455,6 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       return null;
     }
 
-    if (stepId === 3) {
-      const step2Error = validateStep(2);
-      if (step2Error) return step2Error;
-
-      const visitsPerWeek = Number(formData.visitsPerWeek);
-      if (selectedRequestedDays.length !== visitsPerWeek) {
-        return `Debes seleccionar exactamente ${visitsPerWeek} días solicitados por el atleta.`;
-      }
-
-      if (formData.selectedSlotIds.length !== visitsPerWeek) {
-        return `Debes seleccionar exactamente ${visitsPerWeek} cupos semanales.`;
-      }
-
-      return null;
-    }
-
     return null;
   };
 
@@ -507,7 +490,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       return;
     }
 
-    setActiveStep((prev) => Math.min(prev + 1, 3));
+    setActiveStep((prev) => Math.min(prev + 1, 2));
   };
 
   const handlePrevStep = () => {
@@ -517,7 +500,9 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const validationError = validateStep(3);
+    if (loading) return;
+
+    const validationError = validateStep(2);
     if (validationError) {
       alert(validationError);
       return;
@@ -530,16 +515,6 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
 
       const visitsPerWeek = Number(formData.visitsPerWeek);
 
-      const fullSlotIds = new Set(
-        planSlots
-          .filter((slot) => Number(slot.remaining) <= 0)
-          .map((slot) => slot.weekly_schedule_id)
-      );
-
-      if (formData.selectedSlotIds.some((slotId) => fullSlotIds.has(slotId))) {
-        throw new Error("Uno o más cupos seleccionados ya no están disponibles.");
-      }
-
       const tierMatch = pricingTiers.find(
         (tier) => Number(tier.visits_per_week) === visitsPerWeek
       );
@@ -547,6 +522,12 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       const tierPrice = tierMatch
         ? Number(tierMatch.price)
         : Number(formData.amount || 0);
+
+      // Precio final: monto manual (cliente especial) si se cargó; si no, el del tier
+      const finalPrice =
+        formData.amount !== "" && formData.amount != null
+          ? Number(formData.amount)
+          : tierPrice;
 
       const result = await createFullAthlete({
         full_name: formData.fullName,
@@ -557,8 +538,9 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
         coach_id: null,
         plan_option: null,
         visits_per_week: visitsPerWeek,
-        selected_weekly_schedule_ids: formData.selectedSlotIds,
-        tier_price: tierPrice,
+        tier_price: finalPrice,
+        payment_amount: finalPrice,
+        payment_method: "efectivo",
         join_date: formData.joinDate || null,
         birth_date: formData.birthDate,
         gender: formData.gender !== "select" ? formData.gender : null,
@@ -1211,7 +1193,6 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
         >
           {activeStep === 1 && renderStepOne()}
           {activeStep === 2 && renderStepTwo()}
-          {activeStep === 3 && renderStepThree()}
         </form>
 
         {/* Footer */}
@@ -1240,7 +1221,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
               </button>
             )}
 
-            {activeStep < 3 ? (
+            {activeStep < 2 ? (
               <button
                 type="button"
                 onClick={handleNextStep}

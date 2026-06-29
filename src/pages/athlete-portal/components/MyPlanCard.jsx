@@ -54,7 +54,7 @@ const ScheduleVisualizer = ({ activeIndices }) => (
 
 // --- MAIN COMPONENT ---
 
-const MyPlanCard = ({ plan }) => {
+const MyPlanCard = ({ plan, kioskRemaining }) => {
   // Empty State Premium
   if (!plan) {
     return (
@@ -69,9 +69,13 @@ const MyPlanCard = ({ plan }) => {
   }
 
   // Pre-calcular datos visuales
-  const activeDays = useMemo(() => getActiveDays(plan.schedule), [plan.schedule]);
-  const renewalDate = new Date();
-  renewalDate.setDate(renewalDate.getDate() + 15); // Simulación: renueva en 15 días
+  const allowed = kioskRemaining?.allowed ?? null;
+  const remaining = kioskRemaining?.remaining ?? null;
+  const consumed = allowed != null && remaining != null ? Math.max(allowed - remaining, 0) : null;
+  const pct = allowed ? Math.min(100, Math.round((consumed / allowed) * 100)) : 0;
+  const renewalLabel = kioskRemaining?.period_end
+    ? new Date(kioskRemaining.period_end + 'T00:00:00').toLocaleDateString('es-AR', { month: 'short', day: 'numeric' })
+    : '—';
 
   return (
     <div className="group relative overflow-hidden rounded-[2.5rem] bg-[#0F172A] text-white shadow-2xl shadow-slate-900/40 min-h-[280px] flex flex-col justify-between p-8 border border-white/5 transition-transform duration-500 hover:scale-[1.01]">
@@ -112,12 +116,29 @@ const MyPlanCard = ({ plan }) => {
 
         {/* BODY: Schedule & Info */}
         <div className="space-y-4">
-           {/* Visualizador de Días */}
+           {/* Saldo de accesos del período (real) */}
            <div>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 pl-1">
-                 Cronograma Semanal
+                 Accesos este mes
               </p>
-              <ScheduleVisualizer activeIndices={activeDays} />
+              <div className="bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
+                 {remaining != null ? (
+                   <>
+                     <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-black text-white tracking-tight">{remaining}</span>
+                        <span className="text-xs font-bold text-slate-400">de {allowed} disponibles</span>
+                     </div>
+                     <div className="mt-3 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-400 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                     </div>
+                     <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-2">
+                        {consumed} usados en el período
+                     </p>
+                   </>
+                 ) : (
+                   <p className="text-xs font-bold text-slate-400">Sin período activo</p>
+                 )}
+              </div>
            </div>
         </div>
 
@@ -130,7 +151,7 @@ const MyPlanCard = ({ plan }) => {
               <div className="flex items-center gap-1.5 text-slate-300">
                  <Icon name="Calendar" size={12} />
                  <span className="text-xs font-bold">
-                    {renewalDate.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' })}
+                    {renewalLabel}
                  </span>
               </div>
            </div>

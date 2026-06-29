@@ -14,6 +14,8 @@ import MyAthletesSection from './components/MyAthletesSection';
 import AttendanceTracker from './components/AttendanceTracker';
 import QuickStats from './components/QuickStats';
 
+const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
 const ProfessorDashboard = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -24,6 +26,7 @@ const ProfessorDashboard = () => {
 
   // Data State
   const [coachProfile, setCoachProfile] = useState(null);
+  const [turnos, setTurnos] = useState([]);
   const [dashboardData, setDashboardData] = useState({
     plans: [],
     athletes: [],
@@ -64,8 +67,8 @@ const ProfessorDashboard = () => {
         const realCoachId = coachData.id;
 
         // 2. PARALLEL FETCH
-        const [plansRes, athletesRes, sessionsRes, notesRes] = await Promise.all([
-          
+        const [plansRes, athletesRes, sessionsRes, notesRes, turnosRes] = await Promise.all([
+
           // A) Planes
           supabase
             .from('plan_coaches')
@@ -101,7 +104,13 @@ const ProfessorDashboard = () => {
             .select('*')
             .eq('coach_id', realCoachId)
             .order('date', { ascending: false })
-            .limit(5)
+            .limit(5),
+
+          // E) Mis turnos asignados (agenda semanal)
+          supabase
+            .from('plan_schedule_slot_coaches')
+            .select('day_of_week, start_time, end_time, weekly_schedule:weekly_schedule_id ( capacity ), slot:plan_schedule_slot_id ( plans ( name ) )')
+            .eq('coach_id', realCoachId)
         ]);
 
         // 3. PROCESAMIENTO
@@ -114,6 +123,15 @@ const ProfessorDashboard = () => {
 
         const rawSessions = sessionsRes.data || [];
         const rawNotes = notesRes.data || [];
+        const rawTurnos = (turnosRes.data || [])
+          .map((t) => ({
+            day_of_week: Number(t.day_of_week),
+            start_time: String(t.start_time || '').slice(0, 5),
+            end_time: String(t.end_time || '').slice(0, 5),
+            capacity: t.weekly_schedule?.capacity ?? null,
+            planName: t.slot?.plans?.name || 'Plan',
+          }))
+          .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time));
 
         // Stats
         const todayStr = new Date().toISOString().split('T')[0];
@@ -153,6 +171,7 @@ const ProfessorDashboard = () => {
               completionRate: rate
             }
           });
+          setTurnos(rawTurnos);
         }
 
       } catch (err) {
@@ -167,9 +186,20 @@ const ProfessorDashboard = () => {
   }, [currentUser]);
 
   // Render Helpers
-  const todaySessionsList = useMemo(() => 
-    dashboardData.sessions.filter(s => s.session_date === selectedDate), 
+  const todaySessionsList = useMemo(() =>
+    dashboardData.sessions.filter(s => s.session_date === selectedDate),
   [dashboardData.sessions, selectedDate]);
+
+  const turnosByDay = useMemo(() => {
+    const groups = {};
+    turnos.forEach((t) => {
+      (groups[t.day_of_week] = groups[t.day_of_week] || []).push(t);
+    });
+    return Object.keys(groups)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((d) => ({ day: DAY_NAMES[d], items: groups[d] }));
+  }, [turnos]);
 
   return (
     <>
@@ -232,6 +262,41 @@ const ProfessorDashboard = () => {
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
                {/* COLUMNA IZQUIERDA (8/12) */}
                <div className="xl:col-span-8 space-y-8">
+
+                  {/* MIS TURNOS DE LA SEMANA */}
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
+                     <div className="flex items-center gap-2 mb-6">
+                        <Icon name="CalendarClock" className="text-blue-600" />
+                        <h3 className="text-xl font-black text-slate-800">Mis Turnos de la Semana</h3>
+                     </div>
+                     {turnos.length === 0 ? (
+                        <p className="text-sm text-slate-400">
+                           Todavía no tenés turnos asignados. El administrador los asigna desde Planificación.
+                        </p>
+                     ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                           {turnosByDay.map((g) => (
+                              <div key={g.day} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                                 <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">{g.day}</h4>
+                                 <div className="space-y-2">
+                                    {g.items.map((t, i) => (
+                                       <div key={i} className="flex items-center justify-between bg-white rounded-xl border border-slate-100 px-3 py-2">
+                                          <div>
+                                             <p className="text-sm font-bold text-slate-800">{t.start_time} - {t.end_time}</p>
+                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{t.planName}</p>
+                                          </div>
+                                          {t.capacity != null && (
+                                             <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg uppercase">Cupo {t.capacity}</span>
+                                          )}
+                                       </div>
+                                    ))}
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                     )}
+                  </div>
+
                   <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 relative overflow-hidden">
                      <div className="flex justify-between items-center mb-6 relative z-10">
                         <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">

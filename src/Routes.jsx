@@ -23,6 +23,7 @@ import PDFExportCenter from "./pages/pdf-export-center";
 import CoachesManagement from "./pages/coaches-management";
 import AccessControl from "./pages/access-control";
 import AccessHistory from "./pages/access-history";
+import CoachAttendance from "./pages/coach-attendance";
 import ClassSchedule from "./pages/class-schedule";
 import Unauthorized from "./pages/Unauthorized";
 
@@ -143,12 +144,22 @@ const Routes = () => {
               }
             />
 
-            {/* Ruta legacy del profesor (restringida) */}
+            {/* Panel del profesor (su agenda de turnos) */}
             <Route
               path="/professor-dashboard"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
                   <ProfessorDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Reporte de asistencia de profesores (admin) */}
+            <Route
+              path="/coach-attendance"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <CoachAttendance />
                 </ProtectedRoute>
               }
             />

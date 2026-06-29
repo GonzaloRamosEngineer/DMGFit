@@ -14,6 +14,7 @@ import { fetchMetricsByAthlete } from '../../services/metrics';
 import { fetchPaymentsByAthlete } from '../../services/payments';
 import { fetchPlanByAthlete } from '../../services/plans';
 import { fetchUpcomingSessionsByAthlete } from '../../services/sessions';
+import { fetchKioskRemaining } from '../../services/kiosk';
 
 // COMPONENTES PREMIUM (Nivel Ingeniería Minimalista)
 import StatsOverview from './components/StatsOverview';      // HUD Superior
@@ -38,6 +39,7 @@ const AthletePortal = () => {
   const [notes, setNotes] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [kioskRemaining, setKioskRemaining] = useState(null);
   
   // --- Lógica de Identificación ---
   const [calculatedAthleteId, setCalculatedAthleteId] = useState(null);
@@ -67,13 +69,14 @@ const AthletePortal = () => {
         if (!realId) return;
         if (isMounted) setCalculatedAthleteId(realId);
 
-        const [planD, attD, metD, noteD, sessD, payD] = await Promise.all([
+        const [planD, attD, metD, noteD, sessD, payD, remD] = await Promise.all([
           fetchPlanByAthlete(realId),
           fetchAttendanceByAthlete(realId),
           fetchMetricsByAthlete(realId),
           fetchAthleteNotes(realId),
           fetchUpcomingSessionsByAthlete(realId, 5),
-          fetchPaymentsByAthlete(realId)
+          fetchPaymentsByAthlete(realId),
+          fetchKioskRemaining({ athleteId: realId }).catch(() => null)
         ]);
 
         if (isMounted) {
@@ -83,6 +86,7 @@ const AthletePortal = () => {
           setNotes(noteD ?? []);
           setSessions(sessD ?? []);
           setPayments(payD ?? []);
+          setKioskRemaining(remD);
         }
       } catch (e) { 
         console.error("Error cargando dashboard:", e); 
@@ -182,7 +186,7 @@ const AthletePortal = () => {
               </div>
 
               {/* Membresía (Black Card) */}
-              <MyPlanCard plan={plan} />
+              <MyPlanCard plan={plan} kioskRemaining={kioskRemaining} />
 
               {/* Wallet Financiera */}
               <div className="h-[400px]">

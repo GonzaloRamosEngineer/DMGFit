@@ -96,13 +96,31 @@ const NavigationSidebar = ({
       roles: ["admin", "profesor"],
       description: "Calendario de clases",
     },
+    {
+      id: "mi-panel",
+      label: "Mi Panel",
+      icon: "LayoutDashboard",
+      path: "/professor-dashboard",
+      badge: 0,
+      roles: ["profesor"],
+      description: "Mis turnos y clases",
+    },
+    {
+      id: "coach-attendance",
+      label: "Asistencia Profes",
+      icon: "UserCheck",
+      path: "/coach-attendance",
+      badge: 0,
+      roles: ["admin"],
+      description: "Presencia de profesores",
+    },
   ];
 
   const menuItems = allMenuItems.filter((item) => {
     const role = currentUser?.role;
 
     if (role === "profesor") {
-      return item.id === "horarios";
+      return item.id === "mi-panel" || item.id === "horarios";
     }
 
     if (role === "atleta") {
