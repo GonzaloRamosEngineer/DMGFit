@@ -236,7 +236,7 @@ const MainDashboard = () => {
         <title>Dashboard Operativo - DMG Fitness</title>
       </Helmet>
 
-      <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
+      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
         <div className="w-full space-y-6 md:space-y-8">
           <div>
             <BreadcrumbTrail currentPath="/main-dashboard" />
