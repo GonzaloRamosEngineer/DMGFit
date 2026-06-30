@@ -1,5 +1,6 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
+import { getMetricPalette } from '../../../constants/metricPalettes';
 
 const PlanMetrics = ({ metrics, loading = false }) => {
   const metricCards = [
@@ -9,17 +10,6 @@ const PlanMetrics = ({ metrics, loading = false }) => {
     { title: 'Ingresos Mensuales', value: `$${metrics?.monthlyRevenue?.toLocaleString('es-AR') || 0}`, icon: 'TrendingUp', color: 'amber' },
     { title: 'Ocupación Prom.', value: `${metrics?.avgOccupancy || 0}%`, icon: 'BarChart3', color: 'rose' }
   ];
-
-  const getColorClasses = (color) => {
-    const colors = {
-      blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
-      emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
-      violet: { bg: 'bg-violet-50', text: 'text-violet-600' },
-      amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
-      rose: { bg: 'bg-rose-50', text: 'text-rose-600' },
-    };
-    return colors[color] || colors.blue;
-  };
 
   if (loading) {
     return (
@@ -40,7 +30,7 @@ const PlanMetrics = ({ metrics, loading = false }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       {metricCards.map((card, index) => {
-        const theme = getColorClasses(card.color);
+        const theme = getMetricPalette(card.color);
         
         return (
           <div 
