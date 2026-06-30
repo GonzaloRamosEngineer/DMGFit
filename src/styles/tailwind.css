@@ -84,6 +84,15 @@
     --glow-secondary: 0 0 20px rgba(255, 107, 53, 0.15);
     --glow-accent: 0 0 20px rgba(0, 217, 181, 0.15);
     --glow-success: 0 0 20px rgba(0, 196, 140, 0.15);
+
+    /* Radius Scale - Single source of truth.
+       Card grande de marca = 32px (--radius-3xl / rounded-3xl). */
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-2xl: 24px;
+    --radius-3xl: 32px;
   }
 
   * {

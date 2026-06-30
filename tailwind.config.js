@@ -8,16 +8,19 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: 'var(--color-primary)', /* red-500 */
+          DEFAULT: 'var(--color-primary)', /* electric blue */
+          light: 'var(--color-primary-light)',
           foreground: 'var(--color-primary-foreground)' /* white */
         },
         secondary: {
-          DEFAULT: 'var(--color-secondary)', /* gold */
-          foreground: 'var(--color-secondary-foreground)' /* black */
+          DEFAULT: 'var(--color-secondary)', /* energetic orange */
+          light: 'var(--color-secondary-light)',
+          foreground: 'var(--color-secondary-foreground)' /* white */
         },
         accent: {
-          DEFAULT: 'var(--color-accent)', /* cyan-400 */
-          foreground: 'var(--color-accent-foreground)' /* black */
+          DEFAULT: 'var(--color-accent)', /* turquoise */
+          light: 'var(--color-accent-light)',
+          foreground: 'var(--color-accent-foreground)' /* white */
         },
         background: 'var(--color-background)', /* gray-950 */
         foreground: 'var(--color-foreground)', /* gray-100 */
@@ -33,43 +36,46 @@ module.exports = {
           DEFAULT: 'var(--color-muted)', /* gray-800 */
           foreground: 'var(--color-muted-foreground)' /* gray-400 */
         },
-        border: 'var(--color-border)', /* white with opacity */
-        input: 'var(--color-input)', /* gray-800 */
-        ring: 'var(--color-ring)', /* red-500 */
+        border: {
+          DEFAULT: 'var(--color-border)', /* soft border */
+          light: 'var(--color-border-light)'
+        },
+        input: 'var(--color-input)', /* white */
+        ring: 'var(--color-ring)', /* electric blue */
         success: {
-          DEFAULT: 'var(--color-success)', /* green-500 */
-          foreground: 'var(--color-success-foreground)' /* black */
+          DEFAULT: 'var(--color-success)', /* green */
+          light: 'var(--color-success-light)',
+          foreground: 'var(--color-success-foreground)' /* white */
         },
         warning: {
-          DEFAULT: 'var(--color-warning)', /* orange-500 */
-          foreground: 'var(--color-warning-foreground)' /* black */
+          DEFAULT: 'var(--color-warning)', /* orange */
+          light: 'var(--color-warning-light)',
+          foreground: 'var(--color-warning-foreground)' /* white */
         },
         error: {
-          DEFAULT: 'var(--color-error)', /* red-600 */
+          DEFAULT: 'var(--color-error)', /* red */
+          light: 'var(--color-error-light)',
           foreground: 'var(--color-error-foreground)' /* white */
         },
+        info: {
+          DEFAULT: 'var(--color-info)', /* electric blue */
+          light: 'var(--color-info-light)',
+          foreground: 'var(--color-info-foreground)' /* white */
+        },
         destructive: {
-          DEFAULT: 'var(--color-destructive)', /* red-600 */
+          DEFAULT: 'var(--color-destructive)', /* red */
           foreground: 'var(--color-destructive-foreground)' /* white */
         },
-        surface: 'var(--color-surface)', /* gray-900 */
-        'text-primary': 'var(--color-text-primary)', /* gray-100 */
-        'text-secondary': 'var(--color-text-secondary)' /* gray-400 */
+        surface: 'var(--color-surface)', /* white */
+        'text-primary': 'var(--color-text-primary)', /* almost black */
+        'text-secondary': 'var(--color-text-secondary)', /* medium gray */
+        'text-tertiary': 'var(--color-text-tertiary)' /* light gray */
       },
       fontFamily: {
         heading: ['Outfit', 'sans-serif'],
         body: ['Inter', 'sans-serif'],
         caption: ['Source Sans 3', 'sans-serif'],
         data: ['JetBrains Mono', 'monospace']
-      },
-      fontSize: {
-        'h1': ['2.75rem', { lineHeight: '1.15' }],
-        'h2': ['2.25rem', { lineHeight: '1.2' }],
-        'h3': ['1.75rem', { lineHeight: '1.25' }],
-        'h4': ['1.375rem', { lineHeight: '1.3' }],
-        'h5': ['1.125rem', { lineHeight: '1.4' }],
-        'body': ['16px', { lineHeight: '1.6' }],
-        'caption': ['0.875rem', { lineHeight: '1.45', letterSpacing: '0.01em' }]
       },
       spacing: {
         '6': '6px',
@@ -85,20 +91,26 @@ module.exports = {
         '120': '120px'
       },
       borderRadius: {
-        'sm': '6px',
-        'DEFAULT': '10px',
-        'md': '10px',
-        'lg': '14px',
-        'xl': '20px'
+        'sm': 'var(--radius-sm)',
+        'DEFAULT': 'var(--radius)',
+        'md': 'var(--radius)',
+        'lg': 'var(--radius-lg)',
+        'xl': 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
+        '3xl': 'var(--radius-3xl)'
       },
       boxShadow: {
-        'sm': '0 2px 4px rgba(0, 0, 0, 0.3)',
-        'DEFAULT': '0 4px 8px rgba(0, 0, 0, 0.35)',
-        'md': '0 6px 12px rgba(0, 0, 0, 0.35)',
-        'lg': '0 12px 24px rgba(0, 0, 0, 0.4)',
-        'xl': '0 20px 40px rgba(0, 0, 0, 0.4)',
-        'glow-primary': '0 0 20px rgba(255, 68, 68, 0.15)',
-        'glow-secondary': '0 0 20px rgba(255, 215, 0, 0.1)'
+        'xs': 'var(--shadow-xs)',
+        'sm': 'var(--shadow-sm)',
+        'DEFAULT': 'var(--shadow-md)',
+        'md': 'var(--shadow-md)',
+        'lg': 'var(--shadow-lg)',
+        'xl': 'var(--shadow-xl)',
+        '2xl': 'var(--shadow-2xl)',
+        'glow-primary': 'var(--glow-primary)',
+        'glow-secondary': 'var(--glow-secondary)',
+        'glow-accent': 'var(--glow-accent)',
+        'glow-success': 'var(--glow-success)'
       },
       transitionTimingFunction: {
         'smooth': 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
