@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabaseClient";
 import Button from "./ui/Button";
 import Input from "./ui/Input";
 import Icon from "./AppIcon";
+import Modal from "./ui/Modal";
 
 const INTERNAL_DOMAINS = ["@dmg.internal", "@vcfit.internal"];
 
@@ -77,63 +78,56 @@ const EnableAccountModal = ({ isOpen, onClose, onSuccess, target }) => {
     }
   };
 
-  if (!isOpen || !target) return null;
+  if (!target) return null;
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-modal flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <div>
-            <h2 className="text-xl font-heading font-bold text-foreground">Habilitar cuenta</h2>
-            <p className="text-sm text-muted-foreground">
-              Activá el acceso de <strong>{target?.name}</strong> ({roleLabel}).
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors">
-            <Icon name="X" size={20} />
-          </button>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      size="md"
+      title="Habilitar cuenta"
+      subtitle={<>Activá el acceso de <strong>{target?.name}</strong> ({roleLabel}).</>}
+      footer={
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+          <Button type="submit" form="enable-account-form" variant="default" loading={isSubmitting} iconName="UserCheck">Habilitar ahora</Button>
         </div>
+      }
+    >
+      <form id="enable-account-form" onSubmit={handleSubmit} className="space-y-5">
+        <Input
+          label="Email real"
+          name="email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          required
+        />
+        <Input
+          label="Contraseña temporal"
+          name="password"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          minLength={6}
+          required
+        />
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <Input
-            label="Email real"
-            name="email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-          />
-          <Input
-            label="Contraseña temporal"
-            name="password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            minLength={6}
-            required
-          />
-
-          {errorMessage && (
-            <div className="text-sm text-error bg-error/10 border border-error/20 rounded-lg p-3 flex items-center gap-2 font-medium">
-              <Icon name="AlertCircle" size={16} />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 flex gap-3 italic text-primary">
-            <Icon name="Mail" size={20} className="shrink-0" />
-            <p className="text-xs">
-              Se enviará un correo de confirmación para que el usuario active su acceso.
-            </p>
+        {errorMessage && (
+          <div className="text-sm text-error bg-error/10 border border-error/20 rounded-lg p-3 flex items-center gap-2 font-medium">
+            <Icon name="AlertCircle" size={16} />
+            <span>{errorMessage}</span>
           </div>
+        )}
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
-            <Button type="submit" variant="default" loading={isSubmitting} iconName="UserCheck">Habilitar ahora</Button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 flex gap-3 italic text-primary">
+          <Icon name="Mail" size={20} className="shrink-0" />
+          <p className="text-xs">
+            Se enviará un correo de confirmación para que el usuario active su acceso.
+          </p>
+        </div>
+      </form>
+    </Modal>
   );
 };
 

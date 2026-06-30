@@ -1,5 +1,8 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
+import { getMetricPalette } from '../../../constants/metricPalettes';
+import { Card } from '../../../components/ui/Card';
+import { Skeleton } from '../../../components/ui/Skeleton';
 
 const MetricsStrip = ({ metrics, loading }) => {
   const metricCards = [
@@ -45,16 +48,6 @@ const MetricsStrip = ({ metrics, loading }) => {
     }
   ];
 
-  const getColorClasses = (color) => {
-    const colors = {
-      blue: { bg: 'bg-blue-50', text: 'text-blue-600', stroke: 'stroke-blue-400' },
-      emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', stroke: 'stroke-emerald-400' },
-      violet: { bg: 'bg-violet-50', text: 'text-violet-600', stroke: 'stroke-violet-400' },
-      amber: { bg: 'bg-amber-50', text: 'text-amber-600', stroke: 'stroke-amber-400' },
-    };
-    return colors[color] || colors.blue;
-  };
-
   const renderSparkline = (data, colorTheme) => {
     const max = Math.max(...data);
     const min = Math.min(...data);
@@ -86,19 +79,19 @@ const MetricsStrip = ({ metrics, loading }) => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-col gap-4 animate-pulse">
+          <Card key={i} padding="default" className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100"></div>
+              <Skeleton className="w-12 h-12 rounded-2xl" />
               <div className="space-y-2 flex-1">
-                <div className="h-3 bg-slate-100 rounded w-24"></div>
-                <div className="h-6 bg-slate-100 rounded w-16"></div>
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-6 w-16" />
               </div>
             </div>
             <div className="flex justify-between items-center mt-2">
-              <div className="h-4 bg-slate-100 rounded w-12"></div>
-              <div className="h-6 bg-slate-100 rounded w-16"></div>
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-6 w-16" />
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     );
@@ -107,31 +100,28 @@ const MetricsStrip = ({ metrics, loading }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
       {metricCards.map((card) => {
-        const colorTheme = getColorClasses(card.color);
+        const colorTheme = getMetricPalette(card.color);
         const isUp = card.trendDirection === 'up';
 
         return (
-          <div
-            key={card.id}
-            className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300"
-          >
+          <Card key={card.id} padding="default" interactive>
             <div className="flex items-center space-x-4 mb-5">
               <div className={`w-12 h-12 rounded-2xl ${colorTheme.bg} ${colorTheme.text} flex items-center justify-center shadow-inner`}>
                 <Icon name={card.icon} size={24} />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-1">
                   {card.label}
                 </p>
-                <p className="text-2xl font-black text-slate-800 tracking-tight">
+                <p className="text-2xl font-black text-text-primary tracking-tight">
                   {card.value}
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                isUp ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                isUp ? 'bg-success-light text-success' : 'bg-error-light text-error'
               }`}>
                 <Icon
                   name={isUp ? 'TrendingUp' : 'TrendingDown'}
@@ -144,7 +134,7 @@ const MetricsStrip = ({ metrics, loading }) => {
                 {renderSparkline(card.sparklineData, colorTheme)}
               </div>
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>

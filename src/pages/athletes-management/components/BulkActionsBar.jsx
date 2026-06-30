@@ -15,12 +15,12 @@ const BulkActionsBar = ({ selectedCount, onAction, onClearSelection }) => {
     <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-3xl animate-in slide-in-from-bottom-10 fade-in duration-300">
       
       {/* Contenedor Principal Oscuro */}
-      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-[2rem] shadow-2xl shadow-slate-900/20 p-3 pr-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        
+      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-3xl shadow-2xl shadow-slate-900/20 p-3 pr-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+
         {/* Izquierda: Contador y Desmarcar */}
         <div className="flex items-center gap-4 pl-2 w-full sm:w-auto justify-between sm:justify-start">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black text-base shadow-inner">
+            <div className="w-10 h-10 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-black text-base shadow-inner">
               {selectedCount}
             </div>
             <div className="flex flex-col">

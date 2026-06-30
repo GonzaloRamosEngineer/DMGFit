@@ -1,23 +1,26 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
+import { Card } from '../../../components/ui/Card';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { Skeleton } from '../../../components/ui/Skeleton';
 
 const RecentActivity = ({ activities, loading = false }) => {
   if (loading) {
     return (
-      <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm animate-pulse">
-        <div className="h-6 bg-slate-200 rounded-lg w-1/3 mb-6"></div>
+      <Card padding="default">
+        <Skeleton className="h-6 w-1/3 mb-6 rounded-lg" />
         <div className="space-y-4">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="flex gap-3 items-center">
-              <div className="w-10 h-10 bg-slate-200 rounded-full shrink-0"></div>
+              <Skeleton className="w-10 h-10 rounded-full shrink-0" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-slate-200 rounded-md w-3/4"></div>
-                <div className="h-3 bg-slate-200 rounded-md w-1/3"></div>
+                <Skeleton className="h-4 w-3/4 rounded-md" />
+                <Skeleton className="h-3 w-1/3 rounded-md" />
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -50,32 +53,31 @@ const RecentActivity = ({ activities, loading = false }) => {
   };
 
   return (
-    <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm relative overflow-hidden">
-      
+    <Card padding="default" className="relative overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6 relative z-10">
-        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
-          <Icon name="Activity" size={20} className="text-slate-700" />
+      <div className="flex items-center gap-3 mb-6 relative z-card">
+        <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center border border-border shadow-sm">
+          <Icon name="Activity" size={20} className="text-text-secondary" />
         </div>
         <div>
-          <h3 className="font-black text-slate-800 tracking-tight">
+          <h3 className="font-black text-text-primary tracking-tight">
             Actividad Reciente
           </h3>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+          <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest mt-0.5">
             Últimos movimientos
           </p>
         </div>
       </div>
-      
+
       {/* Lista */}
-      <div className="space-y-4 relative z-10">
+      <div className="space-y-4 relative z-card">
         {activities?.length > 0 ? (
           activities.map((activity) => {
             const styles = getActivityStyles(activity.type);
             return (
               <div
                 key={activity.id}
-                className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-2xl transition-colors group border border-transparent hover:border-slate-100"
+                className="flex items-start gap-4 p-3 hover:bg-muted rounded-2xl transition-colors group border border-transparent hover:border-border"
               >
                 {/* Avatar o Icono */}
                 <div className="shrink-0 relative mt-1">
@@ -83,31 +85,31 @@ const RecentActivity = ({ activities, loading = false }) => {
                     <img
                       src={activity.athleteImage}
                       alt={activity.athleteName}
-                      className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200"
+                      className="w-10 h-10 rounded-full object-cover shadow-sm border border-border"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 font-bold text-slate-500 text-sm">
+                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border border-border font-bold text-text-secondary text-sm">
                       {activity.athleteName.charAt(0)}
                     </div>
                   )}
                   {/* Badge del tipo de actividad flotante */}
-                  <div className={`absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center ${styles.bg}`}>
+                  <div className={`absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-2 border-card flex items-center justify-center ${styles.bg}`}>
                     <Icon name={styles.icon} size={10} className={styles.color} />
                   </div>
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-700 leading-snug">
-                    <span className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                  <p className="text-sm text-text-secondary leading-snug">
+                    <span className="font-bold text-text-primary group-hover:text-primary transition-colors">
                       {activity.athleteName}
                     </span>
                     {' '}
-                    <span className="text-slate-500 font-medium">
+                    <span className="text-text-secondary font-medium">
                       {activity.description}
                     </span>
                   </p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-1">
                     {formatTimeAgo(activity.timestamp)}
                   </p>
                 </div>
@@ -115,13 +117,10 @@ const RecentActivity = ({ activities, loading = false }) => {
             );
           })
         ) : (
-          <div className="text-center py-8">
-            <Icon name="Inbox" size={32} className="mx-auto mb-3 text-slate-300" />
-            <p className="text-sm font-bold text-slate-500">No hay actividad reciente</p>
-          </div>
+          <EmptyState iconName="Inbox" title="No hay actividad reciente" />
         )}
       </div>
-    </div>
+    </Card>
   );
 };
 

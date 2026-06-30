@@ -9,6 +9,8 @@ import AthleteSegmentation from "./components/AthleteSegmentation";
 import RecentActivity from "./components/RecentActivity";
 import BulkActionsBar from "./components/BulkActionsBar";
 import Icon from "../../components/AppIcon";
+import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
 import AddAthleteModal from "./components/AddAthleteModal";
@@ -333,7 +335,7 @@ const AthletesManagement = () => {
       <Icon
         name={sortConfig.direction === "asc" ? "ArrowUp" : "ArrowDown"}
         size={12}
-        className="text-blue-600"
+        className="text-primary"
       />
     );
   };
@@ -344,16 +346,16 @@ const AthletesManagement = () => {
         <title>Gestión de Atletas - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
+      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
 
         {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <Card padding="none" className="p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             {/* <BreadcrumbTrail currentPath="/athletes-management" /> */}
-            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-2">
+            <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight mt-2">
               Gestión de Atletas
             </h1>
-            <p className="text-slate-500 font-medium mt-1">
+            <p className="text-text-secondary font-medium mt-1">
               Supervisa y gestiona todos tus atletas en un solo lugar
             </p>
           </div>
@@ -362,7 +364,7 @@ const AthletesManagement = () => {
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className={`flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 text-xs uppercase tracking-wider shadow-lg transition-all ${
+              className={`flex items-center gap-2 px-5 py-2.5 bg-card text-text-secondary border border-border font-bold rounded-xl hover:bg-muted text-xs uppercase tracking-wider shadow-sm transition-all ${
                 isLoading ? "opacity-70 cursor-wait" : ""
               }`}
             >
@@ -376,12 +378,12 @@ const AthletesManagement = () => {
 
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
+              className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 shadow-md hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
             >
               <Icon name="UserPlus" size={16} /> Nuevo Atleta
             </button>
           </div>
-        </div>
+        </Card>
 
         <div className="mb-8">
           <MetricsStrip metrics={metricsSummary} loading={isLoading} />
@@ -398,16 +400,16 @@ const AthletesManagement = () => {
               />
             </div>
 
-            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm flex flex-col min-h-[600px] overflow-hidden">
-              <div className="p-6 md:p-8 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <Card padding="none" className="flex flex-col min-h-[600px] overflow-hidden">
+              <div className="p-6 md:p-8 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <h3 className="text-xl font-black text-text-primary flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-info-light text-primary flex items-center justify-center">
                       <Icon name="Users" size={20} />
                     </div>
                     Directorio de Atletas
                   </h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2 sm:ml-14">
+                  <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest mt-2 sm:ml-14">
                     {isLoading ? "Cargando..." : `${filteredAthletes.length} Atletas registrados`}
                   </p>
                 </div>
@@ -415,7 +417,7 @@ const AthletesManagement = () => {
 
               <div className="flex-1 w-full">
                 <div className="w-full">
-                  <div className="grid grid-cols-[32px_minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-4 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest items-center">
+                  <div className="grid grid-cols-[32px_minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-4 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center">
                     <div className="flex justify-center">
                       <input
                         type="checkbox"
@@ -424,34 +426,34 @@ const AthletesManagement = () => {
                           selectedAthletes.length === filteredAthletes.length
                         }
                         onChange={handleSelectAll}
-                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                       />
                     </div>
 
                     <button
                       onClick={() => handleSort("name")}
-                      className="flex items-center gap-1.5 hover:text-slate-800 transition-colors text-left group"
+                      className="flex items-center gap-1.5 hover:text-text-primary transition-colors text-left group"
                     >
                       ATLETA {renderSortIcon("name")}
                     </button>
 
                     <button
                       onClick={() => handleSort("planName")}
-                      className="flex items-center gap-1.5 hover:text-slate-800 transition-colors text-left group"
+                      className="flex items-center gap-1.5 hover:text-text-primary transition-colors text-left group"
                     >
                       MEMBRESÍA {renderSortIcon("planName")}
                     </button>
 
                     <button
                       onClick={() => handleSort("performanceScore")}
-                      className="flex items-center gap-1.5 hover:text-slate-800 transition-colors text-left group"
+                      className="flex items-center gap-1.5 hover:text-text-primary transition-colors text-left group"
                     >
                       MÉTRICAS {renderSortIcon("performanceScore")}
                     </button>
 
                     <button
                       onClick={() => handleSort("paymentStatus")}
-                      className="flex items-center gap-1.5 hover:text-slate-800 transition-colors text-left group"
+                      className="flex items-center gap-1.5 hover:text-text-primary transition-colors text-left group"
                     >
                       ESTADO {renderSortIcon("paymentStatus")}
                     </button>
@@ -459,7 +461,7 @@ const AthletesManagement = () => {
                     <div className="text-center">ACCIONES</div>
                   </div>
 
-                  <div className="flex flex-col divide-y divide-slate-100 pb-4">
+                  <div className="flex flex-col divide-y divide-border pb-4">
                     {isLoading ? (
                       [1, 2, 3].map((i) => <AthleteCard key={i} loading={true} layout="table" />)
                     ) : filteredAthletes.length > 0 ? (
@@ -495,20 +497,17 @@ const AthletesManagement = () => {
                         />
                       ))
                     ) : (
-                      <div className="text-center py-20 px-4">
-                        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                          <Icon name="Users" size={28} className="text-slate-300" />
-                        </div>
-                        <p className="font-black text-slate-600 mb-1">No se encontraron atletas.</p>
-                        <p className="text-sm font-medium text-slate-400">
-                          Intenta cambiar los filtros de búsqueda.
-                        </p>
-                      </div>
+                      <EmptyState
+                        iconName="Users"
+                        title="No se encontraron atletas."
+                        description="Intenta cambiar los filtros de búsqueda."
+                        className="py-20"
+                      />
                     )}
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
 
           {/* COLUMNA DERECHA */}
