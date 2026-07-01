@@ -346,16 +346,15 @@ const AthletesManagement = () => {
         <title>Gestión de Atletas - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
+      <div className="flex flex-col gap-4 lg:gap-5 xl:h-[calc(100vh-4rem)]">
 
-        {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
-        <Card padding="none" className="p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        {/* Header compacto */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0">
           <div>
-            {/* <BreadcrumbTrail currentPath="/athletes-management" /> */}
-            <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight mt-2">
+            <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
               Gestión de Atletas
             </h1>
-            <p className="text-text-secondary font-medium mt-1">
+            <p className="text-sm text-text-secondary font-medium mt-0.5">
               Supervisa y gestiona todos tus atletas en un solo lugar
             </p>
           </div>
@@ -383,16 +382,17 @@ const AthletesManagement = () => {
               <Icon name="UserPlus" size={16} /> Nuevo Atleta
             </button>
           </div>
-        </Card>
+        </div>
 
-        <div className="mb-8">
+        {/* Métricas */}
+        <div className="shrink-0">
           <MetricsStrip metrics={metricsSummary} loading={isLoading} />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-5 xl:flex-1 xl:min-h-0">
           {/* COLUMNA IZQUIERDA */}
-          <div className="xl:col-span-8 space-y-8 w-full min-w-0">
-            <div className="sticky top-4 z-20">
+          <div className="xl:col-span-8 flex flex-col gap-4 w-full min-w-0 xl:min-h-0">
+            <div className="shrink-0">
               <SearchAndFilters
                 onSearch={setSearchQuery}
                 onFilterChange={setActiveFilters}
@@ -400,10 +400,10 @@ const AthletesManagement = () => {
               />
             </div>
 
-            <Card padding="none" className="flex flex-col min-h-[600px] overflow-hidden">
-              <div className="p-6 md:p-8 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <Card padding="none" className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-5 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
                 <div>
-                  <h3 className="text-xl font-black text-text-primary flex items-center gap-3">
+                  <h3 className="text-lg font-black text-text-primary flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-info-light text-primary flex items-center justify-center">
                       <Icon name="Users" size={20} />
                     </div>
@@ -415,9 +415,9 @@ const AthletesManagement = () => {
                 </div>
               </div>
 
-              <div className="flex-1 w-full">
+              <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                 <div className="w-full">
-                  <div className="grid grid-cols-[32px_minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-4 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center">
+                  <div className="grid grid-cols-[32px_minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
                     <div className="flex justify-center">
                       <input
                         type="checkbox"
@@ -511,8 +511,10 @@ const AthletesManagement = () => {
           </div>
 
           {/* COLUMNA DERECHA */}
-          <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-6 w-full min-w-0">
-            <AthleteSegmentation segmentationData={segmentation} loading={isLoading} />
+          <div className="xl:col-span-4 flex flex-col gap-4 w-full min-w-0 xl:min-h-0 xl:overflow-y-auto custom-scrollbar">
+            <div className="shrink-0">
+              <AthleteSegmentation segmentationData={segmentation} loading={isLoading} />
+            </div>
             <RecentActivity activities={recentActivities} loading={isLoading} />
           </div>
         </div>

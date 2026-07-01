@@ -63,7 +63,7 @@ const SearchAndFilters = ({ onSearch, onFilterChange, onBulkAction, loading = fa
   const activeFilterCount = Object.entries(filters).filter(([key, value]) => value !== '' && !(key === 'status' && value === 'active')).length;
 
   return (
-    <div className="bg-card/90 backdrop-blur-md border border-border rounded-3xl p-4 shadow-sm mb-6 transition-all">
+    <div className="bg-card/90 backdrop-blur-md border border-border rounded-3xl p-4 shadow-sm transition-all">
       <div className="flex flex-col lg:flex-row lg:items-center gap-3">
 
         {/* Buscador */}
