@@ -17,10 +17,10 @@ const formatTimeAgo = (timestamp) => {
 
 const getMethodStyle = (method) => {
   switch (method?.toLowerCase()) {
-    case 'efectivo': return { icon: 'Banknote', color: 'text-emerald-600', bg: 'bg-emerald-50' };
-    case 'tarjeta': return { icon: 'CreditCard', color: 'text-blue-600', bg: 'bg-blue-50' };
+    case 'efectivo': return { icon: 'Banknote', color: 'text-success', bg: 'bg-success-light' };
+    case 'tarjeta': return { icon: 'CreditCard', color: 'text-primary', bg: 'bg-info-light' };
     case 'transferencia': return { icon: 'ArrowRightLeft', color: 'text-purple-600', bg: 'bg-purple-50' };
-    default: return { icon: 'DollarSign', color: 'text-slate-500', bg: 'bg-slate-50' };
+    default: return { icon: 'DollarSign', color: 'text-text-secondary', bg: 'bg-muted' };
   }
 };
 
@@ -29,34 +29,34 @@ const TransactionItem = ({ transaction }) => {
   const style = getMethodStyle(transaction.method);
   
   return (
-    <div className="group flex items-center justify-between p-4 bg-white hover:bg-slate-50 border border-slate-100 rounded-2xl transition-all duration-300 mb-3 last:mb-0">
-      
+    <div className="group flex items-center justify-between p-4 bg-card hover:bg-muted border border-border rounded-2xl transition-all duration-300 mb-3 last:mb-0">
+
       {/* Left: User & Info */}
       <div className="flex items-center gap-4">
         <div className="relative">
           {transaction.athleteImage ? (
             <Image src={transaction.athleteImage} alt={transaction.athleteName} className="w-10 h-10 rounded-full object-cover shadow-sm" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-text-tertiary">
               <Icon name="User" size={16} />
             </div>
           )}
           {/* Method Badge (Mini Icon) */}
-          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center ${style.bg}`}>
+          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-card flex items-center justify-center ${style.bg}`}>
              <Icon name={style.icon} size={10} className={style.color} />
           </div>
         </div>
 
         <div>
-          <p className="text-sm font-bold text-slate-800 leading-none mb-1 group-hover:text-blue-600 transition-colors">
+          <p className="text-sm font-bold text-text-primary leading-none mb-1 group-hover:text-primary transition-colors">
             {transaction.athleteName || 'Desconocido'}
           </p>
           <div className="flex items-center gap-2">
-             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+             <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
                {formatTimeAgo(transaction.timestamp)}
              </span>
-             <span className="text-[10px] text-slate-300">•</span>
-             <span className="text-[10px] text-slate-500 truncate max-w-[120px]">
+             <span className="text-[10px] text-text-tertiary">•</span>
+             <span className="text-[10px] text-text-secondary truncate max-w-[120px]">
                {transaction.description}
              </span>
           </div>
@@ -65,7 +65,7 @@ const TransactionItem = ({ transaction }) => {
 
       {/* Right: Amount */}
       <div className="text-right">
-        <span className="block text-sm font-black text-slate-900 tracking-tight">
+        <span className="block text-sm font-black text-text-primary tracking-tight">
           +{formatCurrency(transaction.amount)}
         </span>
         <span className={`text-[9px] font-bold uppercase tracking-widest ${style.color}`}>
@@ -82,7 +82,7 @@ const RecentTransactionsFeed = ({ transactions = [], loading = false, mode = 'wi
   if (loading) {
     return ( /* Skeleton Loader minimalista */
       <div className="animate-pulse space-y-4">
-        {[1, 2, 3].map(i => <div key={i} className="h-16 bg-slate-50 rounded-2xl"></div>)}
+        {[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted rounded-2xl"></div>)}
       </div>
     );
   }
@@ -90,20 +90,20 @@ const RecentTransactionsFeed = ({ transactions = [], loading = false, mode = 'wi
   if (transactions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center opacity-60">
-        <Icon name="Receipt" size={32} className="text-slate-300 mb-2" />
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sin movimientos recientes</p>
+        <Icon name="Receipt" size={32} className="text-text-tertiary mb-2" />
+        <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">Sin movimientos recientes</p>
       </div>
     );
   }
 
   return (
-    <div className={`flex flex-col h-full ${mode === 'table' ? 'p-0' : 'bg-white rounded-[2.5rem] border border-slate-100 p-6'}`}>
-      
+    <div className={`flex flex-col h-full ${mode === 'table' ? 'p-0' : 'bg-card rounded-3xl border border-border p-6'}`}>
+
       {/* Header (Solo si es Widget, la tabla ya tiene header externo) */}
       {mode === 'widget' && (
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">Últimos Pagos</h3>
-          <button className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors uppercase tracking-widest">
+          <h3 className="text-sm font-black text-text-primary uppercase tracking-wide">Últimos Pagos</h3>
+          <button className="text-[10px] font-bold text-primary hover:opacity-80 transition-opacity uppercase tracking-widest">
             Ver Todo
           </button>
         </div>

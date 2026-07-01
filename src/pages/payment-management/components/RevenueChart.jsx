@@ -5,8 +5,8 @@ import Icon from '../../../components/AppIcon';
 const RevenueChart = ({ data, loading = false }) => {
   if (loading) {
     return (
-      <div className="h-full w-full bg-slate-50 rounded-2xl animate-pulse flex items-center justify-center">
-        <Icon name="Loader" className="text-slate-200 animate-spin" size={24} />
+      <div className="h-full w-full bg-muted rounded-2xl animate-pulse flex items-center justify-center">
+        <Icon name="Loader" className="text-text-tertiary animate-spin" size={24} />
       </div>
     );
   }
@@ -14,7 +14,7 @@ const RevenueChart = ({ data, loading = false }) => {
   if (!data || data.length === 0) {
     return (
       <div className="h-full w-full flex flex-col items-center justify-center opacity-50">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sin datos suficientes</p>
+        <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">Sin datos suficientes</p>
       </div>
     );
   }

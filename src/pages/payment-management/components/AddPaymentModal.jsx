@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import Icon from "../../../components/AppIcon";
+import { useToast } from "../../../hooks/useToast";
 
 // --- UTILS & HELPERS ---
 const formatCurrency = (amount) => {
@@ -90,6 +91,8 @@ const mapAthleteForPayment = (row) => {
 };
 
 const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
+  const { toast } = useToast();
+
   // --- ESTADOS GLOBALES ---
   const [loading, setLoading] = useState(false);
   const [fetchingDebts, setFetchingDebts] = useState(false);
@@ -429,7 +432,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
       onClose();
     } catch (error) {
       console.error(error);
-      alert("Error al procesar el pago: " + error.message);
+      toast.error("Error al procesar el pago: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -443,22 +446,22 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
   }, [athletes, searchTerm]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-2xl rounded-[1.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-modal flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-card w-full max-w-2xl rounded-[1.5rem] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* HEADER */}
-        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <div className="px-6 py-5 border-b border-border flex justify-between items-center bg-muted/50">
           <div>
-            <h2 className="text-xl font-black text-slate-800 tracking-tight">
+            <h2 className="text-xl font-black text-text-primary tracking-tight">
               Caja / Cobros
             </h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+            <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">
               {selectedAthlete ? "Detalles del Pago" : "Seleccionar Atleta"}
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500"
+            className="p-2 hover:bg-muted rounded-full transition-colors text-text-secondary"
           >
             <Icon name="X" size={20} />
           </button>
@@ -471,13 +474,13 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
               <div className="relative group">
                 <Icon
                   name="Search"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none z-10"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary group-focus-within:text-primary transition-colors pointer-events-none z-10"
                   size={20}
                 />
                 <input
                   type="text"
                   placeholder="Buscar atleta por nombre..."
-                  className="relative z-0 w-full pl-14 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none text-lg font-bold text-slate-700 transition-all placeholder:font-medium placeholder:text-slate-400"
+                  className="relative z-0 w-full pl-14 pr-4 py-4 bg-muted border-2 border-transparent focus:border-primary rounded-2xl outline-none text-lg font-bold text-text-secondary transition-all placeholder:font-medium placeholder:text-text-tertiary"
                   autoFocus
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -485,7 +488,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
               </div>
 
               <div className="space-y-3">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-2">
+                <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest pl-2">
                   Resultados
                 </p>
 
@@ -497,9 +500,9 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                       <button
                         key={athlete.id}
                         onClick={() => setSelectedAthlete(athlete)}
-                        className="flex items-center gap-4 p-3 hover:bg-blue-50 border border-slate-100 hover:border-blue-200 rounded-xl transition-all group text-left"
+                        className="flex items-center gap-4 p-3 hover:bg-info-light border border-border hover:border-primary/20 rounded-xl transition-all group text-left"
                       >
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold group-hover:bg-blue-200 group-hover:text-blue-700 shrink-0 overflow-hidden">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-text-secondary font-bold group-hover:bg-primary/20 group-hover:text-primary shrink-0 overflow-hidden">
                           {athlete.avatar ? (
                             <img
                               src={athlete.avatar}
@@ -512,23 +515,23 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                         </div>
 
                         <div className="flex-1">
-                          <p className="font-bold text-slate-700 group-hover:text-blue-800">
+                          <p className="font-bold text-text-secondary group-hover:text-primary">
                             {athlete.name}
                           </p>
 
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs text-slate-400 group-hover:text-blue-500">
+                            <span className="text-xs text-text-tertiary group-hover:text-primary">
                               {athlete.planName || "Sin Plan"}
                             </span>
 
                             {athlete.visitsPerWeek ? (
-                              <span className="text-[10px] bg-blue-50 px-1.5 py-0.5 rounded text-blue-600 font-mono">
+                              <span className="text-[10px] bg-info-light px-1.5 py-0.5 rounded text-primary font-mono">
                                 {athlete.visitsPerWeek}x/sem
                               </span>
                             ) : null}
 
                             {resolvedPrice ? (
-                              <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono group-hover:bg-blue-100 group-hover:text-blue-600">
+                              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded text-text-secondary font-mono group-hover:bg-info-light group-hover:text-primary">
                                 {formatCurrency(resolvedPrice)}
                               </span>
                             ) : null}
@@ -538,14 +541,14 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                         <Icon
                           name="ChevronRight"
                           size={16}
-                          className="text-slate-300 group-hover:text-blue-400"
+                          className="text-text-tertiary group-hover:text-primary"
                         />
                       </button>
                     );
                   })}
 
                   {filteredAthletes.length === 0 && (
-                    <div className="text-center py-8 text-slate-400">
+                    <div className="text-center py-8 text-text-tertiary">
                       <p>
                         {searchTerm
                           ? "No se encontraron atletas"
@@ -563,9 +566,9 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
               className="space-y-6 animate-in slide-in-from-right-8 duration-300"
             >
               {/* Tarjeta Atleta Seleccionado */}
-              <div className="flex items-center justify-between bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+              <div className="flex items-center justify-between bg-info-light p-4 rounded-2xl border border-primary/15">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-200 overflow-hidden shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold shadow-md overflow-hidden shrink-0">
                     {effectiveAthlete?.avatar ? (
                       <img
                         src={effectiveAthlete.avatar}
@@ -578,29 +581,29 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="font-bold text-slate-800 leading-tight truncate">
+                    <p className="font-bold text-text-primary leading-tight truncate">
                       {effectiveAthlete?.name || "Atleta"}
                     </p>
 
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-xs text-slate-500 font-medium">
+                      <p className="text-xs text-text-secondary font-medium">
                         {effectiveAthlete?.planName || "Sin Plan"}
                       </p>
 
                       {effectiveAthlete?.visitsPerWeek ? (
-                        <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded text-blue-700 font-mono">
+                        <span className="text-[10px] bg-info-light px-1.5 py-0.5 rounded text-primary font-mono">
                           {effectiveAthlete.visitsPerWeek}x/sem
                         </span>
                       ) : null}
 
                       {selectedAthleteResolvedPlanPrice ? (
-                        <span className="text-[10px] bg-white px-1.5 py-0.5 rounded text-slate-600 font-mono border border-blue-100">
+                        <span className="text-[10px] bg-card px-1.5 py-0.5 rounded text-text-secondary font-mono border border-primary/15">
                           {formatCurrency(selectedAthleteResolvedPlanPrice)}
                         </span>
                       ) : null}
 
                       {fetchingAthleteDetail && (
-                        <span className="text-[10px] text-slate-400 font-bold">
+                        <span className="text-[10px] text-text-tertiary font-bold">
                           Actualizando...
                         </span>
                       )}
@@ -612,7 +615,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                   <button
                     type="button"
                     onClick={handleChangeAthlete}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline px-2 shrink-0"
+                    className="text-xs font-bold text-primary hover:text-primary/90 hover:underline px-2 shrink-0"
                   >
                     Cambiar
                   </button>
@@ -620,14 +623,14 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
               </div>
 
               {/* Selector de modo (UX) */}
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-2 flex gap-2">
+              <div className="bg-muted border border-border rounded-2xl p-2 flex gap-2">
                 <button
                   type="button"
                   onClick={switchToDebts}
                   className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     paymentMode === "debts"
-                      ? "bg-white shadow-sm border border-slate-200 text-slate-900"
-                      : "text-slate-500 hover:bg-white/60"
+                      ? "bg-card shadow-sm border border-border text-text-primary"
+                      : "text-text-secondary hover:bg-card/60"
                   }`}
                 >
                   Cobrar deuda
@@ -638,8 +641,8 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                   onClick={switchToManual}
                   className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     paymentMode === "manual"
-                      ? "bg-white shadow-sm border border-slate-200 text-slate-900"
-                      : "text-slate-500 hover:bg-white/60"
+                      ? "bg-card shadow-sm border border-border text-text-primary"
+                      : "text-text-secondary hover:bg-card/60"
                   }`}
                 >
                   Ingreso manual
@@ -653,16 +656,16 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                     <div className="text-center py-4">
                       <Icon
                         name="Loader"
-                        className="animate-spin mx-auto text-blue-500"
+                        className="animate-spin mx-auto text-primary"
                       />
                     </div>
                   ) : pendingDebts.length > 0 ? (
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
+                      <label className="text-[10px] font-black text-text-tertiary uppercase tracking-widest pl-1">
                         Deudas Pendientes
                       </label>
 
-                      <div className="bg-slate-50 rounded-xl overflow-hidden border border-slate-100 divide-y divide-slate-100">
+                      <div className="bg-muted rounded-xl overflow-hidden border border-border divide-y divide-border">
                         {pendingDebts.map((debt) => {
                           const isSelected = selectedDebtIds.includes(debt.id);
 
@@ -672,23 +675,23 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                               onClick={() => handleToggleDebt(debt.id)}
                               className={`p-4 cursor-pointer flex items-center justify-between transition-colors ${
                                 isSelected
-                                  ? "bg-blue-50/80"
-                                  : "hover:bg-slate-100"
+                                  ? "bg-info-light"
+                                  : "hover:bg-muted"
                               }`}
                             >
                               <div className="flex items-center gap-3">
                                 <div
                                   className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
                                     isSelected
-                                      ? "bg-blue-500 border-blue-500"
-                                      : "border-slate-300 bg-white"
+                                      ? "bg-primary border-primary"
+                                      : "border-border bg-card"
                                   }`}
                                 >
                                   {isSelected && (
                                     <Icon
                                       name="Check"
                                       size={12}
-                                      className="text-white"
+                                      className="text-primary-foreground"
                                     />
                                   )}
                                 </div>
@@ -697,13 +700,13 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                                   <p
                                     className={`text-sm font-bold ${
                                       isSelected
-                                        ? "text-blue-900"
-                                        : "text-slate-700"
+                                        ? "text-primary"
+                                        : "text-text-secondary"
                                     }`}
                                   >
                                     {debt.concept}
                                   </p>
-                                  <p className="text-[10px] font-bold text-rose-500">
+                                  <p className="text-[10px] font-bold text-error">
                                     Vencimiento:{" "}
                                     {new Date(
                                       debt.payment_date,
@@ -712,7 +715,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                                 </div>
                               </div>
 
-                              <span className="font-mono font-bold text-slate-700">
+                              <span className="font-mono font-bold text-text-secondary">
                                 {formatCurrency(debt.amount)}
                               </span>
                             </div>
@@ -721,14 +724,14 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                       </div>
 
                       {/* Escape UX: si hay deudas pero el usuario quiere manual */}
-                      <div className="mt-2 text-[11px] text-slate-500 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                      <div className="mt-2 text-[11px] text-text-secondary bg-warning-light border border-warning/20 rounded-xl px-3 py-2">
                         ¿No querés pagar una cuota? Cambiá a{" "}
                         <b>Ingreso manual</b> para registrar otra cosa (venta,
                         extra, etc.).
                       </div>
                     </div>
                   ) : (
-                    <div className="text-[11px] text-slate-500 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                    <div className="text-[11px] text-text-secondary bg-success-light border border-success/20 rounded-xl px-3 py-2">
                       No hay deudas pendientes. Podés registrar un ingreso
                       manual si corresponde.
                     </div>
@@ -743,22 +746,22 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                     type="button"
                     onClick={handleLoadPlan}
                     disabled={!selectedAthleteResolvedPlanPrice}
-                    className="p-3 border border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-blue-400 transition-all text-center group disabled:opacity-50"
+                    className="p-3 border border-dashed border-border rounded-xl hover:bg-muted hover:border-primary transition-all text-center group disabled:opacity-50"
                   >
                     <Icon
                       name="Calendar"
-                      className="mx-auto mb-1 text-slate-400 group-hover:text-blue-500"
+                      className="mx-auto mb-1 text-text-tertiary group-hover:text-primary"
                       size={18}
                     />
-                    <span className="block text-xs font-bold text-slate-600">
+                    <span className="block text-xs font-bold text-text-secondary">
                       Cargar Plan Actual
                     </span>
                     {selectedAthleteResolvedPlanPrice ? (
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-text-tertiary">
                         {formatCurrency(selectedAthleteResolvedPlanPrice)}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-text-tertiary">
                         Sin monto
                       </span>
                     )}
@@ -767,17 +770,17 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                   <button
                     type="button"
                     onClick={handleResetForm}
-                    className="p-3 border border-dashed border-slate-300 rounded-xl hover:bg-slate-50 hover:border-blue-400 transition-all text-center group"
+                    className="p-3 border border-dashed border-border rounded-xl hover:bg-muted hover:border-primary transition-all text-center group"
                   >
                     <Icon
                       name="Edit"
-                      className="mx-auto mb-1 text-slate-400 group-hover:text-blue-500"
+                      className="mx-auto mb-1 text-text-tertiary group-hover:text-primary"
                       size={18}
                     />
-                    <span className="block text-xs font-bold text-slate-600">
+                    <span className="block text-xs font-bold text-text-secondary">
                       Entrada Manual
                     </span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-text-tertiary">
                       Productos / Otros
                     </span>
                   </button>
@@ -787,7 +790,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
               {/* Sección C: Inputs Monetarios */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <label className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">
                     Fecha del Pago
                   </label>
                   <input
@@ -799,16 +802,16 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                         paymentDate: e.target.value,
                       }))
                     }
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-xl outline-none font-bold text-slate-700 text-sm transition-all"
+                    className="w-full px-4 py-3 bg-muted border-2 border-transparent focus:border-primary rounded-xl outline-none font-bold text-text-secondary text-sm transition-all"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <label className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">
                     Monto
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary font-bold">
                       $
                     </span>
                     <input
@@ -824,15 +827,15 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                       placeholder="0"
                       className={`w-full pl-8 pr-3 py-3 rounded-xl border-2 outline-none font-bold text-lg transition-all ${
                         selectedDebtIds.length > 0
-                          ? "bg-slate-100 border-transparent text-slate-500"
-                          : "bg-slate-50 border-transparent focus:border-blue-500 text-slate-800"
+                          ? "bg-muted border-transparent text-text-secondary"
+                          : "bg-muted border-transparent focus:border-primary text-text-primary"
                       }`}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <label className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">
                     Método
                   </label>
                   <select
@@ -843,7 +846,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                         method: e.target.value,
                       }))
                     }
-                    className="w-full px-3 py-[14px] bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-xl outline-none font-bold text-slate-700 text-sm appearance-none"
+                    className="w-full px-3 py-[14px] bg-muted border-2 border-transparent focus:border-primary rounded-xl outline-none font-bold text-text-secondary text-sm appearance-none"
                   >
                     <option value="efectivo">💵 Efectivo</option>
                     <option value="tarjeta">💳 Tarjeta</option>
@@ -855,7 +858,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
 
               {/* Input Concepto */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">
                   Concepto
                 </label>
                 <input
@@ -871,8 +874,8 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                   placeholder="Descripción del pago..."
                   className={`w-full px-4 py-3 rounded-xl border-2 outline-none font-medium text-sm transition-all ${
                     selectedDebtIds.length > 0
-                      ? "bg-slate-100 border-transparent text-slate-500"
-                      : "bg-slate-50 border-transparent focus:border-blue-500 text-slate-700"
+                      ? "bg-muted border-transparent text-text-secondary"
+                      : "bg-muted border-transparent focus:border-primary text-text-secondary"
                   }`}
                 />
               </div>
@@ -882,7 +885,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                 <button
                   type="button"
                   onClick={() => setShowDiscount(!showDiscount)}
-                  className="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                  className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/90 transition-colors"
                 >
                   <Icon
                     name={showDiscount ? "MinusCircle" : "PlusCircle"}
@@ -894,10 +897,10 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                 </button>
 
                 {showDiscount && (
-                  <div className="mt-3 p-4 bg-blue-50 rounded-2xl border border-blue-100 animate-in slide-in-from-top-2">
+                  <div className="mt-3 p-4 bg-info-light rounded-2xl border border-primary/15 animate-in slide-in-from-top-2">
                     <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3">
                       <div>
-                        <label className="block text-[10px] font-black text-blue-700 uppercase tracking-widest mb-1.5">
+                        <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-1.5">
                           Tipo
                         </label>
 
@@ -905,21 +908,21 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                           <select
                             value={discountType}
                             onChange={(e) => setDiscountType(e.target.value)}
-                            className="w-full min-h-[48px] h-[48px] rounded-xl border border-blue-200 bg-white pl-3 pr-10 text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 appearance-none"
+                            className="w-full min-h-[48px] h-[48px] rounded-xl border border-primary/20 bg-card pl-3 pr-10 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary appearance-none"
                             style={{ lineHeight: "1.2" }}
                           >
                             <option value="percent">% (Porc.)</option>
                             <option value="fixed">$ (Fijo)</option>
                           </select>
 
-                          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-blue-500">
+                          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-primary">
                             <Icon name="ChevronDown" size={16} />
                           </div>
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-black text-blue-700 uppercase tracking-widest mb-1.5">
+                        <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-1.5">
                           Valor
                         </label>
 
@@ -930,13 +933,13 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                           placeholder={
                             discountType === "percent" ? "Ej: 15" : "Ej: 500"
                           }
-                          className="w-full min-h-[48px] h-[48px] rounded-xl border border-blue-200 bg-white px-4 text-sm font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 placeholder:text-blue-300/70"
+                          className="w-full min-h-[48px] h-[48px] rounded-xl border border-primary/20 bg-card px-4 text-sm font-bold text-primary outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary placeholder:text-text-tertiary"
                           style={{ lineHeight: "1.2" }}
                         />
                       </div>
                     </div>
 
-                    <p className="mt-2 text-[11px] font-medium text-blue-700/80">
+                    <p className="mt-2 text-[11px] font-medium text-text-secondary">
                       {discountType === "percent"
                         ? "Ingresá el porcentaje de descuento a aplicar sobre el monto base."
                         : "Ingresá el monto fijo que querés descontar del total."}
@@ -946,17 +949,17 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
               </div>
 
               {/* FOOTER TOTAL Y ACTION */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+              <div className="pt-4 border-t border-border flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">
+                  <p className="text-[10px] font-bold text-text-tertiary uppercase">
                     Total a Pagar
                   </p>
                   <div className="flex items-baseline gap-2">
-                    <p className="text-3xl font-black text-slate-900 tracking-tighter">
+                    <p className="text-3xl font-black text-text-primary tracking-tighter">
                       {formatCurrency(getFinalTotal())}
                     </p>
                     {showDiscount && discountValue && (
-                      <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-1.5 rounded">
+                      <span className="text-xs font-bold text-success bg-success-light px-1.5 rounded">
                         Con descuento
                       </span>
                     )}
@@ -971,7 +974,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                     Number(formData.amount) <= 0 ||
                     !effectiveAthlete?.id
                   }
-                  className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-lg shadow-slate-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:translate-y-[-2px] active:translate-y-[0px]"
+                  className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:translate-y-[-2px] active:translate-y-[0px]"
                 >
                   {loading ? (
                     <Icon name="Loader" className="animate-spin" size={18} />
