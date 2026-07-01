@@ -67,35 +67,35 @@ const ModifyAthleteScheduleModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-100 rounded-[2rem] w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-modal flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-xl">
+        <div className="px-6 py-5 border-b border-border flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-black text-slate-800">Modificar horarios del atleta</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <h3 className="text-lg font-black text-text-primary">Modificar horarios del atleta</h3>
+            <p className="text-xs text-text-secondary mt-1">
               {athlete?.name} · {athlete?.planName || 'Sin Plan'} · Frecuencia: {visits} por semana
             </p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl hover:bg-slate-100 text-slate-500 flex items-center justify-center">
+          <button onClick={onClose} className="w-8 h-8 rounded-xl hover:bg-muted text-text-secondary flex items-center justify-center">
             <Icon name="X" size={16} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-            <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+          <div className="bg-muted border border-border rounded-xl p-3">
+            <p className="text-xs font-bold text-text-secondary uppercase tracking-wider">
               Seleccionados: {selectedSlotIds.length} / {visits}
             </p>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-text-secondary mt-1">
               El cambio se aplica desde hoy y conserva plan/opción/precio/frecuencia.
             </p>
           </div>
 
           <div>
-            <h4 className="text-sm font-black text-slate-700 mb-2">Horarios actuales</h4>
+            <h4 className="text-sm font-black text-text-secondary mb-2">Horarios actuales</h4>
             <div className="flex flex-wrap gap-2">
               {(assignedSlots || []).length === 0 ? (
-                <p className="text-xs text-slate-400">Sin asignaciones activas.</p>
+                <p className="text-xs text-text-tertiary">Sin asignaciones activas.</p>
               ) : (
                 assignedSlots.map((slot) => {
                   const schedule = normalizeRelation(slot.weekly_schedule) || slot;
@@ -106,7 +106,7 @@ const ModifyAthleteScheduleModal = ({
                   return (
                     <span
                       key={slot.id || schedule?.id}
-                      className="px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold"
+                      className="px-2 py-1 rounded-lg bg-info-light border border-info/20 text-info text-xs font-bold"
                     >
                       {DAYS[day] || 'Horario'} {start}-{end}
                     </span>
@@ -117,15 +117,15 @@ const ModifyAthleteScheduleModal = ({
           </div>
 
           <div className="space-y-4">
-            <h4 className="text-sm font-black text-slate-700">Disponibilidad del plan</h4>
+            <h4 className="text-sm font-black text-text-secondary">Disponibilidad del plan</h4>
             {Object.keys(availableGrouped).length === 0 ? (
-              <p className="text-xs text-slate-400">Este plan no tiene slots configurados.</p>
+              <p className="text-xs text-text-tertiary">Este plan no tiene slots configurados.</p>
             ) : (
               Object.entries(availableGrouped)
                 .sort((a, b) => Number(a[0]) - Number(b[0]))
                 .map(([day, slots]) => (
-                  <div key={day} className="border border-slate-200 rounded-xl p-3">
-                    <p className="text-xs font-black text-slate-600 uppercase tracking-wider mb-2">
+                  <div key={day} className="border border-border rounded-xl p-3">
+                    <p className="text-xs font-black text-text-secondary uppercase tracking-wider mb-2">
                       {DAYS[day]}
                     </p>
                     <div className="space-y-2">
@@ -141,8 +141,8 @@ const ModifyAthleteScheduleModal = ({
                             key={slotId}
                             className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs ${
                               disabled
-                                ? 'bg-slate-100 text-slate-400 border-slate-200'
-                                : 'bg-white text-slate-700 border-slate-200 cursor-pointer'
+                                ? 'bg-muted text-text-tertiary border-border'
+                                : 'bg-card text-text-secondary border-border cursor-pointer'
                             }`}
                           >
                             <div className="flex items-center gap-2">
@@ -156,12 +156,12 @@ const ModifyAthleteScheduleModal = ({
                                 {String(slot.start_time).slice(0, 5)}-{String(slot.end_time).slice(0, 5)}
                               </span>
                               {owned && (
-                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-black">
+                                <span className="px-1.5 py-0.5 rounded bg-info-light text-info text-[10px] font-black">
                                   Actual
                                 </span>
                               )}
                             </div>
-                            <span className={`font-black ${Number(slot.remaining) <= 1 ? 'text-rose-500' : 'text-emerald-600'}`}>
+                            <span className={`font-black ${Number(slot.remaining) <= 1 ? 'text-error' : 'text-success'}`}>
                               {slot.remaining}/{slot.capacity}
                             </span>
                           </label>
@@ -174,11 +174,11 @@ const ModifyAthleteScheduleModal = ({
           </div>
         </form>
 
-        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2">
+        <div className="px-6 py-4 border-t border-border bg-muted flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg"
+            className="px-4 py-2 text-sm font-bold text-text-secondary hover:bg-muted rounded-lg"
           >
             Cancelar
           </button>
@@ -186,10 +186,10 @@ const ModifyAthleteScheduleModal = ({
             type="submit"
             onClick={handleSubmit}
             disabled={loading || selectedSlotIds.length !== visits || visits <= 0}
-            className={`px-4 py-2 text-sm font-bold rounded-lg text-white ${
+            className={`px-4 py-2 text-sm font-bold rounded-lg text-primary-foreground ${
               loading || selectedSlotIds.length !== visits || visits <= 0
-                ? 'bg-slate-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
+                ? 'bg-muted-foreground cursor-not-allowed'
+                : 'bg-primary hover:bg-primary/90'
             }`}
           >
             {loading ? 'Guardando...' : 'Guardar horarios'}

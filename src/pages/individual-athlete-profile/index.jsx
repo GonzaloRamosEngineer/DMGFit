@@ -12,6 +12,7 @@ import { useAuth } from "../../contexts/AuthContext";
 // UI Components
 import BreadcrumbTrail from "../../components/ui/BreadcrumbTrail";
 import Icon from "../../components/AppIcon";
+import { useToast } from "../../hooks/useToast";
 
 // Profile Components
 import AthleteHeader from "./components/AthleteHeader";
@@ -266,14 +267,14 @@ const StructuralMembershipCard = ({
 }) => {
   if (loading) {
     return (
-      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4 animate-pulse">
-        <div className="h-5 bg-slate-200 rounded w-1/3 mb-4"></div>
+      <div className="bg-card border border-border rounded-xl p-4 mb-4 animate-pulse">
+        <div className="h-5 bg-muted/50 rounded w-1/3 mb-4"></div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 bg-slate-100 rounded-lg"></div>
+            <div key={i} className="h-20 bg-muted/30 rounded-lg"></div>
           ))}
         </div>
-        <div className="h-24 bg-slate-100 rounded-lg"></div>
+        <div className="h-24 bg-muted/30 rounded-lg"></div>
       </div>
     );
   }
@@ -290,13 +291,13 @@ const StructuralMembershipCard = ({
   })).filter((group) => group.slots.length > 0);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+    <div className="bg-card border border-border rounded-xl p-4 mb-4">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
         <div>
-          <h3 className="text-sm font-black text-slate-800">
+          <h3 className="text-sm font-black text-text-primary">
             Membresía Estructural
           </h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-text-secondary">
             Resumen real del plan contratado, frecuencia, precio y horarios
             asignados.
           </p>
@@ -310,8 +311,8 @@ const StructuralMembershipCard = ({
               disabled={!canModifySchedule || loadingScheduleModal}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
                 canModifySchedule && !loadingScheduleModal
-                  ? "bg-violet-600 text-white hover:bg-violet-700"
-                  : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                  ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                  : "bg-muted text-text-tertiary cursor-not-allowed"
               }`}
             >
               {loadingScheduleModal ? "Cargando horarios..." : "Modificar horarios"}
@@ -321,10 +322,10 @@ const StructuralMembershipCard = ({
               type="button"
               onClick={onSaveMembership}
               disabled={savingMembership}
-              className={`px-4 py-2 rounded-lg text-xs font-bold text-white transition-colors ${
+              className={`px-4 py-2 rounded-lg text-xs font-bold text-primary-foreground transition-colors ${
                 savingMembership
-                  ? "bg-slate-400 cursor-wait"
-                  : "bg-blue-600 hover:bg-blue-700"
+                  ? "bg-muted-foreground cursor-wait"
+                  : "bg-primary hover:bg-primary/90"
               }`}
             >
               {savingMembership ? "Guardando..." : "Guardar membresía"}
@@ -334,66 +335,66 @@ const StructuralMembershipCard = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="border border-border rounded-lg p-3 bg-muted">
+          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
             Plan
           </p>
-          <p className="mt-1 text-sm font-black text-slate-800">
+          <p className="mt-1 text-sm font-black text-text-primary">
             {athlete.planName || "Sin Plan"}
           </p>
-          <p className="text-xs text-slate-500">{athlete.planOption || "Sin opción"}</p>
+          <p className="text-xs text-text-secondary">{athlete.planOption || "Sin opción"}</p>
         </div>
 
-        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="border border-border rounded-lg p-3 bg-muted">
+          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
             Frecuencia
           </p>
-          <p className="mt-1 text-sm font-black text-slate-800">
+          <p className="mt-1 text-sm font-black text-text-primary">
             {athlete.visits_per_week ? `${athlete.visits_per_week}x / semana` : "—"}
           </p>
-          <p className="text-xs text-slate-500">Visitas contratadas</p>
+          <p className="text-xs text-text-secondary">Visitas contratadas</p>
         </div>
 
-        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="border border-border rounded-lg p-3 bg-muted">
+          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
             Precio acordado
           </p>
-          <p className="mt-1 text-sm font-black text-slate-800">
+          <p className="mt-1 text-sm font-black text-text-primary">
             {athlete.plan_tier_price ? formatCurrency(athlete.plan_tier_price) : "—"}
           </p>
-          <p className="text-xs text-slate-500">Tier real del atleta</p>
+          <p className="text-xs text-text-secondary">Tier real del atleta</p>
         </div>
 
-        <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+        <div className="border border-border rounded-lg p-3 bg-muted">
+          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
             Slots activos
           </p>
-          <p className="mt-1 text-sm font-black text-slate-800">
+          <p className="mt-1 text-sm font-black text-text-primary">
             {assignedSlots.length}
           </p>
-          <p className="text-xs text-slate-500">Asignaciones vigentes</p>
+          <p className="text-xs text-text-secondary">Asignaciones vigentes</p>
         </div>
       </div>
 
       {canManageMembership && (
-        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 mb-4">
+        <div className="border border-border rounded-xl p-4 bg-muted mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <Icon name="Settings2" size={16} className="text-slate-600" />
-            <h4 className="text-sm font-black text-slate-800">
+            <Icon name="Settings2" size={16} className="text-text-secondary" />
+            <h4 className="text-sm font-black text-text-primary">
               Editar asignación actual
             </h4>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
                 Plan
               </label>
               <select
                 name="planId"
                 value={membershipForm.planId}
                 onChange={onMembershipChange}
-                className="mt-1 w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm"
+                className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm"
               >
                 <option value="">Seleccionar...</option>
                 {availablePlans.map((plan) => (
@@ -405,7 +406,7 @@ const StructuralMembershipCard = ({
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
                 Opción / Variante
               </label>
               <select
@@ -413,7 +414,7 @@ const StructuralMembershipCard = ({
                 value={membershipForm.planOption}
                 onChange={onMembershipChange}
                 disabled={!membershipForm.planId || availablePlanOptions.length === 0}
-                className="mt-1 w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm disabled:opacity-60"
+                className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm disabled:opacity-60"
               >
                 <option value="">
                   {membershipForm.planId
@@ -431,21 +432,21 @@ const StructuralMembershipCard = ({
         </div>
       )}
 
-      <div className="border border-slate-200 rounded-xl p-4">
+      <div className="border border-border rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Icon name="CalendarDays" size={16} className="text-blue-600" />
-          <h4 className="text-sm font-black text-slate-800">Horarios asignados</h4>
+          <Icon name="CalendarDays" size={16} className="text-primary" />
+          <h4 className="text-sm font-black text-text-primary">Horarios asignados</h4>
         </div>
 
         {groupedByDay.length === 0 ? (
-          <div className="text-sm text-slate-500 border border-dashed border-slate-200 rounded-lg p-4 bg-slate-50">
+          <div className="text-sm text-text-secondary border border-dashed border-border rounded-lg p-4 bg-muted">
             El atleta no tiene slots semanales activos asignados.
           </div>
         ) : (
           <div className="space-y-3">
             {groupedByDay.map((group) => (
               <div key={group.day}>
-                <p className="text-xs font-black text-slate-600 uppercase tracking-wider mb-2">
+                <p className="text-xs font-black text-text-secondary uppercase tracking-wider mb-2">
                   {group.day}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -458,7 +459,7 @@ const StructuralMembershipCard = ({
                     .map((schedule) => (
                       <span
                         key={schedule.id}
-                        className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 text-xs font-bold"
+                        className="px-3 py-2 rounded-lg bg-info-light text-info border border-info/20 text-xs font-bold"
                       >
                         {String(schedule.start_time).slice(0, 5)} -{" "}
                         {String(schedule.end_time).slice(0, 5)}
@@ -471,7 +472,7 @@ const StructuralMembershipCard = ({
         )}
       </div>
 
-      <div className="mt-3 text-[11px] text-slate-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+      <div className="mt-3 text-[11px] text-warning bg-warning-light border border-warning/20 rounded-lg px-3 py-2">
         La reasignación de plan, frecuencia y slots debe hacerse desde este flujo
         para evitar inconsistencias entre cupos, pricing, kiosk y pagos.
       </div>
@@ -539,6 +540,7 @@ const NotesPreview = ({ notes = [], loading = false, onViewMore }) => {
 const IndividualAthleteProfile = () => {
   const { id: athleteId } = useParams();
   const { currentUser } = useAuth();
+  const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState("summary");
   const [loading, setLoading] = useState(true);
@@ -824,7 +826,7 @@ const IndividualAthleteProfile = () => {
 
   const handleSaveMembership = async () => {
     if (!profileData.athlete?.id || !membershipForm.planId) {
-      alert("Selecciona un plan válido antes de guardar.");
+      toast.error("Selecciona un plan válido antes de guardar.");
       return;
     }
 
@@ -832,7 +834,7 @@ const IndividualAthleteProfile = () => {
       membershipForm.planOption &&
       !availablePlanOptions.includes(membershipForm.planOption)
     ) {
-      alert("La opción seleccionada no pertenece al plan elegido.");
+      toast.error("La opción seleccionada no pertenece al plan elegido.");
       return;
     }
 
@@ -850,7 +852,7 @@ const IndividualAthleteProfile = () => {
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("Error actualizando plan del atleta:", error);
-      alert(error.message || "No se pudo actualizar el plan del atleta.");
+      toast.error(error.message || "No se pudo actualizar el plan del atleta.");
     } finally {
       setSavingMembership(false);
     }
@@ -872,7 +874,7 @@ const IndividualAthleteProfile = () => {
       setIsScheduleModalOpen(true);
     } catch (error) {
       console.error("Error cargando disponibilidad del plan:", error);
-      alert(error.message || "No se pudieron cargar los horarios del plan.");
+      toast.error(error.message || "No se pudieron cargar los horarios del plan.");
     } finally {
       setLoadingScheduleModal(false);
     }
@@ -898,7 +900,7 @@ const IndividualAthleteProfile = () => {
       });
 
       if (!result?.success) {
-        alert(result?.error || "No se pudieron reasignar los horarios.");
+        toast.error(result?.error || "No se pudieron reasignar los horarios.");
         return;
       }
 
@@ -907,7 +909,7 @@ const IndividualAthleteProfile = () => {
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("Error reasignando horarios:", error);
-      alert(error.message || "No se pudieron reasignar los horarios.");
+      toast.error(error.message || "No se pudieron reasignar los horarios.");
     } finally {
       setSavingSchedule(false);
     }
@@ -998,7 +1000,7 @@ const IndividualAthleteProfile = () => {
       setProfileData((prev) => ({ ...prev, notes: [data, ...prev.notes] }));
     } catch (err) {
       console.error("Error guardando nota:", err);
-      alert("No se pudo guardar la nota.");
+      toast.error("No se pudo guardar la nota.");
     }
   };
 
