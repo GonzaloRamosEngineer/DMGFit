@@ -62,9 +62,9 @@ const CoachesTable = ({
   };
 
   return (
-    <div className="w-full bg-card rounded-xl border border-border overflow-hidden">
+    <div className="w-full h-full bg-card rounded-3xl border border-border shadow-sm overflow-hidden flex flex-col">
       {/* Toolbar */}
-      <div className="px-6 py-5 border-b border-border">
+      <div className="px-6 py-4 border-b border-border shrink-0">
         <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
             <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary">
@@ -97,9 +97,9 @@ const CoachesTable = ({
       </div>
 
       {/* Tabla desktop/tablet */}
-      <div className="hidden md:block overflow-x-auto">
+      <div className="hidden md:block flex-1 min-h-0 overflow-auto custom-scrollbar">
         <table className="w-full min-w-[980px] text-left">
-          <thead>
+          <thead className="sticky top-0 z-card bg-card">
             <tr className="border-b border-border bg-card">
               <th className="px-6 py-4 text-[11px] font-semibold tracking-wider uppercase text-text-secondary">
                 Profesor / Entrenador
@@ -261,7 +261,7 @@ const CoachesTable = ({
       </div>
 
       {/* Vista mobile (Simplificada y alineada al nuevo diseño) */}
-      <div className="md:hidden px-4 py-4 space-y-3 bg-muted/50">
+      <div className="md:hidden flex-1 min-h-0 overflow-auto px-4 py-4 space-y-3 bg-muted/50">
         {loading ? (
           [...Array(4)].map((_, index) => (
             <div key={index} className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -314,7 +314,7 @@ const CoachesTable = ({
 
       {/* Footer */}
       {!loading && (
-        <div className="px-6 py-4 text-[12px] font-medium text-text-secondary border-t border-border bg-card">
+        <div className="px-6 py-3 text-[12px] font-medium text-text-secondary border-t border-border bg-card shrink-0">
           Mostrando {filteredCoaches.length} profesor{filteredCoaches.length === 1 ? '' : 'es'}
         </div>
       )}
