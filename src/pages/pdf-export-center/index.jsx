@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
+import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   generateAthletePDF, 
@@ -12,6 +13,7 @@ import ExportHistoryCard from './components/ExportHistoryCard';
 
 const PDFExportCenter = () => {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [isGenerating, setIsGenerating] = useState(false);
@@ -145,11 +147,11 @@ const PDFExportCenter = () => {
             );
             break;
           default:
-            alert(`Generando reporte: ${templateId}`);
+            toast.info(`Generando reporte: ${templateId}`);
         }
       } catch (error) {
         console.error('Error generando PDF:', error);
-        alert('Error al generar el PDF');
+        toast.error('Error al generar el PDF');
       } finally {
         setIsGenerating(false);
         setSelectedTemplate(null);
