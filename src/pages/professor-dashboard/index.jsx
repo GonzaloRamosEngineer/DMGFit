@@ -205,7 +205,7 @@ const ProfessorDashboard = () => {
     <>
       <Helmet><title>Panel del Entrenador | DMG Fitness</title></Helmet>
       
-      <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
+      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
         <BreadcrumbTrail items={[{ label: 'Portal Staff', path: '/professor-dashboard', active: true }]} />
         
         {/* HEADER */}
@@ -213,17 +213,17 @@ const ProfessorDashboard = () => {
           <div>
             <div className="flex items-center gap-3 mb-2">
                {coachProfile?.profiles?.avatar_url ? (
-                 <img src={coachProfile.profiles.avatar_url} alt="Profile" className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover" />
+                 <img src={coachProfile.profiles.avatar_url} alt="Profile" className="w-12 h-12 rounded-full border-2 border-card shadow-sm object-cover" />
                ) : (
-                 <div className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg">
+                 <div className="w-12 h-12 rounded-full bg-foreground text-background flex items-center justify-center font-bold text-lg">
                     {coachProfile?.profiles?.full_name?.charAt(0) || 'C'}
                  </div>
                )}
                <div>
-                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+                 <h1 className="text-3xl font-black text-text-primary tracking-tight">
                    Hola, {coachProfile?.profiles?.full_name?.split(' ')[0] || 'Coach'}
                  </h1>
-                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                 <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">
                    {coachProfile?.specialization || 'Entrenador de Staff'}
                  </p>
                </div>
@@ -232,17 +232,17 @@ const ProfessorDashboard = () => {
 
           <div className="flex gap-3">
              <div className="relative">
-                <Icon name="Calendar" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <Icon name="Calendar" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" size={16} />
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  className="pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm font-bold text-text-secondary shadow-sm focus:ring-2 focus:ring-primary outline-none transition-all"
                 />
              </div>
-             <button 
+             <button
                onClick={() => navigate('/performance-analytics')}
-               className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-lg shadow-slate-200 transition-all text-xs uppercase tracking-wider"
+               className="flex items-center gap-2 px-5 py-2.5 bg-foreground text-background font-bold rounded-xl hover:bg-foreground/90 shadow-lg transition-all text-xs uppercase tracking-wider"
              >
                 <Icon name="BarChart2" size={16} /> Analytics
              </button>
@@ -252,7 +252,7 @@ const ProfessorDashboard = () => {
         {/* LOADING STATE */}
         {loading ? (
            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-pulse">
-              {[1,2,3,4].map(i => <div key={i} className="h-32 bg-slate-200 rounded-2xl"></div>)}
+              {[1,2,3,4].map(i => <div key={i} className="h-32 bg-muted rounded-2xl"></div>)}
            </div>
         ) : (
           <div className="space-y-8">
@@ -264,29 +264,29 @@ const ProfessorDashboard = () => {
                <div className="xl:col-span-8 space-y-8">
 
                   {/* MIS TURNOS DE LA SEMANA */}
-                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
+                  <div className="bg-card rounded-3xl border border-border shadow-sm p-8">
                      <div className="flex items-center gap-2 mb-6">
-                        <Icon name="CalendarClock" className="text-blue-600" />
-                        <h3 className="text-xl font-black text-slate-800">Mis Turnos de la Semana</h3>
+                        <Icon name="CalendarClock" className="text-primary" />
+                        <h3 className="text-xl font-black text-text-primary">Mis Turnos de la Semana</h3>
                      </div>
                      {turnos.length === 0 ? (
-                        <p className="text-sm text-slate-400">
+                        <p className="text-sm text-text-tertiary">
                            Todavía no tenés turnos asignados. El administrador los asigna desde Planificación.
                         </p>
                      ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                            {turnosByDay.map((g) => (
-                              <div key={g.day} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-                                 <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">{g.day}</h4>
+                              <div key={g.day} className="rounded-2xl border border-border bg-muted/60 p-4">
+                                 <h4 className="text-xs font-black uppercase tracking-widest text-text-secondary mb-3">{g.day}</h4>
                                  <div className="space-y-2">
                                     {g.items.map((t, i) => (
-                                       <div key={i} className="flex items-center justify-between bg-white rounded-xl border border-slate-100 px-3 py-2">
+                                       <div key={i} className="flex items-center justify-between bg-card rounded-xl border border-border px-3 py-2">
                                           <div>
-                                             <p className="text-sm font-bold text-slate-800">{t.start_time} - {t.end_time}</p>
-                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{t.planName}</p>
+                                             <p className="text-sm font-bold text-text-primary">{t.start_time} - {t.end_time}</p>
+                                             <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wide">{t.planName}</p>
                                           </div>
                                           {t.capacity != null && (
-                                             <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg uppercase">Cupo {t.capacity}</span>
+                                             <span className="text-[10px] font-black text-success bg-success-light px-2 py-1 rounded-lg uppercase">Cupo {t.capacity}</span>
                                           )}
                                        </div>
                                     ))}
@@ -297,20 +297,20 @@ const ProfessorDashboard = () => {
                      )}
                   </div>
 
-                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 relative overflow-hidden">
+                  <div className="bg-card rounded-3xl border border-border shadow-sm p-8 relative overflow-hidden">
                      <div className="flex justify-between items-center mb-6 relative z-10">
-                        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                           <Icon name="CheckSquare" className="text-blue-600" />
+                        <h3 className="text-xl font-black text-text-primary flex items-center gap-2">
+                           <Icon name="CheckSquare" className="text-primary" />
                            Gestión de Clases
                         </h3>
-                        <span className="text-xs font-bold bg-blue-50 text-blue-700 px-3 py-1 rounded-full uppercase tracking-wide">
+                        <span className="text-xs font-bold bg-info-light text-primary px-3 py-1 rounded-full uppercase tracking-wide">
                            {todaySessionsList.length} Sesiones Hoy
                         </span>
                      </div>
                      <div className="relative z-10">
                         <AttendanceTracker sessions={todaySessionsList} selectedDate={selectedDate} />
                      </div>
-                     <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-[80px] opacity-50 -mr-20 -mt-20 pointer-events-none"></div>
+                     <div className="absolute top-0 right-0 w-64 h-64 bg-info-light rounded-full blur-[80px] opacity-50 -mr-20 -mt-20 pointer-events-none"></div>
                   </div>
 
                   <MyAthletesSection athletes={dashboardData.athletes} />
@@ -320,7 +320,7 @@ const ProfessorDashboard = () => {
                <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-6">
                   <MyPlansSection plans={dashboardData.plans} />
 
-                  <div className="bg-[#0F172A] text-white p-6 rounded-[2rem] shadow-xl relative overflow-hidden">
+                  <div className="bg-[#0F172A] text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
                      <div className="flex items-center justify-between mb-4 relative z-10">
                         <h3 className="font-bold uppercase tracking-widest text-sm">Notas del Coach</h3>
                         <button className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">

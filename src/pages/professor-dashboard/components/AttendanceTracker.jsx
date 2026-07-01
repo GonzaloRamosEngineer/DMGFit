@@ -84,12 +84,12 @@ const AttendanceTracker = ({ sessions, selectedDate }) => {
 
   if (!sessions || sessions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
-        <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-4">
-           <Icon name="CalendarOff" className="text-slate-300" size={32} />
+      <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-border rounded-3xl bg-muted/50">
+        <div className="w-16 h-16 bg-card rounded-full shadow-sm flex items-center justify-center mb-4">
+           <Icon name="CalendarOff" className="text-text-tertiary" size={32} />
         </div>
-        <h3 className="text-slate-900 font-bold text-lg">Día Libre</h3>
-        <p className="text-slate-400 text-sm">No tienes sesiones programadas para hoy.</p>
+        <h3 className="text-text-primary font-bold text-lg">Día Libre</h3>
+        <p className="text-text-tertiary text-sm">No tienes sesiones programadas para hoy.</p>
       </div>
     );
   }
@@ -101,13 +101,13 @@ const AttendanceTracker = ({ sessions, selectedDate }) => {
         const isFuture = new Date(`${session.session_date}T${session.time}`) > new Date();
 
         return (
-          <div key={session.id} className="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
-            
+          <div key={session.id} className="group bg-card rounded-3xl border border-border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+
             {/* Header de Sesión */}
-            <div className="px-6 py-5 bg-slate-50/50 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="px-6 py-5 bg-muted/50 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                <div>
                   <div className="flex items-center gap-3 mb-1">
-                     <span className="text-2xl font-black text-slate-800 tracking-tight">
+                     <span className="text-2xl font-black text-text-primary tracking-tight">
                         {session.time?.slice(0,5)}
                      </span>
                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
@@ -116,19 +116,19 @@ const AttendanceTracker = ({ sessions, selectedDate }) => {
                         {session.type || 'Clase'}
                      </span>
                   </div>
-                  <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wide">
+                  <div className="flex items-center gap-2 text-text-tertiary text-xs font-bold uppercase tracking-wide">
                      <Icon name="MapPin" size={12} /> {session.location || 'Sala Principal'}
                   </div>
                </div>
-               
+
                {/* Capacity Badge */}
                <div className="text-right">
-                  <span className="block text-xs font-bold text-slate-500">
+                  <span className="block text-xs font-bold text-text-secondary">
                      {attendees.length} / {session.capacity || 20}
                   </span>
-                  <div className="w-24 h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
-                     <div 
-                       className="h-full bg-slate-800 rounded-full" 
+                  <div className="w-24 h-1.5 bg-muted rounded-full mt-1 overflow-hidden">
+                     <div
+                       className="h-full bg-foreground rounded-full"
                        style={{ width: `${Math.min(100, (attendees.length / (session.capacity || 20)) * 100)}%` }}
                      ></div>
                   </div>
@@ -138,43 +138,43 @@ const AttendanceTracker = ({ sessions, selectedDate }) => {
             {/* Lista de Atletas */}
             <div className="p-2">
                {attendees.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 text-sm">
+                  <div className="py-8 text-center text-text-tertiary text-sm">
                      Esperando inscripciones...
                   </div>
                ) : (
-                  <div className="divide-y divide-slate-50">
+                  <div className="divide-y divide-border">
                      {attendees.map(athlete => (
-                        <div key={athlete.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors">
-                           
+                        <div key={athlete.id} className="flex items-center justify-between p-3 hover:bg-muted rounded-xl transition-colors">
+
                            {/* Info Atleta */}
                            <div className="flex items-center gap-3">
                               {athlete.avatar ? (
                                 <img src={athlete.avatar} alt={athlete.name} className="w-10 h-10 rounded-full object-cover shadow-sm" />
                               ) : (
-                                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center font-bold text-sm">
+                                <div className="w-10 h-10 rounded-full bg-muted text-text-tertiary flex items-center justify-center font-bold text-sm">
                                    {athlete.name.charAt(0)}
                                 </div>
                               )}
-                              <span className="font-bold text-slate-700 text-sm">{athlete.name}</span>
+                              <span className="font-bold text-text-secondary text-sm">{athlete.name}</span>
                            </div>
 
                            {/* Botonera de Asistencia (Compacta) */}
-                           <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
+                           <div className="flex bg-muted rounded-lg p-1 gap-1">
                               <button
                                 onClick={() => handleStatusChange(session.id, athlete.id, 'present')}
                                 title="Presente"
                                 className={`w-8 h-8 flex items-center justify-center rounded-md transition-all ${
-                                   athlete.status === 'present' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white'
+                                   athlete.status === 'present' ? 'bg-success text-success-foreground shadow-sm' : 'text-text-tertiary hover:bg-card'
                                 }`}
                               >
                                  <Icon name="Check" size={16} />
                               </button>
-                              
+
                               <button
                                 onClick={() => handleStatusChange(session.id, athlete.id, 'late')}
                                 title="Tarde"
                                 className={`w-8 h-8 flex items-center justify-center rounded-md transition-all ${
-                                   athlete.status === 'late' ? 'bg-amber-400 text-white shadow-sm' : 'text-slate-400 hover:bg-white'
+                                   athlete.status === 'late' ? 'bg-warning text-warning-foreground shadow-sm' : 'text-text-tertiary hover:bg-card'
                                 }`}
                               >
                                  <Icon name="Clock" size={16} />
@@ -184,7 +184,7 @@ const AttendanceTracker = ({ sessions, selectedDate }) => {
                                 onClick={() => handleStatusChange(session.id, athlete.id, 'absent')}
                                 title="Ausente"
                                 className={`w-8 h-8 flex items-center justify-center rounded-md transition-all ${
-                                   athlete.status === 'absent' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400 hover:bg-white'
+                                   athlete.status === 'absent' ? 'bg-error text-error-foreground shadow-sm' : 'text-text-tertiary hover:bg-card'
                                 }`}
                               >
                                  <Icon name="X" size={16} />
