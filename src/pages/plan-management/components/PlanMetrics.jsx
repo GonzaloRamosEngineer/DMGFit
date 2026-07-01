@@ -1,6 +1,8 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
 import { getMetricPalette } from '../../../constants/metricPalettes';
+import { Card } from '../../../components/ui/Card';
+import { Skeleton } from '../../../components/ui/Skeleton';
 
 const PlanMetrics = ({ metrics, loading = false }) => {
   const metricCards = [
@@ -15,13 +17,13 @@ const PlanMetrics = ({ metrics, loading = false }) => {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm flex flex-col animate-pulse">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 mb-4"></div>
+          <Card key={i} padding="none" className="p-5 flex flex-col">
+            <Skeleton className="w-12 h-12 rounded-2xl mb-4" />
             <div className="space-y-2 mt-auto">
-              <div className="h-6 bg-slate-100 rounded w-16"></div>
-              <div className="h-3 bg-slate-100 rounded w-24"></div>
+              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-3 w-24" />
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     );
@@ -31,25 +33,22 @@ const PlanMetrics = ({ metrics, loading = false }) => {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       {metricCards.map((card, index) => {
         const theme = getMetricPalette(card.color);
-        
+
         return (
-          <div 
-            key={index} 
-            className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300"
-          >
+          <Card key={index} padding="none" interactive className="p-5">
             <div className={`w-12 h-12 rounded-2xl ${theme.bg} ${theme.text} flex items-center justify-center shadow-inner mb-4`}>
               <Icon name={card.icon} size={24} />
             </div>
-            
+
             <div className="mt-auto">
-              <p className="text-2xl font-black text-slate-800 tracking-tight leading-none mb-1.5">
+              <p className="text-2xl font-black text-text-primary tracking-tight leading-none mb-1.5">
                 {card.value}
               </p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest line-clamp-1">
+              <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest line-clamp-1">
                 {card.title}
               </p>
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>

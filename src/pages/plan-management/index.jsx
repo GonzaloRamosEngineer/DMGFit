@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
+import { Card } from '../../components/ui/Card';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { useToast } from '../../hooks/useToast';
+import { useConfirm } from '../../components/ui/ConfirmProvider';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, fetchActiveAthleteCountsByPlan, savePlanConfiguration } from '../../services/plans';
@@ -19,6 +23,8 @@ const normalizeRelation = (value) => {
 
 const PlanManagement = () => {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [plans, setPlans] = useState([]);
   const [availableCoaches, setAvailableCoaches] = useState([]);
@@ -153,22 +159,30 @@ const PlanManagement = () => {
       setEditingPlan(null);
     } catch (error) {
       console.error('Error guardando plan:', error);
-      alert(error.message || 'Hubo un error al guardar el plan. Revisa la consola.');
+      toast.error(error.message || 'Hubo un error al guardar el plan. Revisa la consola.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeletePlan = async (planId) => {
-    if (!window.confirm('¿Estás seguro? Esta acción no se puede deshacer.')) return;
+    const ok = await confirm({
+      title: 'Eliminar plan',
+      message: '¿Estás seguro? Esta acción no se puede deshacer.',
+      confirmLabel: 'Eliminar',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       const { error } = await supabase.from('plans').delete().eq('id', planId);
       if (error) throw error;
       const nextPlans = plans.filter((plan) => plan.id !== planId);
       setPlans(nextPlans);
       calculateMetrics(nextPlans);
+      toast.success('Plan eliminado.');
     } catch (error) {
       console.error('Error eliminando plan:', error);
+      toast.error('No se pudo eliminar el plan.');
     }
   };
 
@@ -210,21 +224,21 @@ const PlanManagement = () => {
         <title>Gestión de Planes - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
+      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
         <div className="w-full">
 
           {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <Card padding="none" className="p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <BreadcrumbTrail
                 items={[
                   { label: 'Gestión de Planes', path: '/plan-management', active: true },
                 ]}
               />
-              <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-2">
+              <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight mt-2">
                 Gestión de Planes
               </h1>
-              <p className="text-slate-500 font-medium mt-1">
+              <p className="text-text-secondary font-medium mt-1">
                 Administra los servicios, precios, horarios y cupos.
               </p>
             </div>
@@ -235,13 +249,13 @@ const PlanManagement = () => {
                   setEditingPlan(null);
                   setIsCreateModalOpen(true);
                 }}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 shadow-md hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
               >
                 <Icon name="Plus" size={16} />
                 Crear Plan
               </button>
             </div>
-          </div>
+          </Card>
 
           {/* Métricas */}
           <div className="mb-8">
@@ -249,19 +263,19 @@ const PlanManagement = () => {
           </div>
 
           {/* Contenido */}
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-4 sm:p-6 md:p-8">
+          <Card padding="none" className="p-4 sm:p-6 md:p-8">
             {/* Filtros */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
               <div className="flex-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Icon name="Search" size={18} className="text-slate-400" />
+                  <Icon name="Search" size={18} className="text-text-tertiary" />
                 </div>
                 <input
                   type="text"
                   placeholder="Buscar planes por nombre..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium transition-all"
+                  className="w-full pl-11 pr-4 py-3 bg-muted border border-border rounded-xl text-text-primary placeholder-text-tertiary focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 font-medium transition-all"
                 />
               </div>
 
@@ -269,13 +283,13 @@ const PlanManagement = () => {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium appearance-none focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer transition-all"
+                  className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-text-secondary font-medium appearance-none focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 cursor-pointer transition-all"
                 >
                   <option value="all">Todos los estados</option>
                   <option value="active">Activos</option>
                   <option value="inactive">Inactivos</option>
                 </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none text-text-tertiary">
                   <Icon name="ChevronDown" size={16} />
                 </div>
               </div>
@@ -305,29 +319,30 @@ const PlanManagement = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-20 px-4 border-2 border-dashed border-slate-200 rounded-[2rem] bg-slate-50/50">
-                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100 shadow-sm">
-                  <Icon name="Package" size={28} className="text-slate-300" />
-                </div>
-                <h3 className="text-lg font-black text-slate-700 mb-1">
-                  {searchQuery ? 'No hay coincidencias' : 'No hay planes creados'}
-                </h3>
-                <p className="text-sm font-medium text-slate-500">
-                  {searchQuery
-                    ? 'Prueba buscando con otros términos o cambia los filtros.'
-                    : 'Crea tu primer plan de entrenamiento para empezar.'}
-                </p>
-                {!searchQuery && (
-                  <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="mt-6 px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-all shadow-sm"
-                  >
-                    Crear mi primer plan
-                  </button>
-                )}
+              <div className="border-2 border-dashed border-border rounded-3xl bg-muted/50">
+                <EmptyState
+                  iconName="Package"
+                  title={searchQuery ? 'No hay coincidencias' : 'No hay planes creados'}
+                  description={
+                    searchQuery
+                      ? 'Prueba buscando con otros términos o cambia los filtros.'
+                      : 'Crea tu primer plan de entrenamiento para empezar.'
+                  }
+                  action={
+                    !searchQuery ? (
+                      <button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="px-6 py-2.5 bg-card border border-border text-text-secondary font-bold rounded-xl hover:bg-muted transition-all shadow-sm"
+                      >
+                        Crear mi primer plan
+                      </button>
+                    ) : null
+                  }
+                  className="py-20"
+                />
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
 
