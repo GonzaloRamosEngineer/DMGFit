@@ -86,7 +86,7 @@ const MetricTile = ({ data }) => {
   const isNeutral = data.diff === 0;
 
   return (
-    <div className="relative overflow-hidden bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+    <div className="relative overflow-hidden bg-card rounded-3xl border border-border p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
       
       {/* Header */}
       <div className="relative z-10 flex justify-between items-start mb-2">
@@ -96,7 +96,7 @@ const MetricTile = ({ data }) => {
         
         {/* Badge de Tendencia */}
         {!isNeutral && (
-          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${isPositive ? 'bg-success-light text-success' : 'bg-error-light text-error'}`}>
             <span>{isPositive ? '↑' : '↓'} {Math.abs(data.percentChange)}%</span>
           </div>
         )}
@@ -104,18 +104,18 @@ const MetricTile = ({ data }) => {
 
       {/* Main Stats */}
       <div className="relative z-10 mb-8">
-        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 truncate">
+        <h4 className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1 truncate">
           {data.name}
         </h4>
         <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-black text-slate-900 tracking-tighter">
+          <span className="text-3xl font-black text-text-primary tracking-tighter">
             {data.current}
           </span>
-          <span className="text-xs font-bold text-slate-400 uppercase">
+          <span className="text-xs font-bold text-text-tertiary uppercase">
             {data.unit}
           </span>
         </div>
-        <p className="text-[9px] text-slate-300 font-bold mt-1 uppercase tracking-wide">
+        <p className="text-[9px] text-text-tertiary font-bold mt-1 uppercase tracking-wide">
           {formatDate(data.date)}
         </p>
       </div>
@@ -146,27 +146,27 @@ const MetricTile = ({ data }) => {
 };
 
 const HistoryRow = ({ item }) => (
-  <div className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-2xl transition-colors group">
+  <div className="flex items-center justify-between p-3 hover:bg-muted rounded-2xl transition-colors group">
     <div className="flex items-center gap-4">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 bg-white ${item.theme.border}`}>
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 bg-card ${item.theme.border}`}>
         <span className={`text-[10px] font-black uppercase ${item.theme.text}`}>
           {item.name.substring(0, 2)}
         </span>
       </div>
       <div>
-        <p className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
+        <p className="text-xs font-bold text-text-secondary group-hover:text-primary transition-colors">
           {item.name}
         </p>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+        <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
           {formatDate(item.metric_date || item.date)}
         </p>
       </div>
     </div>
     <div className="text-right">
-      <span className="block text-sm font-black text-slate-900">
+      <span className="block text-sm font-black text-text-primary">
         {item.value}
       </span>
-      <span className="text-[9px] font-bold text-slate-400 uppercase">
+      <span className="text-[9px] font-bold text-text-tertiary uppercase">
         {item.unit}
       </span>
     </div>
@@ -180,9 +180,9 @@ const MetricsCard = ({ metrics = [] }) => {
 
   if (!metrics || metrics.length === 0) {
     return (
-      <div className="col-span-full bg-white rounded-[2.5rem] p-10 border border-slate-100 border-dashed flex flex-col items-center justify-center text-center opacity-60 min-h-[200px]">
-        <Icon name="Activity" size={32} className="text-slate-300 mb-2" />
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+      <div className="col-span-full bg-card rounded-3xl p-10 border border-border border-dashed flex flex-col items-center justify-center text-center opacity-60 min-h-[200px]">
+        <Icon name="Activity" size={32} className="text-text-tertiary mb-2" />
+        <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest">
           No hay métricas registradas
         </p>
       </div>
@@ -195,8 +195,8 @@ const MetricsCard = ({ metrics = [] }) => {
       {/* SECTION 1: KPI TILES GRID */}
       <div>
         <div className="flex items-center gap-2 mb-4 px-2">
-           <Icon name="Grid" size={16} className="text-slate-400" />
-           <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">
+           <Icon name="Grid" size={16} className="text-text-tertiary" />
+           <h3 className="text-xs font-black text-text-tertiary uppercase tracking-[0.2em]">
               Resumen de Métricas
            </h3>
         </div>
@@ -208,15 +208,15 @@ const MetricsCard = ({ metrics = [] }) => {
       </div>
 
       {/* SECTION 2: RECENT HISTORY LIST */}
-      <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-slate-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)]">
+      <div className="bg-card rounded-3xl p-6 md:p-8 border border-border shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)]">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
              <div className="p-2 bg-slate-900 rounded-lg text-white">
                 <Icon name="List" size={16} />
              </div>
              <div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Historial Reciente</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Últimos Registros</p>
+                <h3 className="text-sm font-black text-text-primary uppercase tracking-wide">Historial Reciente</h3>
+                <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Últimos Registros</p>
              </div>
           </div>
         </div>
@@ -228,8 +228,8 @@ const MetricsCard = ({ metrics = [] }) => {
         </div>
         
         {/* Footer Fade for List */}
-        <div className="mt-4 pt-4 border-t border-slate-50 text-center">
-           <button className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-800 transition-colors">
+        <div className="mt-4 pt-4 border-t border-border text-center">
+           <button className="text-[10px] font-black text-primary uppercase tracking-widest hover:text-primary/80 transition-colors">
               Ver base de datos completa
            </button>
         </div>

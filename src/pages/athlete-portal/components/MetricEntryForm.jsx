@@ -4,8 +4,8 @@ import Icon from '../../../components/AppIcon';
 
 // --- UTILS & STYLES ---
 
-const INPUT_STYLE = "w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-bold rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent block p-4 transition-all outline-none placeholder:text-slate-300";
-const LABEL_STYLE = "block mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]";
+const INPUT_STYLE = "w-full bg-muted border border-border text-text-primary text-sm font-bold rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent block p-4 transition-all outline-none placeholder:text-text-tertiary";
+const LABEL_STYLE = "block mb-2 text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]";
 
 // Métricas "Favoritas" para acceso rápido (Chips)
 const QUICK_METRICS = ['Peso Corporal', 'Grasa Corporal', 'Sentadilla', 'Press Banca'];
@@ -116,18 +116,18 @@ export default function MetricEntryForm({ athleteId, onSuccess }) {
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] relative overflow-hidden">
-      
+    <div className="bg-card rounded-3xl p-8 border border-border shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] relative overflow-hidden">
+
       {/* Background Decorativo */}
-      <div className="absolute top-0 right-0 w-40 h-40 bg-blue-50/50 rounded-bl-[100px] -mr-10 -mt-10 pointer-events-none"></div>
+      <div className="absolute top-0 right-0 w-40 h-40 bg-info-light/50 rounded-bl-[100px] -mr-10 -mt-10 pointer-events-none"></div>
 
       {/* Header */}
       <div className="relative mb-6">
-        <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-          <div className="p-2.5 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-200">
+        <h3 className="text-xl font-black text-text-primary tracking-tight flex items-center gap-3">
+          <div className="p-2.5 bg-primary rounded-xl text-primary-foreground shadow-md">
             <Icon name="Plus" size={20} strokeWidth={3} />
           </div>
-          Registrar <span className="text-blue-600">Progreso</span>
+          Registrar <span className="text-primary">Progreso</span>
         </h3>
       </div>
 
@@ -143,9 +143,9 @@ export default function MetricEntryForm({ athleteId, onSuccess }) {
                     key={m}
                     onClick={() => handleQuickClick(m)}
                     className={`whitespace-nowrap px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border ${
-                       formData.name === m 
-                       ? 'bg-slate-900 border-slate-900 text-white shadow-md transform scale-105' 
-                       : 'bg-white border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'
+                       formData.name === m
+                       ? 'bg-slate-900 border-slate-900 text-white shadow-md transform scale-105'
+                       : 'bg-card border-border text-text-secondary hover:border-primary/40 hover:text-primary'
                     }`}
                  >
                     {m}
@@ -173,7 +173,7 @@ export default function MetricEntryForm({ athleteId, onSuccess }) {
                        </option>
                     ))}
                  </select>
-                 <div className="absolute right-4 top-4 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors">
+                 <div className="absolute right-4 top-4 text-text-tertiary pointer-events-none group-focus-within:text-primary transition-colors">
                     <Icon name="ChevronDown" size={20} />
                  </div>
               </div>
@@ -194,8 +194,8 @@ export default function MetricEntryForm({ athleteId, onSuccess }) {
                     className={`${INPUT_STYLE} pr-16 text-xl tracking-tight`} // Texto más grande para el número
                     autoComplete="off"
                  />
-                 <div className="absolute right-4 top-1/2 -translate-y-1/2 px-2 py-1 bg-slate-200 rounded-lg">
-                    <span className="text-[10px] font-black text-slate-600 uppercase">
+                 <div className="absolute right-4 top-1/2 -translate-y-1/2 px-2 py-1 bg-muted rounded-lg">
+                    <span className="text-[10px] font-black text-text-secondary uppercase">
                        {formData.unit || '-'}
                     </span>
                  </div>
@@ -221,11 +221,11 @@ export default function MetricEntryForm({ athleteId, onSuccess }) {
                  type="submit" 
                  disabled={status === 'submitting' || status === 'loading' || !formData.value}
                  className={`w-full h-[52px] rounded-xl font-bold uppercase tracking-widest text-xs transition-all duration-300 flex items-center justify-center gap-2 shadow-lg ${
-                    status === 'success' 
-                       ? 'bg-emerald-500 text-white shadow-emerald-200 hover:bg-emerald-600'
+                    status === 'success'
+                       ? 'bg-success text-success-foreground shadow-md hover:bg-success/90'
                        : status === 'error'
-                          ? 'bg-red-500 text-white shadow-red-200'
-                          : 'bg-blue-600 text-white shadow-blue-200 hover:bg-slate-900 hover:shadow-slate-300'
+                          ? 'bg-error text-error-foreground shadow-md'
+                          : 'bg-primary text-primary-foreground shadow-md hover:bg-slate-900 hover:shadow-slate-300'
                  } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                  {status === 'loading' && <span>Cargando...</span>}

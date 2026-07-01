@@ -96,9 +96,9 @@ const ChartControls = React.memo(({ ranges, activeRange, onRangeChange, metrics,
             onClick={() => onMetricChange(m)}
             className={cn(
               "whitespace-nowrap px-5 py-2 rounded-full text-[10px] font-bold tracking-widest transition-all duration-300 border uppercase",
-              activeMetric === m 
-                ? "bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-200 scale-105" 
-                : "bg-transparent border-slate-100 text-slate-400 hover:border-slate-200 hover:text-slate-600"
+              activeMetric === m
+                ? "bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-200 scale-105"
+                : "bg-transparent border-border text-text-tertiary hover:border-border hover:text-text-secondary"
             )}
           >
             {m}
@@ -107,16 +107,16 @@ const ChartControls = React.memo(({ ranges, activeRange, onRangeChange, metrics,
       </div>
 
       {/* Selector de Rango */}
-      <div className="flex bg-slate-50 p-1 rounded-2xl border border-slate-100">
+      <div className="flex bg-muted p-1 rounded-2xl border border-border">
         {ranges.map((r) => (
           <button
             key={r.value}
             onClick={() => onRangeChange(r.value)}
             className={cn(
               "px-4 py-1.5 text-[10px] font-black rounded-xl transition-all duration-200 uppercase",
-              activeRange === r.value 
-                ? "bg-white text-slate-900 shadow-sm" 
-                : "text-slate-400 hover:text-slate-500"
+              activeRange === r.value
+                ? "bg-card text-text-primary shadow-sm"
+                : "text-text-tertiary hover:text-text-secondary"
             )}
           >
             {r.label}
@@ -137,13 +137,13 @@ const StatsGrid = ({ stats, unit }) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-t border-slate-50">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-t border-border">
       {items.map((item, i) => (
         <div key={i}>
-          <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">
+          <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-1">
             {item.label}
           </p>
-          <p className="text-xl font-black text-slate-800 tracking-tighter">
+          <p className="text-xl font-black text-text-primary tracking-tighter">
             {item.value}
           </p>
         </div>
@@ -155,14 +155,14 @@ const StatsGrid = ({ stats, unit }) => {
 const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
   return (
-    <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-2xl shadow-slate-200/50">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-50 pb-2">
+    <div className="bg-card border border-border p-4 rounded-2xl shadow-2xl shadow-slate-200/50">
+      <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-2 border-b border-border pb-2">
         {label}
       </p>
       <div className="flex items-center justify-between gap-6">
-        <span className="text-[10px] font-bold text-slate-500 uppercase">Valor</span>
-        <span className="text-xl font-black text-slate-900 tracking-tighter">
-          {payload[0].value} <span className="text-xs font-medium text-blue-500">{payload[0].payload.unit}</span>
+        <span className="text-[10px] font-bold text-text-secondary uppercase">Valor</span>
+        <span className="text-xl font-black text-text-primary tracking-tighter">
+          {payload[0].value} <span className="text-xs font-medium text-primary">{payload[0].payload.unit}</span>
         </span>
       </div>
     </div>
@@ -190,12 +190,12 @@ const PerformanceChart = ({ metrics = [] }) => {
   // Empty State Consistente
   if (availableMetrics.length === 0) {
     return (
-      <div className="bg-white rounded-[2.5rem] p-12 border border-slate-100 col-span-2 h-[450px] flex flex-col items-center justify-center text-center opacity-60">
-        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-dashed border-slate-200">
-           <Icon name="Activity" className="text-slate-400" size={24} />
+      <div className="bg-card rounded-3xl p-12 border border-border col-span-2 h-[450px] flex flex-col items-center justify-center text-center opacity-60">
+        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4 border border-dashed border-border">
+           <Icon name="Activity" className="text-text-tertiary" size={24} />
         </div>
-        <h3 className="text-slate-900 font-black text-sm uppercase tracking-wide">Sin datos aún</h3>
-        <p className="text-xs text-slate-400 mt-2 max-w-[200px]">
+        <h3 className="text-text-primary font-black text-sm uppercase tracking-wide">Sin datos aún</h3>
+        <p className="text-xs text-text-tertiary mt-2 max-w-[200px]">
            Registra tu primer progreso para ver la analítica.
         </p>
       </div>
@@ -203,25 +203,25 @@ const PerformanceChart = ({ metrics = [] }) => {
   }
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-8 lg:p-12 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] border border-slate-100 col-span-2 flex flex-col space-y-10">
+    <div className="bg-card rounded-3xl p-8 lg:p-12 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] border border-border col-span-2 flex flex-col space-y-10">
       
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
            <div className="flex items-center gap-2 mb-1">
-              <div className="p-2 bg-blue-50 rounded-xl text-blue-600">
+              <div className="p-2 bg-info-light rounded-xl text-primary">
                  <Icon name="Activity" size={20} />
               </div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight italic uppercase">
-                Performance <span className="text-blue-600">Analytics</span>
+              <h3 className="text-2xl font-black text-text-primary tracking-tight italic uppercase">
+                Performance <span className="text-primary">Analytics</span>
               </h3>
            </div>
-           <p className="text-slate-300 font-bold text-[9px] uppercase tracking-[0.4em] pl-11 -mt-1">
+           <p className="text-text-tertiary font-bold text-[9px] uppercase tracking-[0.4em] pl-11 -mt-1">
              Inteligencia Biométrica
            </p>
         </div>
         
-        <button className="flex items-center gap-2 px-6 py-3 bg-slate-50 hover:bg-slate-900 text-slate-900 hover:text-white rounded-2xl transition-all duration-500 group">
+        <button className="flex items-center gap-2 px-6 py-3 bg-muted hover:bg-slate-900 text-text-primary hover:text-white rounded-2xl transition-all duration-500 group">
           <Icon name="Download" size={14} className="group-hover:-translate-y-0.5 transition-transform" />
           <span className="text-[10px] font-black uppercase tracking-widest">Exportar</span>
         </button>
@@ -271,8 +271,8 @@ const PerformanceChart = ({ metrics = [] }) => {
             </AreaChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-full flex items-center justify-center bg-slate-50 rounded-3xl border border-dashed border-slate-200 opacity-60">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Datos insuficientes para este periodo</p>
+          <div className="h-full flex items-center justify-center bg-muted rounded-3xl border border-dashed border-border opacity-60">
+            <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">Datos insuficientes para este periodo</p>
           </div>
         )}
       </div>
@@ -281,7 +281,7 @@ const PerformanceChart = ({ metrics = [] }) => {
       <StatsGrid stats={stats} unit={data[0]?.unit || ''} />
 
       {/* Metadata Footer */}
-      <footer className="flex justify-between items-center text-[8px] font-black text-slate-300 uppercase tracking-[0.3em]">
+      <footer className="flex justify-between items-center text-[8px] font-black text-text-tertiary uppercase tracking-[0.3em]">
         <span>Sincronizado: {new Date().toLocaleDateString()}</span>
         <span className="flex items-center gap-1 italic">
           <Icon name="ShieldCheck" size={10} /> Datos Verificados

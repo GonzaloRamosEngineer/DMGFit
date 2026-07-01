@@ -111,7 +111,7 @@ const AthletePortal = () => {
     <>
       <Helmet><title>Portal del Atleta | DMG Fitness</title></Helmet>
       
-      <div className="min-h-screen bg-slate-50/50 pb-20">
+      <div className="min-h-screen bg-background pb-20">
         <div className="max-w-[1600px] mx-auto p-6 md:p-10 space-y-8">
           
           <BreadcrumbTrail items={[{ label: 'Portal', path: '/athlete-portal', active: true }]} />
@@ -119,17 +119,17 @@ const AthletePortal = () => {
           {/* HEADER: Saludo Personalizado */}
           <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 first-letter:uppercase">
+              <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest mb-1 first-letter:uppercase">
                 {today}
               </p>
-              <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight">
                 Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{currentUser?.name?.split(' ')[0]}</span>
               </h1>
             </div>
             {/* Status Badge */}
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">
-                <div className={`w-2 h-2 rounded-full ${plan ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+            <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-full border border-border shadow-sm">
+                <div className={`w-2 h-2 rounded-full ${plan ? 'bg-success animate-pulse' : 'bg-text-tertiary'}`}></div>
+                <span className="text-xs font-bold text-text-secondary uppercase tracking-wide">
                     {plan ? 'Atleta Activo' : 'Cuenta Invitado'}
                 </span>
             </div>

@@ -96,7 +96,7 @@ const AthleteRadar = ({ metrics }) => {
   const isEnoughData = data.length >= 3;
 
   return (
-    <div className="bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl shadow-slate-900/50 text-white relative overflow-hidden h-full min-h-[400px] flex flex-col">
+    <div className="bg-slate-900 rounded-3xl p-8 shadow-2xl shadow-slate-900/50 text-white relative overflow-hidden h-full min-h-[400px] flex flex-col">
       
       {/* Background Ambience */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20 pointer-events-none"></div>
