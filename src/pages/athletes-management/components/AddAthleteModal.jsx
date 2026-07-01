@@ -3,6 +3,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { createFullAthlete } from "../../../services/athletes";
 import { fetchPlanPricing, fetchPlanSlots } from "../../../services/plans";
 import Icon from "../../../components/AppIcon";
+import { useToast } from "../../../hooks/useToast";
 
 const DAYS = [
   "Domingo",
@@ -40,6 +41,7 @@ const formatCurrency = (value) => {
 };
 
 const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
 
@@ -467,7 +469,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     if (stepId === 2) {
       const error = validateStep(1);
       if (error) {
-        alert(error);
+        toast.error(error);
         return;
       }
     }
@@ -475,7 +477,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     if (stepId === 3) {
       const error = validateStep(2);
       if (error) {
-        alert(error);
+        toast.error(error);
         return;
       }
     }
@@ -486,7 +488,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
   const handleNextStep = () => {
     const error = validateStep(activeStep);
     if (error) {
-      alert(error);
+      toast.error(error);
       return;
     }
 
@@ -504,7 +506,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
 
     const validationError = validateStep(2);
     if (validationError) {
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -559,7 +561,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       onClose();
     } catch (error) {
       console.error("Error registrando atleta:", error);
-      alert(error.message || "Error al registrar el atleta");
+      toast.error(error.message || "Error al registrar el atleta");
     } finally {
       setLoading(false);
     }

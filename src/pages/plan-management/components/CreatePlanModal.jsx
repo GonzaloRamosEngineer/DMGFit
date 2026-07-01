@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Icon from "../../../components/AppIcon";
+import { useToast } from "../../../hooks/useToast";
 
 const DAYS = [
   "Domingo",
@@ -204,6 +205,7 @@ const timeBlocksToWindows = (timeBlocks = []) => {
 };
 
 const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("identity");
   const [selectedFrequency, setSelectedFrequency] = useState("1");
 
@@ -437,13 +439,13 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
 
   const validateIdentityTab = () => {
     if (!formData.name.trim()) {
-      alert("Debes ingresar un nombre para el plan.");
+      toast.error("Debes ingresar un nombre para el plan.");
       setActiveTab("identity");
       return false;
     }
 
     if (!formData.description.trim()) {
-      alert("Debes ingresar una descripción.");
+      toast.error("Debes ingresar una descripción.");
       setActiveTab("identity");
       return false;
     }
@@ -459,17 +461,13 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
     );
 
     if (normalizedWindows.length === 0) {
-      alert(
-        "Debes configurar al menos una franja horaria válida con días seleccionados.",
-      );
+      toast.error("Debes configurar al menos una franja horaria válida con días seleccionados.");
       setActiveTab("schedule");
       return false;
     }
 
     if (expandedSlots.length === 0) {
-      alert(
-        "No se generaron slots válidos. Revisa rangos horarios, duración y días.",
-      );
+      toast.error("No se generaron slots válidos. Revisa rangos horarios, duración y días.");
       setActiveTab("schedule");
       return false;
     }
@@ -496,7 +494,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
     ).sort((a, b) => a.visits_per_week - b.visits_per_week);
 
     if (normalizedPricingTiers.length === 0) {
-      alert("Debes configurar al menos un precio por frecuencia semanal.");
+      toast.error("Debes configurar al menos un precio por frecuencia semanal.");
       setActiveTab("pricing");
       return false;
     }
