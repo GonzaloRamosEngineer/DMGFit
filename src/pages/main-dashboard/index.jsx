@@ -3,9 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 
-// Componentes UI
-import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
-
 // Componentes del Dashboard
 import DashboardHeader from './components/DashboardHeader';
 import KPICard from './components/KPICard';
@@ -236,29 +233,27 @@ const MainDashboard = () => {
         <title>Dashboard Operativo - DMG Fitness</title>
       </Helmet>
 
-      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
-        <div className="w-full space-y-6 md:space-y-8">
-          <div>
-            <BreadcrumbTrail currentPath="/main-dashboard" />
-            <DashboardHeader
-              onRefreshToggle={handleRefreshToggle}
-              autoRefresh={autoRefresh}
-              lastUpdated={lastUpdated}
-            />
-          </div>
+      <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
+        <DashboardHeader
+          onRefreshToggle={handleRefreshToggle}
+          autoRefresh={autoRefresh}
+          lastUpdated={lastUpdated}
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {loading
-              ? [1, 2, 3, 4].map((i) => <KPICard key={i} loading={true} />)
-              : kpiStats.map((kpi, index) => <KPICard key={index} {...kpi} />)}
-          </div>
+        {/* KPIs */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 shrink-0">
+          {loading
+            ? [1, 2, 3, 4].map((i) => <KPICard key={i} loading={true} />)
+            : kpiStats.map((kpi, index) => <KPICard key={index} {...kpi} />)}
+        </div>
 
-          <div className="w-full">
-            <AlertFeed alerts={alerts} loading={loading} onActionClick={handleAlertAction} />
-          </div>
-
-          <div className="w-full">
+        {/* Fila inferior: Agenda (ancha) + Notificaciones (angosta), llena el alto restante */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 lg:flex-1 lg:min-h-0">
+          <div className="lg:col-span-2 lg:min-h-0">
             <SessionSummaryGrid sessions={sessions} loading={loading} />
+          </div>
+          <div className="lg:col-span-1 lg:min-h-0">
+            <AlertFeed alerts={alerts} loading={loading} onActionClick={handleAlertAction} />
           </div>
         </div>
       </div>

@@ -49,14 +49,14 @@ const AlertFeed = ({ alerts, onActionClick, loading = false }) => {
   const criticalCount = alerts?.filter((a) => a.severity === 'critical').length || 0;
 
   return (
-    <Card padding="lg" className="h-full flex flex-col">
+    <Card padding="none" className="h-full min-h-[280px] flex flex-col p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
+      <div className="flex items-center justify-between mb-4 pb-4 border-b border-border shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-error-light text-error flex items-center justify-center">
-            <Icon name="Bell" size={20} />
+          <div className="w-9 h-9 rounded-xl bg-error-light text-error flex items-center justify-center">
+            <Icon name="Bell" size={18} />
           </div>
-          <h3 className="text-xl font-black text-text-primary tracking-tight">Notificaciones</h3>
+          <h3 className="text-lg font-black text-text-primary tracking-tight">Notificaciones</h3>
         </div>
         {criticalCount > 0 && (
           <Badge variant="error" size="md">
@@ -66,7 +66,7 @@ const AlertFeed = ({ alerts, onActionClick, loading = false }) => {
       </div>
 
       {/* Feed (Lista con Scroll) */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar" style={{ maxHeight: '450px' }}>
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
         {alerts?.length === 0 ? (
           <EmptyState
             iconName="CheckCircle"

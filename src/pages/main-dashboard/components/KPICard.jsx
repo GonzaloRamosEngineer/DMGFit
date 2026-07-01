@@ -29,17 +29,15 @@ const KPICard = ({
 
   if (loading) {
     return (
-      <Card padding="default" elevation="sm" className="h-40 flex flex-col">
-        <div className="flex justify-between items-start mb-4">
+      <Card padding="none" elevation="sm" className="p-5 flex flex-col">
+        <div className="flex justify-between items-start mb-3">
           <div className="space-y-2 w-1/2">
             <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-7 w-3/4" />
           </div>
-          <Skeleton className="h-12 w-12 rounded-2xl" />
+          <Skeleton className="h-11 w-11 rounded-2xl" />
         </div>
-        <div className="mt-auto pt-4 border-t border-border">
-          <Skeleton className="h-4 w-1/3 rounded-full" />
-        </div>
+        <Skeleton className="h-4 w-1/3 rounded-full mt-1" />
       </Card>
     );
   }
@@ -48,38 +46,36 @@ const KPICard = ({
   const currentTrend = trendConfig[trend] || trendConfig.neutral;
 
   return (
-    <Card padding="default" interactive className="flex flex-col h-full group">
+    <Card padding="none" interactive className="p-5 flex flex-col h-full group">
       {/* Encabezado: Título, Valor e Ícono */}
-      <div className="flex items-start justify-between mb-4 gap-2">
+      <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] md:text-xs font-bold text-text-tertiary uppercase tracking-widest mb-1.5 truncate">
+          <p className="text-[10px] md:text-xs font-bold text-text-tertiary uppercase tracking-widest mb-1 truncate">
             {title}
           </p>
-          <h3 className={`text-3xl md:text-4xl font-black tracking-tight leading-none ${currentTheme.valText}`}>
+          <h3 className={`text-3xl font-black tracking-tight leading-none ${currentTheme.valText}`}>
             {value}
           </h3>
           {subtitle && (
-            <p className="text-[11px] font-medium text-text-tertiary mt-2 truncate">{subtitle}</p>
+            <p className="text-[11px] font-medium text-text-tertiary mt-1.5 truncate">{subtitle}</p>
           )}
         </div>
 
         <div
-          className={`w-12 h-12 flex-shrink-0 rounded-2xl flex items-center justify-center shadow-inner transition-transform group-hover:scale-105 ${currentTheme.iconBg} ${currentTheme.iconText}`}
+          className={`w-11 h-11 flex-shrink-0 rounded-2xl flex items-center justify-center shadow-inner transition-transform group-hover:scale-105 ${currentTheme.iconBg} ${currentTheme.iconText}`}
         >
-          <Icon name={icon} size={24} />
+          <Icon name={icon} size={22} />
         </div>
       </div>
 
       {/* Pie: Tendencia */}
-      <div className="mt-auto pt-4 border-t border-border">
-        {trendValue ? (
+      {trendValue && (
+        <div className="mt-3">
           <Badge variant={currentTrend.variant} size="sm" iconName={currentTrend.icon}>
             {trendValue}
           </Badge>
-        ) : (
-          <div className="h-[22px]" /> /* Espaciador para mantener la altura */
-        )}
-      </div>
+        </div>
+      )}
     </Card>
   );
 };

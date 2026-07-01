@@ -45,27 +45,27 @@ const SessionSummaryGrid = ({ sessions, loading = false }) => {
   const gridLayout = 'grid-cols-[80px_minmax(180px,2fr)_minmax(150px,1.5fr)_120px_100px]';
 
   return (
-    <Card padding="none" className="flex flex-col overflow-hidden">
+    <Card padding="none" className="h-full min-h-[280px] flex flex-col overflow-hidden">
       {/* Cabecera */}
-      <div className="p-6 md:p-8 border-b border-border flex items-center justify-between bg-muted/50">
+      <div className="p-5 border-b border-border flex items-center justify-between bg-muted/50 shrink-0">
         <div>
-          <h3 className="text-xl font-black text-text-primary tracking-tight flex items-center gap-3">
+          <h3 className="text-lg font-black text-text-primary tracking-tight flex items-center gap-3">
             Agenda de Hoy
           </h3>
           <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-1 capitalize">
             {todayStr}
           </p>
         </div>
-        <div className="w-12 h-12 rounded-2xl bg-info-light text-primary flex items-center justify-center shadow-inner">
-          <Icon name="Calendar" size={24} />
+        <div className="w-10 h-10 rounded-2xl bg-info-light text-primary flex items-center justify-center shadow-inner">
+          <Icon name="Calendar" size={22} />
         </div>
       </div>
 
-      {/* Contenedor con Scroll horizontal para pantallas pequeñas */}
-      <div className="w-full overflow-x-auto">
+      {/* Contenedor con scroll (horizontal en mobile, vertical si hay muchas sesiones) */}
+      <div className="w-full flex-1 min-h-0 overflow-auto custom-scrollbar">
         <div className="min-w-[700px]">
           {/* Encabezados de Columna */}
-          <div className={`grid ${gridLayout} gap-4 px-8 py-4 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center`}>
+          <div className={`grid ${gridLayout} gap-4 px-8 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card`}>
             <div>Hora</div>
             <div>Entrenador</div>
             <div>Programa</div>
