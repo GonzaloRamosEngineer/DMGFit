@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Helmet } from 'react-helmet';
-import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 import { kioskReasonMessages } from '../../data/kioskReasonMessages';
 import { Card } from '../../components/ui/Card';
@@ -122,20 +121,15 @@ const AccessHistory = () => {
         <title>Historial de Accesos - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
+      <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
 
-        {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
-        <Card padding="none" className="p-6 md:p-7 mb-7 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+        {/* ── HEADER compacto ── */}
+        <Card padding="none" className="p-5 shrink-0 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
           <div>
-            <BreadcrumbTrail
-              items={[
-                { label: 'Historial de Accesos', path: '/access-history', active: true }
-              ]}
-            />
-            <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight mt-2">
+            <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
               Historial de Accesos
             </h1>
-            <p className="text-text-secondary font-medium mt-1">
+            <p className="text-sm text-text-secondary font-medium mt-0.5">
               Revisa los ingresos por molinete según el rango de fechas
             </p>
           </div>
@@ -181,15 +175,15 @@ const AccessHistory = () => {
         </Card>
 
         {/* --- GRID MASTER-DETAIL --- */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 xl:flex-1 xl:min-h-0">
 
           {/* COLUMNA IZQUIERDA: Resumen de Días (4/12) */}
-          <div className="xl:col-span-4 space-y-4">
-            <h3 className="text-sm font-black text-text-primary uppercase tracking-widest ml-2 flex items-center gap-2">
+          <div className="xl:col-span-4 flex flex-col gap-3 xl:min-h-0">
+            <h3 className="text-sm font-black text-text-primary uppercase tracking-widest ml-2 flex items-center gap-2 shrink-0">
               <Icon name="List" size={16} className="text-primary" /> Días con Actividad
             </h3>
 
-            <Card padding="none" className="p-3 max-h-[700px] overflow-y-auto custom-scrollbar">
+            <Card padding="none" className="p-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
               {loading && groupedLogs.length === 0 ? (
                 [1,2,3,4,5].map(i => (
                   <Skeleton key={i} className="h-20 rounded-2xl mb-2" />
@@ -237,10 +231,10 @@ const AccessHistory = () => {
           </div>
 
           {/* COLUMNA DERECHA: Detalle del Día (8/12) */}
-          <div className="xl:col-span-8 space-y-6 min-w-0">
+          <div className="xl:col-span-8 flex flex-col gap-4 min-w-0 xl:min-h-0">
 
             {/* KPIs del día */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
               <Card padding="none" className="p-5 flex items-center gap-4">
                 <div className="w-12 h-12 bg-info-light text-primary rounded-2xl flex items-center justify-center shadow-inner">
                   <Icon name="Users" size={24} />
@@ -273,8 +267,8 @@ const AccessHistory = () => {
             </div>
 
             {/* Tabla Principal */}
-            <Card padding="none" className="flex flex-col min-h-[500px] overflow-hidden">
-              <div className="p-6 md:p-8 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-muted/50">
+            <Card padding="none" className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-5 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-muted/50 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-muted text-text-secondary flex items-center justify-center">
                     <Icon name="Clock" size={20} />
@@ -290,9 +284,9 @@ const AccessHistory = () => {
                 </div>
               </div>
 
-              <div className="flex-1 w-full overflow-x-auto">
+              <div className="flex-1 min-h-0 w-full overflow-auto custom-scrollbar">
                 <div className="min-w-[500px]">
-                  <div className="grid grid-cols-[80px_minmax(150px,2fr)_100px_minmax(150px,1.5fr)] gap-4 px-8 py-4 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center">
+                  <div className="grid grid-cols-[80px_minmax(150px,2fr)_100px_minmax(150px,1.5fr)] gap-4 px-8 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
                     <div>Hora</div>
                     <div>Persona</div>
                     <div>Estado</div>
