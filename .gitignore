@@ -15,6 +15,10 @@ _local/
 .env
 .env.local
 .env.*.local
+.env.import
+scripts/.env.import
+# Datos personales para cargas puntuales (PII) — nunca commitear
+scripts/data/
 # Vite build output (Vercel builds in CI)
 dist/
 
