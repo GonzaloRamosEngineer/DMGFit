@@ -421,14 +421,14 @@ const PaymentManagement = () => {
     <>
       <Helmet><title>Caja y Cobros - VC Fit</title></Helmet>
 
-      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
-        {/* HEADER */}
-        <div className="bg-card rounded-3xl border border-border shadow-sm p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
+        {/* HEADER compacto */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0">
           <div>
-            <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
               Caja y Cobros
             </h1>
-            <p className="text-text-secondary font-medium mt-1">
+            <p className="text-sm text-text-secondary font-medium mt-0.5">
               Gestión de ingresos, cuotas mensuales y ventas extra.
             </p>
           </div>
@@ -459,7 +459,7 @@ const PaymentManagement = () => {
         </div>
 
         {/* KPI STRIP (3) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 shrink-0">
           {loading ? (
             [1, 2, 3].map((i) => (
               <div key={i} className="bg-card rounded-2xl border border-border shadow-sm p-5 h-[92px] animate-pulse">
@@ -489,9 +489,9 @@ const PaymentManagement = () => {
         </div>
 
         {/* CARD PRINCIPAL */}
-        <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden">
+        <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden flex flex-col lg:flex-1 lg:min-h-0">
           {/* Tabs + Search */}
-          <div className="px-6 py-4 border-b border-border">
+          <div className="px-6 py-4 border-b border-border shrink-0">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex items-center gap-6">
                 <button
@@ -539,9 +539,9 @@ const PaymentManagement = () => {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
             <table className="w-full text-left border-collapse">
-              <thead className="bg-muted text-[10px] font-black text-text-tertiary uppercase tracking-widest">
+              <thead className="bg-muted text-[10px] font-black text-text-tertiary uppercase tracking-widest sticky top-0 z-card">
                 <tr>
                   <th className="px-6 py-4 w-[140px]">Fecha</th>
                   <th className="px-6 py-4">Cliente / Alumno</th>
@@ -661,7 +661,7 @@ const PaymentManagement = () => {
           </div>
 
           {/* Pagination */}
-          <div className="px-6 py-4 border-t border-border flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="px-6 py-3 border-t border-border flex flex-col md:flex-row md:items-center md:justify-between gap-3 shrink-0">
             <p className="text-xs font-bold text-text-tertiary">
               Mostrando{' '}
               <span className="text-text-secondary">
