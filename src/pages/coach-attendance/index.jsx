@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 import Icon from '../../components/AppIcon';
@@ -25,32 +25,56 @@ const CoachAttendance = () => {
   });
   const [end, setEnd] = useState(() => localDate());
 
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('access_logs')
-          .select('id, check_in_time, local_checkin_date, coach_id, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
-          .not('coach_id', 'is', null)
-          .eq('access_granted', true)
-          .gte('local_checkin_date', start)
-          .lte('local_checkin_date', end)
-          .order('check_in_time', { ascending: false });
+  const load = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('access_logs')
+        .select('id, check_in_time, local_checkin_date, coach_id, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
+        .not('coach_id', 'is', null)
+        .eq('access_granted', true)
+        .gte('local_checkin_date', start)
+        .lte('local_checkin_date', end)
+        .order('check_in_time', { ascending: false });
 
-        if (error) throw error;
-        if (mounted) setRows(data || []);
-      } catch (e) {
-        console.error('Error cargando asistencia de profes:', e);
-        if (mounted) setRows([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => { mounted = false; };
+      if (error) throw error;
+      setRows(data || []);
+    } catch (e) {
+      console.error('Error cargando asistencia de profes:', e);
+      setRows([]);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, [start, end]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Realtime: refresca cuando un profe registra ingreso en el kiosco.
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  });
+  useEffect(() => {
+    let debounce;
+    const channel = supabase
+      .channel('coach-attendance-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'access_logs' },
+        () => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => loadRef.current?.({ silent: true }), 400);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(debounce);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const coaches = useMemo(() => {
     const map = new Map();
