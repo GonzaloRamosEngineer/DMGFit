@@ -90,9 +90,9 @@ const getRemainingStyle = (remaining) => {
 // ─── CARD ────────────────────────────────────────────────────────────────────
 const PlanSlotCard = ({ slot, onClick }) => {
   const planName = slot.planName || "Plan";
-  const timeLabel = `${normalizeTime(slot.startTime)} – ${normalizeTime(slot.endTime)}`;
+  const timeLabel = `${normalizeTime(slot.startTime)}–${normalizeTime(slot.endTime)}`;
 
-  const activityName = slot.activityName || "Sin actividad";
+  const activityName = slot.activityName || "Sin asignar";
   const activityColor = slot.activityColor || "#94a3b8";
   const hasActivity = Boolean(slot.activityId);
 
@@ -113,109 +113,53 @@ const PlanSlotCard = ({ slot, onClick }) => {
         e.stopPropagation();
         onClick(slot);
       }}
-      className="group w-full text-left bg-card rounded-2xl border border-border shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
+      title={`${planName} · ${activityName} · ${timeLabel}${needsConfig ? " · Pendiente de configurar" : ""}`}
+      className={`group w-full text-left rounded-lg border transition-all duration-200 overflow-hidden px-2 py-1.5 hover:shadow-md hover:-translate-y-px ${
+        hasActivity ? "bg-card border-border" : "bg-muted/40 border-dashed border-border"
+      }`}
       style={{ borderLeft: `3px solid ${activityColor}` }}
     >
-      {/* Top section */}
-      <div className="px-3 pt-3 pb-2">
-        {/* Plan badge + config status */}
-        <div className="flex items-center justify-between gap-1 mb-2">
-          <span className="text-[9px] font-black uppercase tracking-widest text-text-secondary bg-muted px-2 py-0.5 rounded-full leading-tight truncate max-w-[70%]">
-            {planName}
-          </span>
-
-          {needsConfig ? (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-warning bg-warning-light border border-border px-1.5 py-0.5 rounded-full whitespace-nowrap">
-              <Icon name="AlertTriangle" size={9} />
-              Pendiente
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-success bg-success-light border border-border px-1.5 py-0.5 rounded-full whitespace-nowrap">
-              <Icon name="CheckCircle2" size={9} />
-              OK
-            </span>
-          )}
-        </div>
-
-        {/* Activity name */}
-        <p
-          className="font-black text-sm leading-tight mb-0.5 truncate"
-          style={{ color: hasActivity ? activityColor : "#94a3b8" }}
+      {/* Línea 1: actividad + estado */}
+      <div className="flex items-center gap-1">
+        <span
+          className={`flex-1 min-w-0 truncate font-bold text-xs leading-tight ${hasActivity ? "" : "italic text-text-tertiary"}`}
+          style={hasActivity ? { color: activityColor } : undefined}
         >
           {activityName}
-        </p>
-
-        {/* Detail */}
-        {slot.activityDetail ? (
-          <p className="text-[10px] text-text-tertiary truncate leading-tight">
-            {slot.activityDetail}
-          </p>
-        ) : (
-          <p className="text-[10px] text-text-tertiary italic leading-tight">Sin detalle</p>
+        </span>
+        {needsConfig && (
+          <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-warning" title="Pendiente de configurar" />
         )}
       </div>
 
-      {/* Divider */}
-      <div className="mx-3 border-t border-border" />
+      {/* Línea 2: plan */}
+      <p className="truncate text-[10px] font-semibold text-text-secondary leading-tight mt-0.5">
+        {planName}
+      </p>
 
-      {/* Bottom: time + cupo chip + arrow */}
-      <div className="px-3 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="inline-flex items-center gap-1 text-[9px] font-black text-text-secondary bg-muted border border-border px-1.5 py-0.5 rounded-lg whitespace-nowrap">
-            <Icon name="Clock" size={9} />
-            {timeLabel}
+      {/* Línea 3: meta (hora · cupo · profes) */}
+      <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-text-tertiary">
+        <span className="inline-flex items-center gap-0.5 min-w-0">
+          <Icon name="Clock" size={9} className="shrink-0" />
+          <span className="truncate">{timeLabel}</span>
+        </span>
+
+        {remStyle ? (
+          <span className="inline-flex items-center gap-1 shrink-0" title={remStyle.label}>
+            <span className={`w-1.5 h-1.5 rounded-full ${remStyle.dot}`} />
+            {remaining === 0 ? "Lleno" : remaining}
           </span>
-
-          {/* Chip de cupos restantes */}
-          {remStyle ? (
-            <span className={`inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-lg border whitespace-nowrap ${remStyle.chip}`}>
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${remStyle.dot}`} />
-              {remStyle.label}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[9px] font-black text-text-tertiary bg-muted border border-border px-1.5 py-0.5 rounded-lg whitespace-nowrap">
-              <Icon name="Users" size={9} />
-              {capacity ?? "–"}
-            </span>
-          )}
-        </div>
-
-        <Icon
-          name="ChevronRight"
-          size={14}
-          className="text-text-tertiary group-hover:text-text-secondary transition-colors shrink-0"
-        />
-      </div>
-
-      {/* Coaches row */}
-      <div className="px-3 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="flex -space-x-1.5">
-            {coaches.slice(0, 4).map((c) => (
-              <div
-                key={c.id}
-                className="w-5 h-5 rounded-full ring-1 ring-card bg-muted border border-border overflow-hidden flex items-center justify-center text-[8px] font-black text-text-secondary"
-                title={c.name}
-              >
-                {c.avatar ? (
-                  <img src={c.avatar} alt={c.name} className="w-full h-full object-cover" />
-                ) : (
-                  (c.name || "P").charAt(0).toUpperCase()
-                )}
-              </div>
-            ))}
-            {coachCount === 0 && (
-              <div className="w-5 h-5 rounded-full ring-1 ring-card bg-error-light border border-border flex items-center justify-center">
-                <Icon name="UserX" size={10} className="text-error" />
-              </div>
-            )}
-          </div>
-          <span className="text-[10px] font-bold text-text-secondary truncate">
-            {coachCount > 0
-              ? `${coachCount} profe${coachCount > 1 ? "s" : ""}`
-              : "Sin profesor"}
+        ) : capacity != null ? (
+          <span className="inline-flex items-center gap-0.5 shrink-0">
+            <Icon name="Users" size={9} />
+            {capacity}
           </span>
-        </div>
+        ) : null}
+
+        <span className={`ml-auto inline-flex items-center gap-0.5 shrink-0 ${coachCount === 0 ? "text-error" : ""}`}>
+          <Icon name={coachCount === 0 ? "UserX" : "User"} size={9} />
+          {coachCount || "0"}
+        </span>
       </div>
     </button>
   );
@@ -971,7 +915,7 @@ const ClassSchedule = () => {
               {hours.map((hour) => (
                 <div
                   key={hour}
-                  className="grid grid-cols-[64px_1fr] md:grid-cols-[64px_repeat(7,minmax(0,1fr))] min-h-[120px]"
+                  className="grid grid-cols-[64px_1fr] md:grid-cols-[64px_repeat(7,minmax(0,1fr))] min-h-[64px]"
                 >
                   {/* Col hora */}
                   <div className="sticky left-0 z-20 bg-card border-r border-b border-dashed border-border flex justify-center items-start pt-2">
@@ -995,12 +939,10 @@ const ClassSchedule = () => {
                           !isVisible ? "hidden md:flex" : "flex"
                         } ${today ? "bg-info-light/10" : ""}`}
                       >
-                        {/* Empty state */}
+                        {/* Empty state (calmado: apenas un + tenue) */}
                         {!loading && cellSlots.length === 0 && (
-                          <div className="flex-1 rounded-xl border border-dashed border-border flex items-center justify-center min-h-[100px]">
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary">
-                              —
-                            </span>
+                          <div className="flex-1 rounded-lg border border-dashed border-border/50 flex items-center justify-center min-h-[44px]">
+                            <Icon name="Plus" size={12} className="text-text-tertiary/30" />
                           </div>
                         )}
 
