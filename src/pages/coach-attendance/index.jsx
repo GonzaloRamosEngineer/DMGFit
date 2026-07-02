@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
-import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -79,14 +78,12 @@ const CoachAttendance = () => {
     <>
       <Helmet><title>Asistencia de Profesores | VC Fit</title></Helmet>
 
-      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
-        <div className="w-full">
-          <Card padding="none" className="p-6 md:p-7 mb-7">
-            <BreadcrumbTrail items={[{ label: 'Asistencia de Profesores', path: '/coach-attendance', active: true }]} />
-            <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight mt-2">Asistencia de Profesores</h1>
-            <p className="text-text-secondary font-medium mt-1">Qué días y horarios estuvo presente cada profesor (registrado en el kiosco).</p>
+      <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
+          <Card padding="none" className="p-5 shrink-0">
+            <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
+            <p className="text-sm text-text-secondary font-medium mt-0.5">Qué días y horarios estuvo presente cada profesor (registrado en el kiosco).</p>
 
-            <div className="flex flex-wrap gap-3 mt-5">
+            <div className="flex flex-wrap gap-3 mt-4">
               <div>
                 <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block mb-1">Desde</label>
                 <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
@@ -108,7 +105,7 @@ const CoachAttendance = () => {
             </div>
           </Card>
 
-          <Card padding="none" className="overflow-hidden">
+          <Card padding="none" className="flex flex-col lg:flex-1 lg:min-h-0 overflow-hidden">
             {loading ? (
               <div className="p-6 space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
@@ -122,9 +119,9 @@ const CoachAttendance = () => {
                 description="No hay registros de asistencia en este período."
               />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted text-text-secondary uppercase text-[11px] tracking-wider">
+                  <thead className="bg-muted text-text-secondary uppercase text-[11px] tracking-wider sticky top-0 z-card">
                     <tr>
                       <th className="text-left font-bold px-5 py-3">Profesor</th>
                       <th className="text-left font-bold px-5 py-3">Fecha</th>
@@ -154,7 +151,6 @@ const CoachAttendance = () => {
               </div>
             )}
           </Card>
-        </div>
       </div>
     </>
   );
