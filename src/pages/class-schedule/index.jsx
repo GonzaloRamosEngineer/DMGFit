@@ -566,8 +566,8 @@ const ClassSchedule = () => {
         <div className="bg-card border-b border-border z-30 flex-shrink-0 shadow-sm">
           <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4">
 
-            {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
-            <div className="bg-card rounded-3xl border border-border shadow-sm px-6 py-4 mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* ── HEADER (fila simple, sin caja) ── */}
+            <div className="mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="min-w-0">
                 <div className="hidden md:block scale-90 origin-left opacity-80 mb-1">
                   <BreadcrumbTrail
