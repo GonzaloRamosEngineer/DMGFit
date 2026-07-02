@@ -123,8 +123,8 @@ const AccessHistory = () => {
 
       <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
 
-        {/* ── HEADER compacto ── */}
-        <Card padding="none" className="p-5 shrink-0 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+        {/* ── HEADER compacto (fila simple, sin caja) ── */}
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 shrink-0">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
               Historial de Accesos
@@ -172,7 +172,7 @@ const AccessHistory = () => {
               Buscar
             </Button>
           </div>
-        </Card>
+        </div>
 
         {/* --- GRID MASTER-DETAIL --- */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 xl:flex-1 xl:min-h-0">

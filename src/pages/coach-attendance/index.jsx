@@ -79,11 +79,14 @@ const CoachAttendance = () => {
       <Helmet><title>Asistencia de Profesores | VC Fit</title></Helmet>
 
       <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
-          <Card padding="none" className="p-5 shrink-0">
-            <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
-            <p className="text-sm text-text-secondary font-medium mt-0.5">Qué días y horarios estuvo presente cada profesor (registrado en el kiosco).</p>
+          {/* Header compacto (fila simple, sin caja) */}
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 shrink-0">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
+              <p className="text-sm text-text-secondary font-medium mt-0.5">Qué días y horarios estuvo presente cada profesor (registrado en el kiosco).</p>
+            </div>
 
-            <div className="flex flex-wrap gap-3 mt-4">
+            <div className="flex flex-wrap gap-3">
               <div>
                 <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block mb-1">Desde</label>
                 <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
@@ -103,7 +106,7 @@ const CoachAttendance = () => {
                 </select>
               </div>
             </div>
-          </Card>
+          </div>
 
           <Card padding="none" className="flex flex-col lg:flex-1 lg:min-h-0 overflow-hidden">
             {loading ? (
