@@ -174,3 +174,19 @@ export const reassignAthleteSlots = async ({
     return { success: false, error: error.message || 'No se pudo reasignar horarios.' };
   }
 };
+
+// ── Auto-gestión de turnos por el propio atleta (modelo flexible: preferencia) ──
+// Usan RPCs SECURITY DEFINER acotadas al auth.uid() (ver 0017_athlete_self_slot_preferences.sql)
+export const getMySlotOptions = async () => {
+  const { data, error } = await supabase.rpc('get_my_slot_options');
+  if (error) throw error;
+  return data || null;
+};
+
+export const setMySlotPreferences = async (weeklyScheduleIds) => {
+  const { error } = await supabase.rpc('set_my_slot_preferences', {
+    p_weekly_schedule_ids: weeklyScheduleIds || [],
+  });
+  if (error) throw error;
+  return { success: true };
+};
