@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
@@ -41,9 +41,9 @@ const MainDashboard = () => {
     return getLocalDateString(dt);
   };
 
-  const fetchData = async () => {
+  const fetchData = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
 
       const now = new Date();
       const today = getLocalDateString(now);
@@ -205,9 +205,15 @@ const MainDashboard = () => {
     } catch (error) {
       console.error('Error cargando dashboard:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Ref al último fetchData para que la suscripción Realtime use el estado vigente.
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  });
 
   useEffect(() => {
     fetchData();
@@ -218,6 +224,27 @@ const MainDashboard = () => {
     }
     return () => clearInterval(interval);
   }, [autoRefresh]);
+
+  // Realtime: refresca "Accesos Hoy" y alertas cuando el kiosco registra un acceso.
+  useEffect(() => {
+    let debounce;
+    const channel = supabase
+      .channel('dashboard-access-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'access_logs' },
+        () => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => fetchDataRef.current?.({ silent: true }), 400);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(debounce);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleRefreshToggle = () => setAutoRefresh((prev) => !prev);
 
