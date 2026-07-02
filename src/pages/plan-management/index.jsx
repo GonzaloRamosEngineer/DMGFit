@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
-import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -224,48 +223,42 @@ const PlanManagement = () => {
         <title>Gestión de Planes - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-background py-6 md:py-8 pb-24">
-        <div className="w-full">
+      <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
 
-          {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
-          <Card padding="none" className="p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <BreadcrumbTrail
-                items={[
-                  { label: 'Gestión de Planes', path: '/plan-management', active: true },
-                ]}
-              />
-              <h1 className="text-3xl md:text-4xl font-black text-text-primary tracking-tight mt-2">
-                Gestión de Planes
-              </h1>
-              <p className="text-text-secondary font-medium mt-1">
-                Administra los servicios, precios, horarios y cupos.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <button
-                onClick={() => {
-                  setEditingPlan(null);
-                  setIsCreateModalOpen(true);
-                }}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 shadow-md hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
-              >
-                <Icon name="Plus" size={16} />
-                Crear Plan
-              </button>
-            </div>
-          </Card>
-
-          {/* Métricas */}
-          <div className="mb-8">
-            <PlanMetrics metrics={metrics} loading={loading} />
+        {/* HEADER compacto */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
+              Gestión de Planes
+            </h1>
+            <p className="text-sm text-text-secondary font-medium mt-0.5">
+              Administra los servicios, precios, horarios y cupos.
+            </p>
           </div>
 
-          {/* Contenido */}
-          <Card padding="none" className="p-4 sm:p-6 md:p-8">
-            {/* Filtros */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <button
+              onClick={() => {
+                setEditingPlan(null);
+                setIsCreateModalOpen(true);
+              }}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 shadow-md hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all"
+            >
+              <Icon name="Plus" size={16} />
+              Crear Plan
+            </button>
+          </div>
+        </div>
+
+        {/* Métricas */}
+        <div className="shrink-0">
+          <PlanMetrics metrics={metrics} loading={loading} />
+        </div>
+
+        {/* Contenido */}
+        <Card padding="none" className="p-4 sm:p-6 md:p-6 flex flex-col lg:flex-1 lg:min-h-0 overflow-hidden">
+          {/* Filtros */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-4 shrink-0">
               <div className="flex-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Icon name="Search" size={18} className="text-text-tertiary" />
@@ -295,15 +288,16 @@ const PlanManagement = () => {
               </div>
             </div>
 
-            {/* Lista */}
+            {/* Lista (scrollea internamente) */}
+            <div className="flex-1 min-h-0 overflow-auto custom-scrollbar -mr-1 pr-1">
             {loading ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {[1, 2].map((item) => (
                   <PlanCard key={item} loading />
                 ))}
               </div>
             ) : filteredPlans.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {filteredPlans.map((plan) => (
                   <PlanCard
                     key={plan.id}
@@ -342,9 +336,9 @@ const PlanManagement = () => {
                 />
               </div>
             )}
+            </div>
           </Card>
         </div>
-      </div>
 
       {isCreateModalOpen && (
         <CreatePlanModal
