@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Helmet } from 'react-helmet';
 import Icon from '../../components/AppIcon';
@@ -35,8 +35,8 @@ const AccessHistory = () => {
 
   const [selectedDate, setSelectedDate] = useState(getTodayString());
 
-  const fetchLogs = async () => {
-    setLoading(true);
+  const fetchLogs = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const { data, error } = await supabase
         .from('access_logs')
@@ -67,20 +67,54 @@ const AccessHistory = () => {
 
       setAllLogs(normalizedLogs);
 
-      if (data && data.length > 0) {
+      // Solo saltamos al día más reciente en la carga inicial/manual,
+      // no en los refrescos en vivo (para no sacar al usuario del día que mira).
+      if (!silent && data && data.length > 0) {
         const mostRecentDate = getLocalDateString(new Date(data[0].check_in_time));
         setSelectedDate(mostRecentDate);
       }
     } catch (err) {
       console.error("Error obteniendo logs:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Ref al último fetchLogs para que la suscripción Realtime use siempre
+  // el rango de fechas vigente sin re-suscribirse.
+  const fetchLogsRef = useRef(fetchLogs);
+  useEffect(() => {
+    fetchLogsRef.current = fetchLogs;
+  });
 
   useEffect(() => {
     fetchLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Realtime: escucha inserciones/cambios en access_logs y refresca en vivo ──
+  const [isLive, setIsLive] = useState(false);
+  useEffect(() => {
+    let debounce;
+    const channel = supabase
+      .channel('access-history-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'access_logs' },
+        () => {
+          // Agrupamos ráfagas de eventos en un solo refetch silencioso.
+          clearTimeout(debounce);
+          debounce = setTimeout(() => fetchLogsRef.current?.({ silent: true }), 400);
+        },
+      )
+      .subscribe((status) => {
+        setIsLive(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      clearTimeout(debounce);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const groupedLogs = useMemo(() => {
@@ -181,6 +215,15 @@ const AccessHistory = () => {
           <div className="xl:col-span-4 flex flex-col gap-3 xl:min-h-0">
             <h3 className="text-sm font-black text-text-primary uppercase tracking-widest ml-2 flex items-center gap-2 shrink-0">
               <Icon name="List" size={16} className="text-primary" /> Días con Actividad
+              {isLive && (
+                <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-bold text-success normal-case tracking-normal">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-success opacity-75 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                  </span>
+                  En vivo
+                </span>
+              )}
             </h3>
 
             <Card padding="none" className="p-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
