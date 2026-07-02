@@ -5,8 +5,8 @@ import { defaultKioskErrorMessage, kioskReasonMessages } from '../../data/kioskR
 import Icon from '../../components/AppIcon';
 import { featureFlags } from '../../lib/featureFlags';
 
-// Auto-reset del kiosco (coincide con el setTimeout de resetToIdle: 4000ms).
-const RESET_SECONDS = 4;
+// Auto-reset del kiosco (coincide con el setTimeout de resetToIdle: 6000ms).
+const RESET_SECONDS = 6;
 
 // Anillo de cuenta regresiva alrededor del avatar/ícono del resultado.
 // Usa stroke-current: hereda el color (text-success / text-warning / text-error).
@@ -71,7 +71,7 @@ const AccessControl = () => {
       if (!result.allowed) {
         setStatus('denied');
         setMessage(result.message || reasonMessage);
-        setTimeout(resetToIdle, 4000);
+        setTimeout(resetToIdle, 6000);
         return;
       }
 
@@ -86,12 +86,12 @@ const AccessControl = () => {
 
       setMessage(displayMessage);
       setStatus(isWarning ? 'warning' : 'success');
-      setTimeout(resetToIdle, 4000);
+      setTimeout(resetToIdle, 6000);
     } catch (err) {
       console.error(err);
       setStatus('denied');
       setMessage(err.message || defaultKioskErrorMessage);
-      setTimeout(resetToIdle, 4000);
+      setTimeout(resetToIdle, 6000);
     }
   };
 
