@@ -26,6 +26,7 @@ import MetricEntryForm from './components/MetricEntryForm';  // Input Avanzado
 import UpcomingSessionsCard from './components/UpcomingSessionsCard'; // Agenda Boarding Pass
 import MyPlanCard from './components/MyPlanCard';            // Membership Black Card
 import MyScheduleCard from './components/MyScheduleCard';    // Auto-gestión de turnos (preferencia)
+import MyDataCard from './components/MyDataCard';            // Autoservicio: mis datos
 import PaymentsCard from './components/PaymentsCard';        // Wallet Financiera
 import AttendanceCard from './components/AttendanceCard';    // Monitor de Hábito
 import CoachNotesCard from './components/CoachNotesCard';    // Feed de Feedback
@@ -191,6 +192,9 @@ const AthletePortal = () => {
 
               {/* Mis Horarios (auto-gestión de preferencia) */}
               <MyScheduleCard />
+
+              {/* Mis Datos (autoservicio) */}
+              <MyDataCard />
 
               {/* Wallet Financiera */}
               <div className="h-[400px]">

@@ -190,3 +190,16 @@ export const setMySlotPreferences = async (weeklyScheduleIds) => {
   if (error) throw error;
   return { success: true };
 };
+
+// ── Autoservicio: mis datos personales (ver 0018_athlete_self_profile.sql) ──
+export const getMyProfile = async () => {
+  const { data, error } = await supabase.rpc('get_my_profile');
+  if (error) throw error;
+  return data || null;
+};
+
+export const updateMyProfile = async (payload) => {
+  const { error } = await supabase.rpc('update_my_profile', { p_payload: payload });
+  if (error) throw error;
+  return { success: true };
+};
