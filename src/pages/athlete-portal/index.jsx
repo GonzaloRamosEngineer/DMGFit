@@ -137,72 +137,47 @@ const AthletePortal = () => {
             </div>
           </header>
 
-          {/* NIVEL 1: HUD & GAMIFICACIÓN (Impacto Visual Inmediato) */}
-          <section className="space-y-6">
-             <StatsOverview metrics={metrics} attendanceRate={attendanceRate} />
-             <AchievementsHub metrics={metrics} attendanceRate={attendanceRate} />
-          </section>
+          {/* NIVEL 1: HUD (KPIs rápidos) */}
+          <StatsOverview metrics={metrics} attendanceRate={attendanceRate} />
 
-          {/* NIVEL 2: BENTO GRID PRINCIPAL */}
-          <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
-            {/* COLUMNA IZQUIERDA (Principal - 8/12) */}
-            <div className="lg:col-span-8 space-y-6">
-              
-              {/* Gráfico de Rendimiento (Grande) */}
-              <PerformanceChart metrics={metrics} />
-
-              {/* Grid de 2 Columnas para Métricas y Formulario */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {/* Input de Datos */}
-                 <div className="md:col-span-2">
-                    <MetricEntryForm athleteId={calculatedAthleteId} onSuccess={refreshMetrics} />
-                 </div>
-                 
-                 {/* Lista Detallada de Métricas */}
-                 <div className="md:col-span-2">
-                    <MetricsCard metrics={metrics} />
-                 </div>
-              </div>
-
-              {/* Notas del Coach (Feed Largo) */}
-              <CoachNotesCard notes={notes} />
-            </div>
-
-            {/* COLUMNA DERECHA (Sidebar - 4/12) */}
-            <div className="lg:col-span-4 space-y-6 sticky top-6">
-              
-              {/* Agenda (Próxima Clase) */}
-              <div className="h-[400px]">
-                 <UpcomingSessionsCard sessions={sessions} />
-              </div>
-
-              {/* Radar de Perfil */}
-              <div className="h-[420px]">
-                 <AthleteRadar metrics={metrics} />
-              </div>
-
-              {/* Monitor de Asistencia (Circular) */}
-              <div className="h-[380px]">
-                 <AttendanceCard attendance={attendance} attendanceRate={attendanceRate} />
-              </div>
-
-              {/* Membresía (Black Card) */}
+          {/* NIVEL 2: MI CUENTA (autoservicio, lo más útil arriba) */}
+          <section>
+            <h2 className="text-xs font-black text-text-tertiary uppercase tracking-widest mb-3 ml-1">Mi cuenta</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
               <MyPlanCard plan={plan} kioskRemaining={kioskRemaining} />
-
-              {/* Mis Horarios (auto-gestión de preferencia) */}
               <MyScheduleCard />
-
-              {/* Mis Datos (autoservicio) */}
               <MyDataCard />
-
-              {/* Wallet Financiera */}
-              <div className="h-[400px]">
-                 <PaymentsCard payments={payments} />
-              </div>
-
             </div>
           </section>
+
+          {/* NIVEL 3: MI PROGRESO (métricas + rendimiento) */}
+          <section>
+            <h2 className="text-xs font-black text-text-tertiary uppercase tracking-widest mb-3 ml-1">Mi progreso</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+              <div className="lg:col-span-2 space-y-5">
+                <PerformanceChart metrics={metrics} />
+                <MetricEntryForm athleteId={calculatedAthleteId} onSuccess={refreshMetrics} />
+                <MetricsCard metrics={metrics} />
+              </div>
+              <div className="space-y-5">
+                <AthleteRadar metrics={metrics} />
+                <AttendanceCard attendance={attendance} attendanceRate={attendanceRate} />
+              </div>
+            </div>
+          </section>
+
+          {/* NIVEL 4: ACTIVIDAD (agenda, feedback, pagos) */}
+          <section>
+            <h2 className="text-xs font-black text-text-tertiary uppercase tracking-widest mb-3 ml-1">Actividad</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
+              <UpcomingSessionsCard sessions={sessions} />
+              <CoachNotesCard notes={notes} />
+              <PaymentsCard payments={payments} />
+            </div>
+          </section>
+
+          {/* NIVEL 5: LOGROS (gamificación, al final) */}
+          <AchievementsHub metrics={metrics} attendanceRate={attendanceRate} />
 
         </div>
       </div>
