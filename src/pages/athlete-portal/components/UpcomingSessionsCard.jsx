@@ -100,27 +100,27 @@ const FutureSessionRow = ({ session }) => {
   const dateInfo = getSmartDate(session.date);
 
   return (
-    <div className="group flex items-center gap-4 p-3 hover:bg-slate-50 rounded-2xl transition-colors border border-transparent hover:border-slate-100">
+    <div className="group flex items-center gap-4 p-3 hover:bg-muted rounded-2xl transition-colors border border-transparent hover:border-border">
       {/* Date Block */}
-      <div className="flex flex-col items-center justify-center w-12 h-12 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white group-hover:shadow-sm transition-all">
-         <span className="text-[9px] font-black text-slate-400 uppercase leading-none">{dateInfo.label.substring(0,3)}</span>
-         <span className="text-lg font-black text-slate-800 leading-none mt-0.5">{typeof dateInfo.sub === 'number' ? dateInfo.sub : '•'}</span>
+      <div className="flex flex-col items-center justify-center w-12 h-12 bg-muted rounded-2xl border border-border group-hover:bg-card group-hover:shadow-sm transition-all">
+         <span className="text-[9px] font-black text-text-tertiary uppercase leading-none">{dateInfo.label.substring(0,3)}</span>
+         <span className="text-lg font-black text-text-primary leading-none mt-0.5">{typeof dateInfo.sub === 'number' ? dateInfo.sub : '•'}</span>
       </div>
 
       {/* Info */}
       <div className="flex-1 min-w-0">
          <div className="flex justify-between items-center mb-0.5">
-            <h4 className="font-bold text-slate-800 text-sm truncate">{session.type}</h4>
-            <span className="text-xs font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
+            <h4 className="font-bold text-text-primary text-sm truncate">{session.type}</h4>
+            <span className="text-xs font-black text-text-primary bg-muted px-2 py-0.5 rounded-md">
                {session.time}
             </span>
          </div>
          <div className="flex items-center gap-3">
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1">
+            <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider flex items-center gap-1">
                <span className={`w-1.5 h-1.5 rounded-full ${theme.bg}`}></span>
                {session.professor}
             </p>
-            <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wider flex items-center gap-1">
+            <p className="text-[10px] text-text-tertiary font-bold uppercase tracking-wider flex items-center gap-1">
                <Icon name="MapPin" size={8} />
                {session.location}
             </p>
@@ -149,15 +149,15 @@ const UpcomingSessionsCard = ({ sessions }) => {
 
   if (!sortedSessions.length) {
      return (
-        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 h-full flex flex-col items-center justify-center text-center opacity-70">
-           <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-dashed border-slate-200">
-              <Icon name="Coffee" className="text-slate-400" size={24} />
+        <div className="bg-card rounded-3xl p-8 border border-border h-full flex flex-col items-center justify-center text-center opacity-70">
+           <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4 border border-dashed border-border">
+              <Icon name="Coffee" className="text-text-tertiary" size={24} />
            </div>
-           <h3 className="text-slate-900 font-black text-sm uppercase tracking-wide">Día de Descanso</h3>
-           <p className="text-xs text-slate-400 mt-2 max-w-[200px] leading-relaxed">
+           <h3 className="text-text-primary font-black text-sm uppercase tracking-wide">Día de Descanso</h3>
+           <p className="text-xs text-text-tertiary mt-2 max-w-[200px] leading-relaxed">
               No tienes sesiones programadas próximamente. ¡Aprovecha para recuperar energía!
            </p>
-           <button className="mt-6 px-5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors">
+           <button className="mt-6 px-5 py-2 bg-primary text-primary-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">
               Agendar Clase
            </button>
         </div>
@@ -165,22 +165,22 @@ const UpcomingSessionsCard = ({ sessions }) => {
   }
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-6 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] border border-slate-100 h-full flex flex-col">
-      
+    <div className="bg-card rounded-3xl p-6 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] border border-border h-full flex flex-col">
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6 pl-2 pr-2">
-        <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-           <Icon name="Calendar" className="text-blue-600" size={20} />
+        <h2 className="text-xl font-black text-text-primary tracking-tight flex items-center gap-2">
+           <Icon name="Calendar" className="text-primary" size={20} />
            Agenda
         </h2>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-full">
+        <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest bg-muted px-3 py-1 rounded-full">
            {sortedSessions.length} Activas
         </span>
       </div>
 
       {/* 1. Next Session (Hero Card) */}
       <div className="mb-6">
-         <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-3 ml-2">
+         <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-3 ml-2">
             Próxima Sesión
          </p>
          <NextSessionHero session={nextSession} />
@@ -189,7 +189,7 @@ const UpcomingSessionsCard = ({ sessions }) => {
       {/* 2. Future List */}
       {futureSessions.length > 0 && (
          <div className="flex-1 overflow-y-auto pr-1 -mr-1 max-h-[250px] scrollbar-hide">
-            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-2 ml-2 sticky top-0 bg-white z-10 py-1">
+            <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-2 ml-2 sticky top-0 bg-card z-10 py-1">
                Próximamente
             </p>
             <div className="space-y-1">

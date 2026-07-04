@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
-import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
+import { Card } from '../../components/ui/Card';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -23,32 +25,56 @@ const CoachAttendance = () => {
   });
   const [end, setEnd] = useState(() => localDate());
 
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('access_logs')
-          .select('id, check_in_time, local_checkin_date, coach_id, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
-          .not('coach_id', 'is', null)
-          .eq('access_granted', true)
-          .gte('local_checkin_date', start)
-          .lte('local_checkin_date', end)
-          .order('check_in_time', { ascending: false });
+  const load = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('access_logs')
+        .select('id, check_in_time, local_checkin_date, coach_id, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
+        .not('coach_id', 'is', null)
+        .eq('access_granted', true)
+        .gte('local_checkin_date', start)
+        .lte('local_checkin_date', end)
+        .order('check_in_time', { ascending: false });
 
-        if (error) throw error;
-        if (mounted) setRows(data || []);
-      } catch (e) {
-        console.error('Error cargando asistencia de profes:', e);
-        if (mounted) setRows([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => { mounted = false; };
+      if (error) throw error;
+      setRows(data || []);
+    } catch (e) {
+      console.error('Error cargando asistencia de profes:', e);
+      setRows([]);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, [start, end]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Realtime: refresca cuando un profe registra ingreso en el kiosco.
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  });
+  useEffect(() => {
+    let debounce;
+    const channel = supabase
+      .channel('coach-attendance-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'access_logs' },
+        () => {
+          clearTimeout(debounce);
+          debounce = setTimeout(() => loadRef.current?.({ silent: true }), 400);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(debounce);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const coaches = useMemo(() => {
     const map = new Map();
@@ -76,28 +102,29 @@ const CoachAttendance = () => {
     <>
       <Helmet><title>Asistencia de Profesores | VC Fit</title></Helmet>
 
-      <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
-        <div className="w-full">
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-7 mb-7">
-            <BreadcrumbTrail items={[{ label: 'Asistencia de Profesores', path: '/coach-attendance', active: true }]} />
-            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-2">Asistencia de Profesores</h1>
-            <p className="text-slate-500 font-medium mt-1">Qué días y horarios estuvo presente cada profesor (registrado en el kiosco).</p>
+      <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
+          {/* Header compacto (fila simple, sin caja) */}
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 shrink-0">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
+              <p className="text-sm text-text-secondary font-medium mt-0.5">Qué días y horarios estuvo presente cada profesor (registrado en el kiosco).</p>
+            </div>
 
-            <div className="flex flex-wrap gap-3 mt-5">
+            <div className="flex flex-wrap gap-3">
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Desde</label>
+                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block mb-1">Desde</label>
                 <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" />
+                  className="px-3 py-2 bg-muted border border-border rounded-xl text-sm font-medium" />
               </div>
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Hasta</label>
+                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block mb-1">Hasta</label>
                 <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium" />
+                  className="px-3 py-2 bg-muted border border-border rounded-xl text-sm font-medium" />
               </div>
               <div>
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Profesor</label>
+                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block mb-1">Profesor</label>
                 <select value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium">
+                  className="px-3 py-2 bg-muted border border-border rounded-xl text-sm font-medium">
                   <option value="all">Todos</option>
                   {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -105,18 +132,23 @@ const CoachAttendance = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+          <Card padding="none" className="flex flex-col lg:flex-1 lg:min-h-0 overflow-hidden">
             {loading ? (
-              <div className="p-10 text-center text-slate-400">Cargando…</div>
-            ) : filtered.length === 0 ? (
-              <div className="p-10 text-center">
-                <Icon name="CalendarX" size={32} className="text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-400 font-medium">No hay registros de asistencia en este período.</p>
+              <div className="p-6 space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                ))}
               </div>
+            ) : filtered.length === 0 ? (
+              <EmptyState
+                iconName="CalendarX"
+                title="Sin registros"
+                description="No hay registros de asistencia en este período."
+              />
             ) : (
-              <div className="overflow-x-auto">
+              <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-500 uppercase text-[11px] tracking-wider">
+                  <thead className="bg-muted text-text-secondary uppercase text-[11px] tracking-wider sticky top-0 z-card">
                     <tr>
                       <th className="text-left font-bold px-5 py-3">Profesor</th>
                       <th className="text-left font-bold px-5 py-3">Fecha</th>
@@ -126,15 +158,15 @@ const CoachAttendance = () => {
                   </thead>
                   <tbody>
                     {filtered.map((r) => (
-                      <tr key={r.id} className="border-t border-slate-50 hover:bg-slate-50/50">
-                        <td className="px-5 py-3 font-bold text-slate-800">{r.coaches?.profiles?.full_name || 'Profesor'}</td>
-                        <td className="px-5 py-3 text-slate-600">
+                      <tr key={r.id} className="border-t border-border hover:bg-muted/50">
+                        <td className="px-5 py-3 font-bold text-text-primary">{r.coaches?.profiles?.full_name || 'Profesor'}</td>
+                        <td className="px-5 py-3 text-text-secondary">
                           {r.local_checkin_date
                             ? `${DAY_NAMES[new Date(r.local_checkin_date + 'T00:00:00').getDay()]} ${new Date(r.local_checkin_date + 'T00:00:00').toLocaleDateString('es-AR')}`
                             : '—'}
                         </td>
-                        <td className="px-5 py-3 text-slate-600">{fmtTime(r.check_in_time)}</td>
-                        <td className="px-5 py-3 text-slate-600">
+                        <td className="px-5 py-3 text-text-secondary">{fmtTime(r.check_in_time)}</td>
+                        <td className="px-5 py-3 text-text-secondary">
                           {r.weekly_schedule
                             ? `${String(r.weekly_schedule.start_time).slice(0, 5)} - ${String(r.weekly_schedule.end_time).slice(0, 5)}`
                             : 'Sin turno'}
@@ -145,8 +177,7 @@ const CoachAttendance = () => {
                 </table>
               </div>
             )}
-          </div>
-        </div>
+          </Card>
       </div>
     </>
   );

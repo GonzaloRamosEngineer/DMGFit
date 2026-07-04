@@ -4,6 +4,8 @@ import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
+import { useConfirm } from '../../../components/ui/ConfirmProvider';
+import { useToast } from '../../../hooks/useToast';
 import { deactivateAthlete } from '../../../services/athletes';
 
 const INTERNAL_DOMAINS = ["@dmg.internal", "@vcfit.internal"];
@@ -29,6 +31,8 @@ const AthleteHeader = ({
 }) => {
   const [processingStatus, setProcessingStatus] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const confirm = useConfirm();
+  const { toast } = useToast();
 
   const isOffline =
     athlete?.email && INTERNAL_DOMAINS.some((domain) => athlete.email.endsWith(domain));
@@ -57,27 +61,36 @@ const AthleteHeader = ({
     const isActive = athlete.status === 'active';
 
     if (isActive) {
-      const confirmFirst = window.confirm(`¿Deseas desactivar a ${athlete.name}?`);
-      if (!confirmFirst) return;
+      const ok1 = await confirm({
+        title: 'Desactivar atleta',
+        message: `¿Deseas desactivar a ${athlete.name}?`,
+        confirmLabel: 'Continuar',
+        variant: 'danger',
+      });
+      if (!ok1) return;
 
-      const confirmSecond = window.confirm(
-        'El atleta quedará sin acceso operativo, se cerrarán sus asignaciones semanales activas y se conservará todo el historial (pagos, asistencias, notas y accesos).'
-      );
-      if (!confirmSecond) return;
+      const ok2 = await confirm({
+        title: 'Confirmar desactivación',
+        message:
+          'El atleta quedará sin acceso operativo, se cerrarán sus asignaciones semanales activas y se conservará todo el historial (pagos, asistencias, notas y accesos).',
+        confirmLabel: 'Desactivar',
+        variant: 'danger',
+      });
+      if (!ok2) return;
     }
 
     setProcessingStatus(true);
     try {
       if (isActive) {
         await deactivateAthlete(athlete.id);
-        alert('Atleta desactivado correctamente.');
+        toast.success('Atleta desactivado correctamente.');
       } else {
-        alert('Este atleta ya está inactivo.');
+        toast('Este atleta ya está inactivo.');
       }
       window.location.reload();
     } catch (error) {
       console.error('Error actualizando estado del atleta:', error);
-      alert('No se pudo actualizar el estado: ' + (error.message || 'Error desconocido'));
+      toast.error('No se pudo actualizar el estado: ' + (error.message || 'Error desconocido'));
     } finally {
       setProcessingStatus(false);
     }
@@ -122,7 +135,7 @@ const AthleteHeader = ({
               )}
             </div>
             <div
-              className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white ${
+              className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-card ${
                 athlete.status === 'active' ? 'bg-success' : 'bg-muted'
               }`}
             ></div>
@@ -185,14 +198,14 @@ const AthleteHeader = ({
               )}
 
               {hasVisitsPerWeek && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-700 text-xs font-bold">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-info-light text-info text-xs font-bold">
                   <Icon name="Repeat" size={12} />
                   {athlete.visits_per_week}x / semana
                 </span>
               )}
 
               {hasTierPrice && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 text-xs font-bold">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-success-light text-success text-xs font-bold">
                   <Icon name="Wallet" size={12} />
                   {formatCurrency(athlete.plan_tier_price)}
                 </span>
@@ -207,7 +220,7 @@ const AthleteHeader = ({
                 size="sm"
                 iconName="Smartphone"
                 onClick={handleEnableAccess}
-                className="bg-amber-500 hover:bg-amber-600 text-white border-none shadow-sm"
+                className="bg-warning hover:bg-warning/90 text-warning-foreground border-none shadow-sm"
               >
                 Habilitar Acceso
               </Button>
@@ -293,7 +306,7 @@ const AthleteHeader = ({
               iconName="UserX"
               onClick={handleToggleAthleteStatus}
               loading={processingStatus}
-              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              className="border-warning/40 text-warning hover:bg-warning-light"
             >
               {athlete.status === 'active' ? 'Desactivar Atleta' : 'Atleta Inactivo'}
             </Button>

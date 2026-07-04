@@ -44,9 +44,9 @@ const TrendPill = ({ trend, inverse = false }) => {
     ? trend.direction === 'down' 
     : trend.direction === 'up';
 
-  const colorClass = isGood 
-    ? 'text-emerald-600 bg-emerald-50 border-emerald-100' 
-    : 'text-rose-600 bg-rose-50 border-rose-100';
+  const colorClass = isGood
+    ? 'text-success bg-success-light border-success/20'
+    : 'text-error bg-error-light border-error/20';
 
   const IconName = trend.direction === 'up' ? 'TrendingUp' : 'TrendingDown';
 
@@ -64,14 +64,14 @@ const StatCard = ({ title, value, unit, icon, theme = 'light', trend, subtext, a
   
   const containerClasses = isDark
     ? "bg-slate-900 text-white shadow-xl shadow-slate-900/20 border-slate-800"
-    : "bg-white text-slate-800 shadow-sm border-slate-100 hover:border-blue-100 hover:shadow-md";
+    : "bg-card text-text-primary shadow-sm border-border hover:border-primary/15 hover:shadow-md";
 
   const iconBoxClasses = isDark
     ? "bg-white/10 text-white"
-    : "bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600";
+    : "bg-muted text-text-secondary group-hover:bg-info-light group-hover:text-primary";
 
   return (
-    <div className={`relative overflow-hidden rounded-[2rem] p-5 border transition-all duration-300 group flex flex-col justify-between h-full min-h-[140px] ${containerClasses}`}>
+    <div className={`relative overflow-hidden rounded-3xl p-5 border transition-all duration-300 group flex flex-col justify-between h-full min-h-[140px] ${containerClasses}`}>
       
       {/* Background Decorativo (Solo Dark) */}
       {isDark && (
@@ -91,14 +91,14 @@ const StatCard = ({ title, value, unit, icon, theme = 'light', trend, subtext, a
 
       {/* Content */}
       <div className="relative z-10">
-        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>
+        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDark ? 'text-slate-400' : 'text-text-tertiary'}`}>
           {title}
         </p>
         <div className="flex items-baseline gap-1">
           <h3 className="text-3xl font-black tracking-tighter">
             {value}
           </h3>
-          {unit && <span className={`text-xs font-bold uppercase ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{unit}</span>}
+          {unit && <span className={`text-xs font-bold uppercase ${isDark ? 'text-slate-500' : 'text-text-tertiary'}`}>{unit}</span>}
         </div>
         
         {/* Subtext / Tier Badge */}
@@ -183,7 +183,7 @@ const StatsOverview = ({ metrics, attendanceRate }) => {
         icon="TrendingUp"
         trend={stats.maxLift}
         subtext={
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+            <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-wide flex items-center gap-1">
                 <Icon name="Activity" size={10} />
                 {stats.maxLiftName}
             </span>

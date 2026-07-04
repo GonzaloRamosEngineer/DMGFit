@@ -97,33 +97,33 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
   };
 
   // Clases Reutilizables
-  const inputClasses = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400";
-  const labelClasses = "text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 mb-1.5 block";
+  const inputClasses = "w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-text-primary text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 font-medium transition-all placeholder:text-text-tertiary";
+  const labelClasses = "text-[11px] font-bold text-text-secondary uppercase tracking-wider ml-1 mb-1.5 block";
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      
+    <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-modal flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+
       {/* Modal Container */}
-      <div className="bg-white border border-slate-100 rounded-[2rem] w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
-        
+      <div className="bg-card border border-border rounded-3xl w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div className="px-6 py-5 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
+            <div className="w-10 h-10 rounded-xl bg-info-light text-primary flex items-center justify-center shadow-inner">
               <Icon name={plan ? "Edit" : "PlusCircle"} size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-800 tracking-tight">
+              <h2 className="text-xl font-black text-text-primary tracking-tight">
                 {plan ? 'Editar Plan' : 'Crear Nuevo Plan'}
               </h2>
-              <p className="text-xs font-bold text-slate-400 mt-0.5">
+              <p className="text-xs font-bold text-text-tertiary mt-0.5">
                 Configura los detalles del servicio
               </p>
             </div>
           </div>
-          <button 
-            onClick={onCancel} 
-            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+          <button
+            onClick={onCancel}
+            className="w-8 h-8 flex items-center justify-center rounded-xl text-text-tertiary hover:bg-muted hover:text-text-secondary transition-colors"
           >
             <Icon name="X" size={18} />
           </button>
@@ -138,21 +138,21 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
               
               {/* Sección 1: Info Básica */}
               <section>
-                <div className="flex items-center gap-2 pb-2 mb-5 border-b border-slate-100">
+                <div className="flex items-center gap-2 pb-2 mb-5 border-b border-border">
                   <div className="w-6 h-6 rounded bg-indigo-50 text-indigo-500 flex items-center justify-center">
                     <Icon name="Info" size={12} />
                   </div>
-                  <h3 className="text-sm font-black text-slate-800">Información Principal</h3>
+                  <h3 className="text-sm font-black text-text-primary">Información Principal</h3>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className={labelClasses}>Nombre del Plan <span className="text-rose-500">*</span></label>
+                    <label className={labelClasses}>Nombre del Plan <span className="text-error">*</span></label>
                     <input name="name" value={formData.name} onChange={handleInputChange} placeholder="Ej: Plan Elite Crossfit" required className={inputClasses} />
                   </div>
-                  
+
                   <div>
-                    <label className={labelClasses}>Descripción <span className="text-rose-500">*</span></label>
+                    <label className={labelClasses}>Descripción <span className="text-error">*</span></label>
                     <textarea 
                       name="description" 
                       value={formData.description} 
@@ -166,14 +166,14 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className={labelClasses}>Precio Mensual <span className="text-rose-500">*</span></label>
+                      <label className={labelClasses}>Precio Mensual <span className="text-error">*</span></label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary font-bold text-sm">$</span>
                         <input name="price" type="number" value={formData.price} onChange={handleInputChange} placeholder="150" required className={`${inputClasses} pl-7`} />
                       </div>
                     </div>
                     <div>
-                      <label className={labelClasses}>Capacidad Max. <span className="text-rose-500">*</span></label>
+                      <label className={labelClasses}>Capacidad Max. <span className="text-error">*</span></label>
                       <input name="capacity" type="number" value={formData.capacity} onChange={handleInputChange} placeholder="Ej: 25" required className={inputClasses} />
                     </div>
                   </div>
@@ -196,17 +196,17 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
               
               {/* Sección 2: Horarios */}
               <section>
-                <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
+                <div className="flex items-center justify-between pb-2 mb-5 border-b border-border">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded bg-emerald-50 text-emerald-500 flex items-center justify-center">
                       <Icon name="Clock" size={12} />
                     </div>
-                    <h3 className="text-sm font-black text-slate-800">Grilla de Horarios</h3>
+                    <h3 className="text-sm font-black text-text-primary">Grilla de Horarios</h3>
                   </div>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={addScheduleSlot}
-                    className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"
+                    className="text-[10px] font-bold text-primary bg-info-light hover:bg-info-light px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"
                   >
                     <Icon name="Plus" size={10} /> Agregar
                   </button>
@@ -231,7 +231,7 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
                         <button 
                           type="button" 
                           onClick={() => removeScheduleSlot(index)} 
-                          className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0"
+                          className="w-8 h-8 flex items-center justify-center text-text-tertiary hover:text-error hover:bg-error-light rounded-lg transition-colors flex-shrink-0"
                           title="Eliminar horario"
                         >
                           <Icon name="Trash2" size={16} />
@@ -244,17 +244,17 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
 
               {/* Sección 3: Profesores */}
               <section>
-                <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
+                <div className="flex items-center justify-between pb-2 mb-5 border-b border-border">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded bg-violet-50 text-violet-500 flex items-center justify-center">
                       <Icon name="Users" size={12} />
                     </div>
-                    <h3 className="text-sm font-black text-slate-800">Profesores Asignados</h3>
+                    <h3 className="text-sm font-black text-text-primary">Profesores Asignados</h3>
                   </div>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={addProfessor}
-                    className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"
+                    className="text-[10px] font-bold text-primary bg-info-light hover:bg-info-light px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"
                   >
                     <Icon name="Plus" size={10} /> Agregar
                   </button>
@@ -276,7 +276,7 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
                         <button 
                           type="button" 
                           onClick={() => removeProfessor(index)} 
-                          className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0"
+                          className="w-8 h-8 flex items-center justify-center text-text-tertiary hover:text-error hover:bg-error-light rounded-lg transition-colors flex-shrink-0"
                           title="Eliminar profesor"
                         >
                           <Icon name="Trash2" size={16} />
@@ -289,17 +289,17 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
 
               {/* Sección 4: Características */}
               <section>
-                <div className="flex items-center justify-between pb-2 mb-5 border-b border-slate-100">
+                <div className="flex items-center justify-between pb-2 mb-5 border-b border-border">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded bg-amber-50 text-amber-500 flex items-center justify-center">
                       <Icon name="CheckCircle" size={12} />
                     </div>
-                    <h3 className="text-sm font-black text-slate-800">Opciones / Variantes del Plan</h3>
+                    <h3 className="text-sm font-black text-text-primary">Opciones / Variantes del Plan</h3>
                   </div>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={addFeature}
-                    className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"
+                    className="text-[10px] font-bold text-primary bg-info-light hover:bg-info-light px-2 py-1 rounded-md uppercase tracking-widest transition-colors flex items-center gap-1"
                   >
                     <Icon name="Plus" size={10} /> Agregar
                   </button>
@@ -321,7 +321,7 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
                         <button 
                           type="button" 
                           onClick={() => removeFeature(index)} 
-                          className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0"
+                          className="w-8 h-8 flex items-center justify-center text-text-tertiary hover:text-error hover:bg-error-light rounded-lg transition-colors flex-shrink-0"
                           title="Eliminar opción"
                         >
                           <Icon name="Trash2" size={16} />
@@ -337,23 +337,23 @@ const PlanForm = ({ plan, onSave, onCancel }) => {
         </form>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 rounded-b-[2rem]">
-          <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
+        <div className="px-6 py-4 bg-muted border-t border-border flex items-center justify-between shrink-0 rounded-b-3xl">
+          <p className="text-[10px] font-bold text-text-tertiary flex items-center gap-1.5 uppercase tracking-widest">
             <Icon name="Info" size={12} />
-            Obligatorio <span className="text-rose-500">*</span>
+            Obligatorio <span className="text-error">*</span>
           </p>
           <div className="flex items-center gap-2">
-            <button 
-              type="button" 
-              onClick={onCancel} 
-              className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200/50 transition-colors"
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-5 py-2.5 rounded-xl font-bold text-sm text-text-secondary hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
-            <button 
+            <button
               form="plan-form-standalone"
-              type="submit" 
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
+              type="submit"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-primary-foreground bg-primary hover:bg-primary/90 shadow-md transition-all hover:-translate-y-0.5"
             >
               <Icon name="Save" size={16} />
               {plan ? 'Guardar Cambios' : 'Crear Plan'}

@@ -5,9 +5,11 @@ import { supabase } from '../../lib/supabaseClient';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Icon from '../../components/AppIcon';
+import { useToast } from '../../hooks/useToast';
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -31,12 +33,12 @@ const UpdatePassword = () => {
     });
 
     if (error) {
-      alert('Error: ' + error.message);
+      toast.error(error.message);
       setLoading(false);
     } else {
       // Éxito total
-      alert('¡Contraseña actualizada! Redirigiendo...');
-      navigate('/'); 
+      toast.success('¡Contraseña actualizada! Redirigiendo...');
+      navigate('/');
     }
   };
 
@@ -48,7 +50,7 @@ const UpdatePassword = () => {
         <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:32px_32px]" />
 
         <div className="w-full max-w-md relative z-10">
-          <div className="bg-white/85 backdrop-blur-2xl border border-white/60 rounded-[2rem] shadow-2xl p-8">
+          <div className="bg-white/85 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-2xl p-8">
             
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 bg-stone-900 text-white">

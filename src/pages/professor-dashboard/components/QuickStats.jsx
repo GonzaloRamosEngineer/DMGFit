@@ -12,10 +12,10 @@ const QuickStats = ({ stats }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {items.map((item, idx) => (
-        <div key={idx} className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
+        <div key={idx} className="bg-card border border-border rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
-              <p className="text-3xl font-black text-slate-800 tracking-tighter">{item.value}</p>
+              <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest mb-1">{item.label}</p>
+              <p className="text-3xl font-black text-text-primary tracking-tighter">{item.value}</p>
            </div>
            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${item.bg} ${item.color} group-hover:scale-110 transition-transform`}>
               <Icon name={item.icon} size={24} />

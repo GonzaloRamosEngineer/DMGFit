@@ -114,7 +114,7 @@ const useGamification = (metrics, attendanceRate) => {
 // --- SUB-COMPONENTS ---
 
 const LevelCard = ({ stats }) => (
-  <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 p-8 text-white shadow-2xl shadow-slate-200/50 md:col-span-1 group">
+  <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 text-white shadow-2xl shadow-slate-200/50 md:col-span-1 group">
     {/* Background Effects */}
     <div className="absolute -right-10 -top-10 h-64 w-64 rounded-full bg-blue-600/20 blur-[80px] transition-all duration-700 group-hover:bg-blue-500/30" />
     <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-indigo-500/10 blur-[60px]" />
@@ -165,20 +165,20 @@ const BadgeItem = ({ badge }) => {
   
   return (
     <div className={`group relative flex min-w-[200px] flex-col justify-between rounded-3xl border p-5 transition-all duration-300 ${
-      badge.isUnlocked 
-        ? 'bg-white border-slate-100 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:-translate-y-1 hover:shadow-xl' 
-        : 'bg-slate-50 border-slate-100 opacity-60 grayscale'
+      badge.isUnlocked
+        ? 'bg-card border-border shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] hover:-translate-y-1 hover:shadow-xl'
+        : 'bg-muted border-border opacity-60 grayscale'
     }`}>
       
       {/* Header Badge */}
       <div className="flex items-start justify-between mb-4">
         <div className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-transform duration-500 group-hover:rotate-12 ${
-            badge.isUnlocked ? theme.bg : 'bg-slate-200'
+            badge.isUnlocked ? theme.bg : 'bg-muted'
         }`}>
-          <Icon 
-            name={badge.icon} 
-            size={22} 
-            className={badge.isUnlocked ? theme.color : 'text-slate-400'} 
+          <Icon
+            name={badge.icon}
+            size={22}
+            className={badge.isUnlocked ? theme.color : 'text-text-tertiary'}
           />
         </div>
         {badge.isUnlocked && (
@@ -190,10 +190,10 @@ const BadgeItem = ({ badge }) => {
 
       {/* Content */}
       <div>
-        <h4 className={`mb-1 font-bold text-sm ${badge.isUnlocked ? 'text-slate-800' : 'text-slate-400'}`}>
+        <h4 className={`mb-1 font-bold text-sm ${badge.isUnlocked ? 'text-text-primary' : 'text-text-tertiary'}`}>
           {badge.title}
         </h4>
-        <p className="text-[10px] font-medium leading-relaxed text-slate-400">
+        <p className="text-[10px] font-medium leading-relaxed text-text-tertiary">
           {badge.description}
         </p>
       </div>
@@ -201,7 +201,7 @@ const BadgeItem = ({ badge }) => {
       {/* Locked Overlay Icon */}
       {!badge.isUnlocked && (
         <div className="absolute right-4 top-4">
-           <Icon name="Lock" size={14} className="text-slate-300" />
+           <Icon name="Lock" size={14} className="text-text-tertiary" />
         </div>
       )}
     </div>
@@ -220,23 +220,23 @@ const AchievementsHub = ({ metrics, attendanceRate }) => {
       <LevelCard stats={stats} />
 
       {/* 2. Right Column: Trophy Case */}
-      <div className="md:col-span-2 flex flex-col rounded-[2.5rem] border border-slate-100 bg-white p-8 shadow-sm">
+      <div className="md:col-span-2 flex flex-col rounded-3xl border border-border bg-card p-8 shadow-sm">
         
         {/* Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h3 className="text-2xl font-black tracking-tight text-slate-900 flex items-center gap-3">
-              Logros <span className="text-slate-300">/</span> Badges
+            <h3 className="text-2xl font-black tracking-tight text-text-primary flex items-center gap-3">
+              Logros <span className="text-text-tertiary">/</span> Badges
             </h3>
-            <p className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
+            <p className="mt-1 text-xs font-bold uppercase tracking-[0.2em] text-text-tertiary">
               Colección de trofeos & Hitos
             </p>
           </div>
           
-          <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-2 border border-slate-100">
-             <Icon name="Award" size={16} className="text-slate-900" />
-             <span className="text-xs font-bold text-slate-700">
-               {stats.unlockedCount} <span className="text-slate-400">/ {stats.totalBadges}</span>
+          <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-2 border border-border">
+             <Icon name="Award" size={16} className="text-text-primary" />
+             <span className="text-xs font-bold text-text-secondary">
+               {stats.unlockedCount} <span className="text-text-tertiary">/ {stats.totalBadges}</span>
              </span>
           </div>
         </div>
@@ -248,8 +248,8 @@ const AchievementsHub = ({ metrics, attendanceRate }) => {
           ))}
           
           {/* Placeholder for "More coming soon" */}
-          <div className="flex min-w-[140px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50/50 p-6 opacity-50">
-             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">
+          <div className="flex min-w-[140px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-muted/50 p-6 opacity-50">
+             <span className="text-[10px] font-black uppercase tracking-widest text-text-tertiary text-center">
                Próximamente más desafíos
              </span>
           </div>

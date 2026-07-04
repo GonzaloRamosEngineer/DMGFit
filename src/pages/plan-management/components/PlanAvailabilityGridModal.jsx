@@ -19,24 +19,24 @@ const getCapacityColorClasses = (occupied, capacity) => {
 
   if (rate >= 100) {
     return {
-      card: 'bg-rose-50 border-rose-200',
-      value: 'text-rose-600',
-      badge: 'bg-rose-100 text-rose-700',
+      card: 'bg-error-light border-border',
+      value: 'text-error',
+      badge: 'bg-error-light text-error',
     };
   }
 
   if (rate >= 80) {
     return {
-      card: 'bg-amber-50 border-amber-200',
-      value: 'text-amber-700',
-      badge: 'bg-amber-100 text-amber-800',
+      card: 'bg-warning-light border-border',
+      value: 'text-warning',
+      badge: 'bg-warning-light text-warning',
     };
   }
 
   return {
-    card: 'bg-emerald-50 border-emerald-200',
-      value: 'text-emerald-700',
-      badge: 'bg-emerald-100 text-emerald-800',
+    card: 'bg-success-light border-border',
+      value: 'text-success',
+      badge: 'bg-success-light text-success',
     };
 };
 
@@ -181,8 +181,8 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
   const sessionDuration = Number(plan?.sessionDurationMin || 60);
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-3 sm:p-6">
-      <div className="w-full max-w-7xl max-h-[88vh] bg-white rounded-[1.75rem] shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+    <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-modal flex items-center justify-center p-3 sm:p-6">
+      <div className="w-full max-w-7xl max-h-[88vh] bg-card rounded-3xl shadow-2xl overflow-hidden border border-border flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-950 to-slate-900 px-5 sm:px-7 py-5 flex items-start justify-between gap-4 shrink-0">
           <div className="min-w-0">
@@ -214,46 +214,46 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
         </div>
 
         {/* Leyenda */}
-        <div className="px-5 sm:px-7 py-3 border-b border-slate-200 bg-white shrink-0">
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-[11px] sm:text-xs font-black uppercase tracking-wide text-slate-600">
+        <div className="px-5 sm:px-7 py-3 border-b border-border bg-card shrink-0">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-[11px] sm:text-xs font-black uppercase tracking-wide text-text-secondary">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span className="w-3 h-3 rounded-full bg-success" />
               Alta disponibilidad (0-10)
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-amber-400" />
+              <span className="w-3 h-3 rounded-full bg-warning" />
               Pocos lugares (11-18)
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-rose-500" />
+              <span className="w-3 h-3 rounded-full bg-error" />
               Sin cupo (19-20)
             </div>
           </div>
         </div>
 
         {/* Body */}
-        <div className="overflow-y-auto custom-scrollbar flex-1 bg-slate-50">
+        <div className="overflow-y-auto custom-scrollbar flex-1 bg-muted">
           {loading ? (
             <div className="p-10 text-center">
-              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-200 shadow-sm">
-                <Icon name="LoaderCircle" size={28} className="text-slate-300 animate-spin" />
+              <div className="w-16 h-16 bg-card rounded-2xl flex items-center justify-center mx-auto mb-4 border border-border shadow-sm">
+                <Icon name="LoaderCircle" size={28} className="text-text-tertiary animate-spin" />
               </div>
-              <h3 className="text-lg font-black text-slate-700 mb-2">
+              <h3 className="text-lg font-black text-text-secondary mb-2">
                 Cargando grilla
               </h3>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-text-secondary">
                 Estamos trayendo la disponibilidad real del plan.
               </p>
             </div>
           ) : columnsByDay.length === 0 ? (
             <div className="p-10 text-center">
-              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-200 shadow-sm">
-                <Icon name="CalendarDays" size={28} className="text-slate-300" />
+              <div className="w-16 h-16 bg-card rounded-2xl flex items-center justify-center mx-auto mb-4 border border-border shadow-sm">
+                <Icon name="CalendarDays" size={28} className="text-text-tertiary" />
               </div>
-              <h3 className="text-lg font-black text-slate-700 mb-2">
+              <h3 className="text-lg font-black text-text-secondary mb-2">
                 Sin grilla disponible
               </h3>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-text-secondary">
                 Este plan todavía no tiene slots generados para mostrar.
               </p>
             </div>
@@ -276,8 +276,8 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
 
                           return (
                             <div key={`${group.dayIndex}-${periodKey}`}>
-                              <div className="px-1 pb-2 border-b border-slate-200 mb-3">
-                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 text-center">
+                              <div className="px-1 pb-2 border-b border-border mb-3">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary text-center">
                                   {PERIOD_LABELS[periodKey]}
                                 </p>
                               </div>
@@ -294,7 +294,7 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
                                       key={`${group.dayIndex}-${periodKey}-${slot.start_time}-${slot.end_time}-${idx}`}
                                       className={`rounded-xl border p-3 ${color.card}`}
                                     >
-                                      <p className="text-[15px] font-black text-slate-900">
+                                      <p className="text-[15px] font-black text-text-primary">
                                         {slot.start_time} - {slot.end_time}
                                       </p>
 
@@ -303,7 +303,7 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
                                           <p className={`text-xl font-black leading-none ${color.value}`}>
                                             {slot.occupied} / {slot.capacity}
                                           </p>
-                                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">
+                                          <p className="text-[10px] font-black uppercase tracking-wider text-text-tertiary mt-1">
                                             Inscriptos del plan / cupo
                                           </p>
                                         </div>
@@ -334,7 +334,7 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
                 {columnsByDay.map((group) => (
                   <div
                     key={`mobile-${group.dayIndex}`}
-                    className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden"
+                    className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden"
                   >
                     <div className="px-4 py-3 bg-slate-800 text-white">
                       <span className="text-sm font-black uppercase tracking-wider">
@@ -348,8 +348,8 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
 
                         return (
                           <div key={`mobile-${group.dayIndex}-${periodKey}`}>
-                            <div className="pb-2 border-b border-slate-100 mb-3">
-                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            <div className="pb-2 border-b border-border mb-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
                                 {PERIOD_LABELS[periodKey]}
                               </p>
                             </div>
@@ -368,13 +368,13 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
                                   >
                                     <div className="flex items-start justify-between gap-3">
                                       <div>
-                                        <p className="text-[15px] font-black text-slate-900">
+                                        <p className="text-[15px] font-black text-text-primary">
                                           {slot.start_time} - {slot.end_time}
                                         </p>
                                         <p className={`text-lg font-black mt-2 ${color.value}`}>
                                           {slot.occupied} / {slot.capacity}
                                         </p>
-                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-text-tertiary mt-1">
                                           Inscriptos del plan / cupo
                                         </p>
                                       </div>
@@ -403,11 +403,11 @@ const PlanAvailabilityGridModal = ({ plan, onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-5 sm:px-7 py-4 border-t border-slate-200 bg-white flex justify-end shrink-0">
+        <div className="px-5 sm:px-7 py-4 border-t border-border bg-card flex justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-3 rounded-xl font-black text-sm text-slate-600 hover:bg-slate-100 transition-colors"
+            className="px-6 py-3 rounded-xl font-black text-sm text-text-secondary hover:bg-muted transition-colors"
           >
             Cerrar
           </button>

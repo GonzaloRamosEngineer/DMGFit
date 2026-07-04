@@ -69,7 +69,7 @@ const UpcomingSessions = ({ sessions, loading = false }) => {
                   </div>
                 </div>
 
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-100">
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase bg-info-light text-info border border-info/20">
                   Asignado
                 </span>
               </div>

@@ -1,6 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '../AppIcon';
 import Button from './Button';
+
+const MENU_WIDTH = 224; // w-56
 
 const QuickActionMenu = ({
   entityId = '',
@@ -8,6 +11,8 @@ const QuickActionMenu = ({
   availableActions = []
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
   const menuRef = useRef(null);
 
   const defaultActions = {
@@ -28,27 +33,40 @@ const QuickActionMenu = ({
     ? availableActions
     : defaultActions?.[entityType] || defaultActions?.athlete;
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef?.current && !menuRef?.current?.contains(event?.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    const handleEscape = (event) => {
-      if (event?.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
+  const openMenu = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      // Alinea el borde derecho del menú con el del botón, abriendo hacia abajo.
+      const left = Math.max(8, rect.right - MENU_WIDTH);
+      setCoords({ top: rect.bottom + 8, left });
     }
+    setIsOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (menuRef?.current?.contains(event?.target) || triggerRef?.current?.contains(event?.target)) return;
+      setIsOpen(false);
+    };
+    const handleEscape = (event) => {
+      if (event?.key === 'Escape') setIsOpen(false);
+    };
+    // Al scrollear (incluido un contenedor con overflow interno) o redimensionar,
+    // cerramos para evitar que el menú quede flotando en una posición vieja.
+    const handleReflow = () => setIsOpen(false);
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    window.addEventListener('scroll', handleReflow, true);
+    window.addEventListener('resize', handleReflow);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('scroll', handleReflow, true);
+      window.removeEventListener('resize', handleReflow);
     };
   }, [isOpen]);
 
@@ -58,12 +76,14 @@ const QuickActionMenu = ({
   };
 
   const toggleMenu = () => {
-    setIsOpen(!isOpen);
+    if (isOpen) setIsOpen(false);
+    else openMenu();
   };
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative">
       <Button
+        ref={triggerRef}
         variant="ghost"
         size="icon"
         onClick={toggleMenu}
@@ -73,9 +93,12 @@ const QuickActionMenu = ({
       >
         <Icon name="MoreVertical" size={20} color="var(--color-foreground)" />
       </Button>
-      {isOpen && (
+
+      {isOpen && createPortal(
         <div
-          className="absolute right-0 mt-2 w-56 bg-popover border border-border rounded-lg shadow-lg z-dropdown"
+          ref={menuRef}
+          style={{ position: 'fixed', top: coords.top, left: coords.left, width: MENU_WIDTH }}
+          className="bg-popover border border-border rounded-lg shadow-lg z-dropdown"
           role="menu"
           aria-orientation="vertical"
         >
@@ -97,7 +120,8 @@ const QuickActionMenu = ({
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

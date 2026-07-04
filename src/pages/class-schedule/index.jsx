@@ -18,6 +18,7 @@ import { es } from "date-fns/locale";
 import { supabase } from "../../lib/supabaseClient";
 import { fetchPlanGridAvailability } from "../../services/plans";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../hooks/useToast";
 import BreadcrumbTrail from "../../components/ui/BreadcrumbTrail";
 import Icon from "../../components/AppIcon";
 
@@ -55,7 +56,7 @@ const computeDurationMinutes = (startTime, endTime) => {
 };
 
 const Segmented = ({ value, onChange, options = [] }) => (
-  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
+  <div className="flex items-center gap-1 bg-card border border-border rounded-2xl p-1 shadow-sm">
     {options.map((o) => {
       const active = value === o.value;
       return (
@@ -65,8 +66,8 @@ const Segmented = ({ value, onChange, options = [] }) => (
           onClick={() => onChange(o.value)}
           className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
             active
-              ? "bg-slate-900 text-white shadow"
-              : "text-slate-600 hover:bg-slate-50"
+              ? "bg-primary text-primary-foreground shadow hover:bg-primary/90"
+              : "text-text-secondary hover:bg-muted"
           }`}
         >
           {o.label}
@@ -80,18 +81,18 @@ const Segmented = ({ value, onChange, options = [] }) => (
 const getRemainingStyle = (remaining) => {
   const r = Number(remaining ?? -1);
   if (r < 0)  return null; // sin datos
-  if (r === 0) return { chip: "bg-rose-100 text-rose-700 border-rose-200",   dot: "bg-rose-500",   label: "Completo" };
-  if (r <= 7)  return { chip: "bg-rose-50 text-rose-600 border-rose-200",    dot: "bg-rose-400",   label: `${r} lugar${r === 1 ? "" : "es"}` };
-  if (r <= 14) return { chip: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-400",  label: `${r} lugares` };
-               return { chip: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500", label: `${r} lugares` };
+  if (r === 0) return { chip: "bg-error-light text-error border-border",   dot: "bg-error",   label: "Completo" };
+  if (r <= 7)  return { chip: "bg-error-light text-error border-border",    dot: "bg-error",   label: `${r} lugar${r === 1 ? "" : "es"}` };
+  if (r <= 14) return { chip: "bg-warning-light text-warning border-border", dot: "bg-warning",  label: `${r} lugares` };
+               return { chip: "bg-success-light text-success border-border", dot: "bg-success", label: `${r} lugares` };
 };
 
 // ─── CARD ────────────────────────────────────────────────────────────────────
 const PlanSlotCard = ({ slot, onClick }) => {
   const planName = slot.planName || "Plan";
-  const timeLabel = `${normalizeTime(slot.startTime)} – ${normalizeTime(slot.endTime)}`;
+  const timeLabel = `${normalizeTime(slot.startTime)}–${normalizeTime(slot.endTime)}`;
 
-  const activityName = slot.activityName || "Sin actividad";
+  const activityName = slot.activityName || "Sin asignar";
   const activityColor = slot.activityColor || "#94a3b8";
   const hasActivity = Boolean(slot.activityId);
 
@@ -112,109 +113,53 @@ const PlanSlotCard = ({ slot, onClick }) => {
         e.stopPropagation();
         onClick(slot);
       }}
-      className="group w-full text-left bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
+      title={`${planName} · ${activityName} · ${timeLabel}${needsConfig ? " · Pendiente de configurar" : ""}`}
+      className={`group w-full text-left rounded-lg border transition-all duration-200 overflow-hidden px-2 py-1.5 hover:shadow-md hover:-translate-y-px ${
+        hasActivity ? "bg-card border-border" : "bg-muted/40 border-dashed border-border"
+      }`}
       style={{ borderLeft: `3px solid ${activityColor}` }}
     >
-      {/* Top section */}
-      <div className="px-3 pt-3 pb-2">
-        {/* Plan badge + config status */}
-        <div className="flex items-center justify-between gap-1 mb-2">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full leading-tight truncate max-w-[70%]">
-            {planName}
-          </span>
-
-          {needsConfig ? (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full whitespace-nowrap">
-              <Icon name="AlertTriangle" size={9} />
-              Pendiente
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full whitespace-nowrap">
-              <Icon name="CheckCircle2" size={9} />
-              OK
-            </span>
-          )}
-        </div>
-
-        {/* Activity name */}
-        <p
-          className="font-black text-sm leading-tight mb-0.5 truncate"
-          style={{ color: hasActivity ? activityColor : "#94a3b8" }}
+      {/* Línea 1: actividad + estado */}
+      <div className="flex items-center gap-1">
+        <span
+          className={`flex-1 min-w-0 truncate font-bold text-xs leading-tight ${hasActivity ? "" : "italic text-text-tertiary"}`}
+          style={hasActivity ? { color: activityColor } : undefined}
         >
           {activityName}
-        </p>
-
-        {/* Detail */}
-        {slot.activityDetail ? (
-          <p className="text-[10px] text-slate-400 truncate leading-tight">
-            {slot.activityDetail}
-          </p>
-        ) : (
-          <p className="text-[10px] text-slate-300 italic leading-tight">Sin detalle</p>
+        </span>
+        {needsConfig && (
+          <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-warning" title="Pendiente de configurar" />
         )}
       </div>
 
-      {/* Divider */}
-      <div className="mx-3 border-t border-slate-100" />
+      {/* Línea 2: plan */}
+      <p className="truncate text-[10px] font-semibold text-text-secondary leading-tight mt-0.5">
+        {planName}
+      </p>
 
-      {/* Bottom: time + cupo chip + arrow */}
-      <div className="px-3 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span className="inline-flex items-center gap-1 text-[9px] font-black text-slate-500 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-lg whitespace-nowrap">
-            <Icon name="Clock" size={9} />
-            {timeLabel}
+      {/* Línea 3: meta (hora · cupo · profes) */}
+      <div className="flex items-center gap-1.5 mt-1 text-[10px] font-bold text-text-tertiary">
+        <span className="inline-flex items-center gap-0.5 min-w-0">
+          <Icon name="Clock" size={9} className="shrink-0" />
+          <span className="truncate">{timeLabel}</span>
+        </span>
+
+        {remStyle ? (
+          <span className="inline-flex items-center gap-1 shrink-0" title={remStyle.label}>
+            <span className={`w-1.5 h-1.5 rounded-full ${remStyle.dot}`} />
+            {remaining === 0 ? "Lleno" : remaining}
           </span>
-
-          {/* Chip de cupos restantes */}
-          {remStyle ? (
-            <span className={`inline-flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-lg border whitespace-nowrap ${remStyle.chip}`}>
-              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${remStyle.dot}`} />
-              {remStyle.label}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[9px] font-black text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-lg whitespace-nowrap">
-              <Icon name="Users" size={9} />
-              {capacity ?? "–"}
-            </span>
-          )}
-        </div>
-
-        <Icon
-          name="ChevronRight"
-          size={14}
-          className="text-slate-300 group-hover:text-slate-500 transition-colors shrink-0"
-        />
-      </div>
-
-      {/* Coaches row */}
-      <div className="px-3 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="flex -space-x-1.5">
-            {coaches.slice(0, 4).map((c) => (
-              <div
-                key={c.id}
-                className="w-5 h-5 rounded-full ring-1 ring-white bg-slate-200 border border-slate-300 overflow-hidden flex items-center justify-center text-[8px] font-black text-slate-600"
-                title={c.name}
-              >
-                {c.avatar ? (
-                  <img src={c.avatar} alt={c.name} className="w-full h-full object-cover" />
-                ) : (
-                  (c.name || "P").charAt(0).toUpperCase()
-                )}
-              </div>
-            ))}
-            {coachCount === 0 && (
-              <div className="w-5 h-5 rounded-full ring-1 ring-white bg-rose-50 border border-rose-200 flex items-center justify-center">
-                <Icon name="UserX" size={10} className="text-rose-400" />
-              </div>
-            )}
-          </div>
-          <span className="text-[10px] font-bold text-slate-500 truncate">
-            {coachCount > 0
-              ? `${coachCount} profe${coachCount > 1 ? "s" : ""}`
-              : "Sin profesor"}
+        ) : capacity != null ? (
+          <span className="inline-flex items-center gap-0.5 shrink-0">
+            <Icon name="Users" size={9} />
+            {capacity}
           </span>
-        </div>
+        ) : null}
+
+        <span className={`ml-auto inline-flex items-center gap-0.5 shrink-0 ${coachCount === 0 ? "text-error" : ""}`}>
+          <Icon name={coachCount === 0 ? "UserX" : "User"} size={9} />
+          {coachCount || "0"}
+        </span>
       </div>
     </button>
   );
@@ -224,6 +169,7 @@ const PlanSlotCard = ({ slot, onClick }) => {
 
 const ClassSchedule = () => {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [slots, setSlots] = useState([]);
@@ -528,17 +474,12 @@ const ClassSchedule = () => {
   const handleOpenSlot = (slot) => setSelectedSlot(slot);
 
   const handleHowItWorks = () => {
-    window.alert(
-      [
-        "Cómo funciona la planificación:",
-        "",
-        "• Esta grilla muestra los horarios habilitados por cada plan.",
-        "• El Admin asigna profesores y (opcionalmente) define actividad + detalle.",
-        "• Regla: un profesor no puede estar asignado a dos planes en el mismo horario.",
-        "",
-        "Tip: si ves muchos 'Pendiente', empeza por asignar profes (es lo mas critico).",
-      ].join("\n"),
-    );
+    toast.info({
+      title: "Cómo funciona la planificación",
+      description:
+        "Esta grilla muestra los horarios habilitados por cada plan. El Admin asigna profesores y (opcionalmente) define actividad + detalle. Regla: un profesor no puede estar asignado a dos planes en el mismo horario. Tip: si ves muchos 'Pendiente', empeza por asignar profes (es lo mas critico).",
+      duration: 9000,
+    });
   };
 
   const fetchAnalytics = useCallback(async () => {
@@ -620,13 +561,13 @@ const ClassSchedule = () => {
         <title>Planificación - VC Fit</title>
       </Helmet>
 
-      <div className="flex flex-col h-screen bg-[#F8FAFC] w-full overflow-hidden">
+      <div className="flex flex-col h-screen bg-background w-full overflow-hidden">
         {/* Header fijo */}
-        <div className="bg-white border-b border-slate-200 z-30 flex-shrink-0 shadow-sm">
+        <div className="bg-card border-b border-border z-30 flex-shrink-0 shadow-sm">
           <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4">
 
-            {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
-            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm px-6 py-4 mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* ── HEADER (fila simple, sin caja) ── */}
+            <div className="mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="min-w-0">
                 <div className="hidden md:block scale-90 origin-left opacity-80 mb-1">
                   <BreadcrumbTrail
@@ -637,10 +578,10 @@ const ClassSchedule = () => {
                   />
                 </div>
 
-                <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-none">
+                <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight leading-none">
                   Planificación
                 </h1>
-                <p className="text-[11px] md:text-xs text-slate-500 font-bold uppercase tracking-widest mt-1.5">
+                <p className="text-[11px] md:text-xs text-text-secondary font-bold uppercase tracking-widest mt-1.5">
                   Asignación por plan y horario
                 </p>
               </div>
@@ -649,7 +590,7 @@ const ClassSchedule = () => {
                 {isStaff && (
                   <button
                     onClick={() => setShowActivityManager(true)}
-                    className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors text-xs uppercase tracking-wider"
+                    className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-muted text-text-secondary font-bold rounded-xl hover:bg-muted/80 transition-colors text-xs uppercase tracking-wider"
                   >
                     <Icon name="Settings" size={16} />
                     Actividades
@@ -658,7 +599,7 @@ const ClassSchedule = () => {
 
                 <button
                   onClick={handleHowItWorks}
-                  className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-md shadow-blue-200 hover:-translate-y-0.5 transition-all text-xs uppercase tracking-wider"
+                  className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 shadow-md hover:-translate-y-0.5 transition-all text-xs uppercase tracking-wider"
                 >
                   <Icon name="Info" size={16} />
                   Cómo funciona
@@ -667,25 +608,25 @@ const ClassSchedule = () => {
             </div>
 
             {/* Toolbar */}
-            <div className="mt-4 bg-slate-50 p-2 rounded-2xl border border-slate-100 flex flex-col xl:flex-row gap-3 items-start xl:items-center justify-between">
+            <div className="mt-4 bg-muted p-2 rounded-2xl border border-border flex flex-col xl:flex-row gap-3 items-start xl:items-center justify-between">
               {/* Semana */}
               <div className="flex items-center gap-3 w-full xl:w-auto">
-                <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm w-full xl:w-auto justify-between">
+                <div className="flex items-center bg-card rounded-xl p-1 border border-border shadow-sm w-full xl:w-auto justify-between">
                   <button
                     onClick={() => setCurrentDate(subWeeks(currentDate, 1))}
-                    className="p-1.5 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors"
+                    className="p-1.5 hover:bg-muted text-text-secondary rounded-lg transition-colors"
                     title="Semana anterior"
                   >
                     <Icon name="ChevronLeft" size={18} />
                   </button>
 
-                  <div className="px-4 font-black text-xs min-w-[140px] text-center uppercase tracking-widest text-slate-700">
+                  <div className="px-4 font-black text-xs min-w-[140px] text-center uppercase tracking-widest text-text-secondary">
                     {format(weekStart, "MMM yyyy", { locale: es })}
                   </div>
 
                   <button
                     onClick={() => setCurrentDate(addWeeks(currentDate, 1))}
-                    className="p-1.5 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors"
+                    className="p-1.5 hover:bg-muted text-text-secondary rounded-lg transition-colors"
                     title="Semana siguiente"
                   >
                     <Icon name="ChevronRight" size={18} />
@@ -694,16 +635,16 @@ const ClassSchedule = () => {
 
                 <button
                   onClick={() => setCurrentDate(new Date())}
-                  className="text-xs font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest bg-blue-50 px-3 py-2 rounded-xl border border-blue-100"
+                  className="text-xs font-black text-primary hover:text-primary/90 uppercase tracking-widest bg-info-light px-3 py-2 rounded-xl border border-border"
                 >
                   Hoy
                 </button>
 
                 <div className="hidden lg:flex items-center gap-3 pl-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-white border border-slate-200 px-3 py-2 rounded-xl">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary bg-card border border-border px-3 py-2 rounded-xl">
                     {visiblePlanSlotsCount} slots visibles
                   </span>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 bg-white border border-slate-200 px-3 py-2 rounded-xl">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary bg-card border border-border px-3 py-2 rounded-xl">
                     {distinctWeeklySlots} bloques · {distinctWeeklyHours}h
                   </span>
                 </div>
@@ -733,7 +674,7 @@ const ClassSchedule = () => {
                 {viewMode === "global" && (
                   <>
                     <select
-                      className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                      className="appearance-none bg-card border border-border text-text-secondary font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary shadow-sm cursor-pointer"
                       value={filterPlan}
                       onChange={(e) => setFilterPlan(e.target.value)}
                     >
@@ -746,7 +687,7 @@ const ClassSchedule = () => {
                     </select>
 
                     <select
-                      className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                      className="appearance-none bg-card border border-border text-text-secondary font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary shadow-sm cursor-pointer"
                       value={filterActivity}
                       onChange={(e) => setFilterActivity(e.target.value)}
                     >
@@ -759,7 +700,7 @@ const ClassSchedule = () => {
                     </select>
 
                     <select
-                      className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                      className="appearance-none bg-card border border-border text-text-secondary font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary shadow-sm cursor-pointer"
                       value={filterCoach}
                       onChange={(e) => setFilterCoach(e.target.value)}
                     >
@@ -774,7 +715,7 @@ const ClassSchedule = () => {
                     <button
                       type="button"
                       onClick={() => setAnalyticsOpen((v) => !v)}
-                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 transition-colors text-xs font-black uppercase tracking-widest text-slate-700"
+                      className="flex items-center justify-center gap-2 px-4 py-2.5 bg-card border border-border rounded-xl shadow-sm hover:bg-muted transition-colors text-xs font-black uppercase tracking-widest text-text-secondary"
                     >
                       <Icon
                         name={analyticsOpen ? "ChevronUp" : "BarChart3"}
@@ -788,7 +729,7 @@ const ClassSchedule = () => {
                 {/* Vista profe: solo filtro de actividad, sin filtro de profes ni analítica */}
                 {viewMode === "coach" && (
                   <select
-                    className="appearance-none bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm cursor-pointer"
+                    className="appearance-none bg-card border border-border text-text-secondary font-bold text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary shadow-sm cursor-pointer"
                     value={filterActivity}
                     onChange={(e) => setFilterActivity(e.target.value)}
                   >
@@ -805,13 +746,13 @@ const ClassSchedule = () => {
 
             {/* Analítica colapsable */}
             {analyticsOpen && (
-              <div className="mt-3 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-4 md:px-5 py-4 border-b border-slate-100">
+              <div className="mt-3 bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between px-4 md:px-5 py-4 border-b border-border">
                   <div>
-                    <p className="text-xs font-black text-slate-900">
+                    <p className="text-xs font-black text-text-primary">
                       Horas planificadas
                     </p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                    <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mt-1">
                       Semana {format(weekStart, "d MMM", { locale: es })} –{" "}
                       {format(addDays(weekStart, 6), "d MMM", { locale: es })} ·
                       Mes {format(currentDate, "MMMM yyyy", { locale: es })}
@@ -821,7 +762,7 @@ const ClassSchedule = () => {
                   <button
                     type="button"
                     onClick={fetchAnalytics}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors text-xs font-black uppercase tracking-widest text-slate-700"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted hover:bg-muted/80 transition-colors text-xs font-black uppercase tracking-widest text-text-secondary"
                     disabled={analyticsLoading}
                   >
                     <Icon
@@ -834,46 +775,46 @@ const ClassSchedule = () => {
                 </div>
 
                 <div className="p-4 md:p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <div className="rounded-2xl border border-border bg-muted p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-text-secondary">
                       Semana
                     </p>
-                    <p className="mt-2 text-3xl font-black text-slate-900 tracking-tight">
+                    <p className="mt-2 text-3xl font-black text-text-primary tracking-tight">
                       {teamWeek.hours.toFixed(2)}h
                     </p>
-                    <p className="mt-1 text-xs text-slate-600 font-bold">
+                    <p className="mt-1 text-xs text-text-secondary font-bold">
                       Slots: {teamWeek.slots}
                     </p>
 
                     {viewMode === "global" && (
-                      <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">
                           Top semana
                         </span>
-                        <span className="text-xs font-black text-slate-800">
+                        <span className="text-xs font-black text-text-primary">
                           {teamWeek.topName} · {teamWeek.topHours.toFixed(2)}h
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <div className="rounded-2xl border border-border bg-muted p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-text-secondary">
                       Mes
                     </p>
-                    <p className="mt-2 text-3xl font-black text-slate-900 tracking-tight">
+                    <p className="mt-2 text-3xl font-black text-text-primary tracking-tight">
                       {teamMonth.hours.toFixed(2)}h
                     </p>
-                    <p className="mt-1 text-xs text-slate-600 font-bold">
+                    <p className="mt-1 text-xs text-text-secondary font-bold">
                       Slots: {teamMonth.slots}
                     </p>
 
                     {viewMode === "global" && (
-                      <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                      <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">
                           Top mes
                         </span>
-                        <span className="text-xs font-black text-slate-800">
+                        <span className="text-xs font-black text-text-primary">
                           {teamMonth.topName} · {teamMonth.topHours.toFixed(2)}h
                         </span>
                       </div>
@@ -885,7 +826,7 @@ const ClassSchedule = () => {
           </div>
 
           {/* Selector días mobile */}
-          <div className="md:hidden bg-white border-t border-slate-100 p-2 overflow-x-auto no-scrollbar gap-1 shadow-sm relative z-20 flex">
+          <div className="md:hidden bg-card border-t border-border p-2 overflow-x-auto no-scrollbar gap-1 shadow-sm relative z-20 flex">
             {weekDays.map((day, idx) => {
               const dbDay = idx + 1;
               const active = mobileDayView === dbDay;
@@ -897,14 +838,14 @@ const ClassSchedule = () => {
                   onClick={() => setMobileDayView(dbDay)}
                   className={`flex-1 py-2 px-1 flex flex-col items-center min-w-[55px] rounded-xl transition-all ${
                     active
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                      ? "bg-primary text-primary-foreground shadow-md"
                       : today
-                        ? "bg-blue-50 text-blue-600"
-                        : "bg-transparent text-slate-500 hover:bg-slate-50"
+                        ? "bg-info-light text-primary"
+                        : "bg-transparent text-text-secondary hover:bg-muted"
                   }`}
                 >
                   <span
-                    className={`text-[9px] font-bold uppercase tracking-wider ${active ? "text-blue-100" : ""}`}
+                    className={`text-[9px] font-bold uppercase tracking-wider ${active ? "text-primary-foreground/80" : ""}`}
                   >
                     {format(day, "EEE", { locale: es })}
                   </span>
@@ -918,7 +859,7 @@ const ClassSchedule = () => {
         </div>
 
         {/* Calendar scrollable */}
-        <div className="flex-1 overflow-auto bg-white relative custom-scrollbar">
+        <div className="flex-1 overflow-auto bg-card relative custom-scrollbar">
           <div className="max-w-[1400px] mx-auto px-4 md:px-6 h-full relative">
             {/* Línea AHORA */}
             {isSameDay(currentDate, new Date()) && (
@@ -929,20 +870,20 @@ const ClassSchedule = () => {
                 }}
               >
                 <div className="w-16 flex justify-end pr-2">
-                  <div className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                  <div className="bg-error text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
                     {format(new Date(), "HH:mm")}
                   </div>
                 </div>
-                <div className="flex-1 border-t-2 border-rose-500 border-dashed opacity-50 relative">
-                  <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-rose-500 rounded-full shadow-[0_0_0_4px_rgba(244,63,94,0.2)] animate-pulse"></div>
+                <div className="flex-1 border-t-2 border-error border-dashed opacity-50 relative">
+                  <div className="absolute -left-1.5 -top-1.5 w-3 h-3 bg-error rounded-full shadow-[0_0_0_4px_rgba(244,63,94,0.2)] animate-pulse"></div>
                 </div>
               </div>
             )}
 
             {/* Header días desktop */}
-            <div className="hidden md:grid sticky top-0 z-30 grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-sm">
-              <div className="h-14 border-r border-slate-100 flex items-center justify-center">
-                <Icon name="Clock" size={16} className="text-slate-400" />
+            <div className="hidden md:grid sticky top-0 z-30 grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-border bg-card/95 backdrop-blur-md shadow-sm">
+              <div className="h-14 border-r border-border flex items-center justify-center">
+                <Icon name="Clock" size={16} className="text-text-tertiary" />
               </div>
 
               {weekDays.map((day, i) => {
@@ -950,17 +891,17 @@ const ClassSchedule = () => {
                 return (
                   <div
                     key={i}
-                    className={`h-14 border-r border-slate-100 last:border-r-0 flex flex-col items-center justify-center ${
-                      today ? "bg-blue-50/50" : ""
+                    className={`h-14 border-r border-border last:border-r-0 flex flex-col items-center justify-center ${
+                      today ? "bg-info-light/50" : ""
                     }`}
                   >
                     <span
-                      className={`text-[10px] font-bold uppercase tracking-widest ${today ? "text-blue-600" : "text-slate-400"}`}
+                      className={`text-[10px] font-bold uppercase tracking-widest ${today ? "text-primary" : "text-text-tertiary"}`}
                     >
                       {format(day, "EEEE", { locale: es })}
                     </span>
                     <span
-                      className={`text-base font-black leading-none mt-0.5 ${today ? "text-blue-700" : "text-slate-800"}`}
+                      className={`text-base font-black leading-none mt-0.5 ${today ? "text-primary" : "text-text-primary"}`}
                     >
                       {format(day, "d")}
                     </span>
@@ -974,11 +915,11 @@ const ClassSchedule = () => {
               {hours.map((hour) => (
                 <div
                   key={hour}
-                  className="grid grid-cols-[64px_1fr] md:grid-cols-[64px_repeat(7,minmax(0,1fr))] min-h-[120px]"
+                  className="grid grid-cols-[64px_1fr] md:grid-cols-[64px_repeat(7,minmax(0,1fr))] min-h-[64px]"
                 >
                   {/* Col hora */}
-                  <div className="sticky left-0 z-20 bg-white border-r border-b border-dashed border-slate-100 flex justify-center items-start pt-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <div className="sticky left-0 z-20 bg-card border-r border-b border-dashed border-border flex justify-center items-start pt-2">
+                    <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">
                       {hour}
                     </span>
                   </div>
@@ -994,16 +935,14 @@ const ClassSchedule = () => {
                     return (
                       <div
                         key={`${dbDay}-${hour}`}
-                        className={`relative border-r border-b border-slate-100 border-dashed p-1.5 flex flex-col gap-1.5 ${
+                        className={`relative border-r border-b border-border border-dashed p-1.5 flex flex-col gap-1.5 ${
                           !isVisible ? "hidden md:flex" : "flex"
-                        } ${today ? "bg-blue-50/10" : ""}`}
+                        } ${today ? "bg-info-light/10" : ""}`}
                       >
-                        {/* Empty state */}
+                        {/* Empty state (calmado: apenas un + tenue) */}
                         {!loading && cellSlots.length === 0 && (
-                          <div className="flex-1 rounded-xl border border-dashed border-slate-100 flex items-center justify-center min-h-[100px]">
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-200">
-                              —
-                            </span>
+                          <div className="flex-1 rounded-lg border border-dashed border-border/50 flex items-center justify-center min-h-[44px]">
+                            <Icon name="Plus" size={12} className="text-text-tertiary/30" />
                           </div>
                         )}
 

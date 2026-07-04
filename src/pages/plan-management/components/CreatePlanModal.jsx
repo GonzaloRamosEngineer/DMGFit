@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Icon from "../../../components/AppIcon";
+import { useToast } from "../../../hooks/useToast";
 
 const DAYS = [
   "Domingo",
@@ -204,6 +205,7 @@ const timeBlocksToWindows = (timeBlocks = []) => {
 };
 
 const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("identity");
   const [selectedFrequency, setSelectedFrequency] = useState("1");
 
@@ -437,13 +439,13 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
 
   const validateIdentityTab = () => {
     if (!formData.name.trim()) {
-      alert("Debes ingresar un nombre para el plan.");
+      toast.error("Debes ingresar un nombre para el plan.");
       setActiveTab("identity");
       return false;
     }
 
     if (!formData.description.trim()) {
-      alert("Debes ingresar una descripción.");
+      toast.error("Debes ingresar una descripción.");
       setActiveTab("identity");
       return false;
     }
@@ -459,17 +461,13 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
     );
 
     if (normalizedWindows.length === 0) {
-      alert(
-        "Debes configurar al menos una franja horaria válida con días seleccionados.",
-      );
+      toast.error("Debes configurar al menos una franja horaria válida con días seleccionados.");
       setActiveTab("schedule");
       return false;
     }
 
     if (expandedSlots.length === 0) {
-      alert(
-        "No se generaron slots válidos. Revisa rangos horarios, duración y días.",
-      );
+      toast.error("No se generaron slots válidos. Revisa rangos horarios, duración y días.");
       setActiveTab("schedule");
       return false;
     }
@@ -496,7 +494,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
     ).sort((a, b) => a.visits_per_week - b.visits_per_week);
 
     if (normalizedPricingTiers.length === 0) {
-      alert("Debes configurar al menos un precio por frecuencia semanal.");
+      toast.error("Debes configurar al menos un precio por frecuencia semanal.");
       setActiveTab("pricing");
       return false;
     }
@@ -566,33 +564,33 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
   };
 
   const inputClasses =
-    "w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 font-medium transition-all placeholder:text-slate-400";
+    "w-full px-4 py-3 bg-card border border-border rounded-xl text-text-primary text-sm focus:outline-none focus:border-primary focus:bg-card focus:ring-4 focus:ring-primary/10 font-medium transition-all placeholder:text-text-tertiary";
   const labelClasses =
-    "text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2 block";
+    "text-[11px] font-black text-text-secondary uppercase tracking-wider mb-2 block";
   const sectionCardClasses =
-    "bg-white border border-slate-200 rounded-[1.5rem] p-5 md:p-6 shadow-sm";
+    "bg-card border border-border rounded-3xl p-5 md:p-6 shadow-sm";
 
   const tabButtonClasses = (tabKey) =>
     `pb-4 text-sm font-black border-b-[3px] transition-colors uppercase tracking-wide ${
       activeTab === tabKey
-        ? "border-blue-600 text-slate-900"
-        : "border-transparent text-slate-400 hover:text-slate-700"
+        ? "border-primary text-text-primary"
+        : "border-transparent text-text-tertiary hover:text-text-secondary"
     }`;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-200 rounded-[2rem] w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+    <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-modal flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="bg-card border border-border rounded-3xl w-full max-w-5xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
         {/* Header */}
-        <div className="px-6 md:px-8 py-5 border-b border-slate-200 flex items-center justify-between shrink-0 bg-slate-50">
+        <div className="px-6 md:px-8 py-5 border-b border-border flex items-center justify-between shrink-0 bg-muted">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-100">
+            <div className="w-12 h-12 rounded-2xl bg-error-light text-error flex items-center justify-center border border-border">
               <Icon name={plan ? "Edit" : "Plus"} size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-2xl font-black text-text-primary tracking-tight">
                 {plan ? "Editar Plan" : "Crear Nuevo Plan"}
               </h2>
-              <p className="text-sm font-medium text-slate-500 mt-0.5">
+              <p className="text-sm font-medium text-text-secondary mt-0.5">
                 Configurá la identidad, disponibilidad y precios.
               </p>
             </div>
@@ -600,14 +598,14 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
 
           <button
             onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center rounded-xl text-slate-400 hover:bg-white hover:text-slate-700 transition-colors border border-slate-200 shadow-sm"
+            className="w-10 h-10 flex items-center justify-center rounded-xl text-text-tertiary hover:bg-card hover:text-text-secondary transition-colors border border-border shadow-sm"
           >
             <Icon name="X" size={18} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-200 bg-white px-6 md:px-8 pt-4 gap-6 md:gap-10 shrink-0 overflow-x-auto">
+        <div className="flex border-b border-border bg-card px-6 md:px-8 pt-4 gap-6 md:gap-10 shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab("identity")}
@@ -634,7 +632,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
         <form
           id="plan-form"
           onSubmit={handleSubmit}
-          className="overflow-y-auto flex-1 bg-slate-50/70 custom-scrollbar"
+          className="overflow-y-auto flex-1 bg-muted/70 custom-scrollbar"
         >
           <div className="p-4 md:p-8 space-y-6">
             {/* TAB 1: IDENTIDAD */}
@@ -645,7 +643,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                     <div className="md:col-span-2">
                       <label className={labelClasses}>
                         Nombre Comercial{" "}
-                        <span className="text-rose-500">*</span>
+                        <span className="text-error">*</span>
                       </label>
                       <input
                         name="name"
@@ -675,7 +673,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                   <div className="mt-6">
                     <label className={labelClasses}>
                       Descripción del enfoque{" "}
-                      <span className="text-rose-500">*</span>
+                      <span className="text-error">*</span>
                     </label>
                     <textarea
                       name="description"
@@ -708,8 +706,8 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                             onClick={() => toggleProfessor(prof.id)}
                             className={`px-4 py-2 rounded-xl border-2 text-sm font-bold transition-all shadow-sm ${
                               isSelected
-                                ? "border-red-200 bg-red-50 text-red-700"
-                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                ? "border-error/30 bg-error-light text-error"
+                                : "border-border bg-card text-text-secondary hover:bg-muted"
                             }`}
                           >
                             {isSelected ? `✓ ${prof.name}` : prof.name}
@@ -717,7 +715,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                         );
                       })
                     ) : (
-                      <p className="text-sm text-slate-400 font-medium py-3">
+                      <p className="text-sm text-text-tertiary font-medium py-3">
                         No hay profesores registrados.
                       </p>
                     )}
@@ -732,10 +730,10 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                 <div className={sectionCardClasses}>
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
                     <div className="min-w-0">
-                      <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">
+                      <h3 className="font-black text-text-primary uppercase tracking-wider text-sm">
                         Duración del Turno / Clase
                       </h3>
-                      <p className="text-sm text-slate-500 mt-1">
+                      <p className="text-sm text-text-secondary mt-1">
                         Las franjas de abajo se cortarán en bloques de este
                         tiempo.
                       </p>
@@ -750,12 +748,12 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                           step="15"
                           value={formData.sessionDurationMin}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-white border border-slate-300 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none text-center text-3xl font-black text-slate-900 shadow-sm"
+                          className="w-full px-4 py-3 bg-card border border-border rounded-2xl focus:ring-4 focus:ring-primary/10 focus:border-primary focus:outline-none text-center text-3xl font-black text-text-primary shadow-sm"
                           required
                         />
                       </div>
 
-                      <span className="text-base font-black text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                      <span className="text-base font-black text-text-secondary uppercase tracking-wide whitespace-nowrap">
                         Minutos
                       </span>
                     </div>
@@ -764,14 +762,14 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
 
                 <div className={sectionCardClasses}>
                   <div className="flex justify-between items-center mb-4">
-                    <label className="block text-sm font-black text-slate-800 uppercase tracking-wide">
+                    <label className="block text-sm font-black text-text-primary uppercase tracking-wide">
                       Configuración de Franjas y Días
                     </label>
 
                     <button
                       type="button"
                       onClick={addTimeBlock}
-                      className="text-red-600 text-sm font-black hover:text-red-700 flex items-center gap-1.5 bg-red-50 px-3 py-2 rounded-xl border border-red-100 transition-colors"
+                      className="text-error text-sm font-black hover:text-error flex items-center gap-1.5 bg-error-light px-3 py-2 rounded-xl border border-border transition-colors"
                     >
                       <Icon name="Plus" size={14} />
                       Añadir Franja
@@ -782,11 +780,11 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                     {timeBlocks.map((block, index) => (
                       <div
                         key={index}
-                        className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm"
+                        className="bg-card p-5 rounded-2xl border border-border shadow-sm"
                       >
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-5">
                           <div className="md:col-span-4">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                            <label className="block text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1.5">
                               Hora Inicio
                             </label>
                             <input
@@ -799,12 +797,12 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                                   e.target.value,
                                 )
                               }
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-colors"
+                              className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-lg font-black focus:ring-4 focus:ring-primary/10 focus:border-primary focus:bg-card transition-colors"
                             />
                           </div>
 
                           <div className="md:col-span-4">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                            <label className="block text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1.5">
                               Hora Fin
                             </label>
                             <input
@@ -817,12 +815,12 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                                   e.target.value,
                                 )
                               }
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-colors"
+                              className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-lg font-black focus:ring-4 focus:ring-primary/10 focus:border-primary focus:bg-card transition-colors"
                             />
                           </div>
 
                           <div className="md:col-span-3">
-                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                            <label className="block text-[10px] font-black text-text-secondary uppercase tracking-widest mb-1.5">
                               Cupo (Personas)
                             </label>
                             <input
@@ -836,7 +834,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                                   e.target.value,
                                 )
                               }
-                              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-colors"
+                              className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-lg font-black focus:ring-4 focus:ring-primary/10 focus:border-primary focus:bg-card transition-colors"
                             />
                           </div>
 
@@ -844,7 +842,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                             <button
                               type="button"
                               onClick={() => removeTimeBlock(index)}
-                              className="w-11 h-11 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                              className="w-11 h-11 flex items-center justify-center text-text-tertiary hover:text-error hover:bg-error-light rounded-xl transition-colors"
                               title="Eliminar franja"
                             >
                               <Icon name="Trash2" size={18} />
@@ -852,8 +850,8 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                           </div>
                         </div>
 
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                          <span className="text-xs font-black text-slate-600 uppercase tracking-wider">
+                        <div className="bg-muted p-4 rounded-xl border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <span className="text-xs font-black text-text-secondary uppercase tracking-wider">
                             Aplica a los días:
                           </span>
 
@@ -872,8 +870,8 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                                   }
                                   className={`w-10 h-10 rounded-lg font-black text-sm border-2 transition-all ${
                                     active
-                                      ? "border-red-500 bg-red-600 text-white shadow-md scale-105"
-                                      : "border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                                      ? "border-error bg-error text-primary-foreground shadow-md scale-105"
+                                      : "border-border bg-card text-text-secondary hover:bg-muted hover:text-text-secondary"
                                   }`}
                                   title={DAYS[dayIndex]}
                                 >
@@ -969,15 +967,15 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
             {/* TAB 3: PRECIOS */}
             {activeTab === "pricing" && (
               <div className="space-y-6 animate-in fade-in duration-200">
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 flex gap-4">
-                  <div className="bg-blue-100 p-2 rounded-lg text-blue-600 h-fit">
+                <div className="bg-info-light border border-border rounded-xl p-5 flex gap-4">
+                  <div className="bg-info-light p-2 rounded-lg text-primary h-fit">
                     <Icon name="Wallet" size={20} />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-blue-900 uppercase">
+                    <h4 className="text-sm font-black text-primary uppercase">
                       Configuración de Cobro
                     </h4>
-                    <p className="text-sm text-blue-800 mt-1">
+                    <p className="text-sm text-text-secondary mt-1">
                       Agregá las frecuencias semanales que quieras ofrecer y
                       definí su valor mensual.
                     </p>
@@ -991,7 +989,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                       <select
                         value={selectedFrequency}
                         onChange={(e) => setSelectedFrequency(e.target.value)}
-                        className="w-full sm:w-56 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-colors"
+                        className="w-full sm:w-56 px-4 py-3 bg-muted border border-border rounded-xl text-sm font-bold focus:ring-4 focus:ring-primary/10 focus:border-primary focus:outline-none transition-colors"
                       >
                         {[1, 2, 3, 4, 5, 6, 7].map((value) => (
                           <option key={value} value={value}>
@@ -1017,10 +1015,10 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                   {sortedPricingTiers.map((tier) => (
                     <div
                       key={tier.visits_per_week}
-                      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-4"
+                      className="bg-card border border-border rounded-2xl p-5 shadow-sm flex items-center gap-4"
                     >
                       <div className="min-w-[132px]">
-                        <p className="text-lg font-black text-slate-900">
+                        <p className="text-lg font-black text-text-primary">
                           {tier.visits_per_week}{" "}
                           {Number(tier.visits_per_week) === 1
                             ? "Día / Sem"
@@ -1029,7 +1027,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                       </div>
 
                       <div className="relative flex-1">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary font-black">
                           $
                         </span>
                         <input
@@ -1043,7 +1041,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                             )
                           }
                           placeholder="Ej: 45000"
-                          className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:bg-white transition-colors placeholder:text-slate-400"
+                          className="w-full pl-9 pr-4 py-3 bg-muted border border-border rounded-xl text-lg font-black focus:ring-4 focus:ring-primary/10 focus:border-primary focus:bg-card transition-colors placeholder:text-text-tertiary"
                         />
                       </div>
 
@@ -1051,7 +1049,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
                         <button
                           type="button"
                           onClick={() => removeTier(tier.visits_per_week)}
-                          className="w-11 h-11 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors shrink-0"
+                          className="w-11 h-11 flex items-center justify-center text-text-tertiary hover:text-error hover:bg-error-light rounded-xl transition-colors shrink-0"
                           title="Eliminar frecuencia"
                         >
                           <Icon name="Trash2" size={18} />
@@ -1066,16 +1064,16 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
         </form>
 
         {/* Footer */}
-        <div className="px-6 md:px-8 py-5 border-t border-slate-200 bg-white flex justify-between items-center shrink-0">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-            <span className="text-rose-500">*</span> Obligatorio
+        <div className="px-6 md:px-8 py-5 border-t border-border bg-card flex justify-between items-center shrink-0">
+          <span className="text-xs font-bold text-text-tertiary uppercase tracking-widest">
+            <span className="text-error">*</span> Obligatorio
           </span>
 
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 font-black text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-6 py-3 font-black text-text-secondary hover:bg-muted rounded-xl transition-colors"
             >
               Cancelar
             </button>
@@ -1083,7 +1081,7 @@ const CreatePlanModal = ({ plan, professors = [], onSave, onClose }) => {
             <button
               form="plan-form"
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-black shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-xl font-black shadow-md transition-all hover:-translate-y-0.5"
             >
               {plan ? "Guardar Cambios" : "Crear Plan"}
             </button>

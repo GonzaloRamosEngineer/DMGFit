@@ -3,6 +3,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { createFullAthlete } from "../../../services/athletes";
 import { fetchPlanPricing, fetchPlanSlots } from "../../../services/plans";
 import Icon from "../../../components/AppIcon";
+import { useToast } from "../../../hooks/useToast";
 
 const DAYS = [
   "Domingo",
@@ -40,6 +41,7 @@ const formatCurrency = (value) => {
 };
 
 const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
 
@@ -467,7 +469,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     if (stepId === 2) {
       const error = validateStep(1);
       if (error) {
-        alert(error);
+        toast.error(error);
         return;
       }
     }
@@ -475,7 +477,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     if (stepId === 3) {
       const error = validateStep(2);
       if (error) {
-        alert(error);
+        toast.error(error);
         return;
       }
     }
@@ -486,7 +488,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
   const handleNextStep = () => {
     const error = validateStep(activeStep);
     if (error) {
-      alert(error);
+      toast.error(error);
       return;
     }
 
@@ -504,7 +506,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
 
     const validationError = validateStep(2);
     if (validationError) {
-      alert(validationError);
+      toast.error(validationError);
       return;
     }
 
@@ -559,7 +561,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       onClose();
     } catch (error) {
       console.error("Error registrando atleta:", error);
-      alert(error.message || "Error al registrar el atleta");
+      toast.error(error.message || "Error al registrar el atleta");
     } finally {
       setLoading(false);
     }
@@ -1134,19 +1136,19 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
   );
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-100 rounded-[2rem] w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-modal flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+      <div className="bg-card border border-border rounded-3xl w-full max-w-6xl max-h-[95vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+        <div className="px-6 py-5 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
+            <div className="w-10 h-10 rounded-xl bg-info-light text-primary flex items-center justify-center shadow-inner">
               <Icon name="UserPlus" size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-800 tracking-tight">
+              <h2 className="text-xl font-black text-text-primary tracking-tight">
                 Nuevo Atleta
               </h2>
-              <p className="text-xs font-bold text-slate-400 mt-0.5">
+              <p className="text-xs font-bold text-text-tertiary mt-0.5">
                 Alta inicial con plan y asignación semanal
               </p>
             </div>
@@ -1154,14 +1156,14 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
 
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-xl text-text-tertiary hover:bg-muted hover:text-text-secondary transition-colors"
           >
             <Icon name="X" size={18} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="px-6 border-b border-slate-100 shrink-0">
+        <div className="px-6 border-b border-border shrink-0">
           <div className="flex gap-8 overflow-x-auto">
             {STEPS.map((step) => {
               const isActive = activeStep === step.id;
@@ -1172,13 +1174,13 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                   onClick={() => goToStep(step.id)}
                   className={`relative py-5 text-sm font-black uppercase tracking-wide whitespace-nowrap transition-colors ${
                     isActive
-                      ? "text-slate-900"
-                      : "text-slate-400 hover:text-slate-600"
+                      ? "text-text-primary"
+                      : "text-text-tertiary hover:text-text-secondary"
                   }`}
                 >
                   {step.label}
                   {isActive && (
-                    <span className="absolute left-0 right-0 bottom-0 h-[3px] rounded-full bg-blue-600" />
+                    <span className="absolute left-0 right-0 bottom-0 h-[3px] rounded-full bg-primary" />
                   )}
                 </button>
               );
@@ -1196,17 +1198,17 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
         </form>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0 rounded-b-[2rem]">
-          <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-widest">
+        <div className="px-6 py-4 bg-muted border-t border-border flex items-center justify-between shrink-0 rounded-b-3xl">
+          <p className="text-[10px] font-bold text-text-tertiary flex items-center gap-1.5 uppercase tracking-widest">
             <Icon name="Info" size={12} />
-            Obligatorio <span className="text-rose-500">*</span>
+            Obligatorio <span className="text-error">*</span>
           </p>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200/50 transition-colors"
+              className="px-5 py-2.5 rounded-xl font-bold text-sm text-text-secondary hover:bg-border/50 transition-colors"
             >
               Cancelar
             </button>
@@ -1215,7 +1217,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
               <button
                 type="button"
                 onClick={handlePrevStep}
-                className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+                className="px-5 py-2.5 rounded-xl font-bold text-sm text-text-secondary bg-card border border-border hover:bg-muted transition-colors"
               >
                 Atrás
               </button>
@@ -1225,7 +1227,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-primary-foreground bg-primary hover:bg-primary/90 shadow-md transition-all hover:-translate-y-0.5"
               >
                 Siguiente
                 <Icon name="ArrowRight" size={15} />
@@ -1235,7 +1237,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                 form="add-athlete-form"
                 type="submit"
                 disabled={loading}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all ${
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-primary-foreground bg-primary hover:bg-primary/90 shadow-md transition-all ${
                   loading ? "opacity-70 cursor-wait" : "hover:-translate-y-0.5"
                 }`}
               >

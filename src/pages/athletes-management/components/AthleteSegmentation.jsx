@@ -1,9 +1,13 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import Icon from '../../../components/AppIcon';
+import { Card } from '../../../components/ui/Card';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { Skeleton } from '../../../components/ui/Skeleton';
 
 const AthleteSegmentation = ({ segmentationData, loading = false }) => {
-  // Colores alineados con Tailwind (emerald, blue, amber, orange)
+  // Colores de DATO para el gráfico (recharts requiere hex). Paleta de categoría
+  // intencional — distinta de los tokens de marca.
   const COLORS = {
     elite: '#10b981',      // emerald-500
     advanced: '#3b82f6',   // blue-500
@@ -13,27 +17,27 @@ const AthleteSegmentation = ({ segmentationData, loading = false }) => {
 
   if (loading) {
     return (
-      <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-6 animate-pulse">
+      <Card padding="default">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-slate-100 rounded-2xl"></div>
+            <Skeleton className="w-12 h-12 rounded-2xl" />
             <div className="space-y-2">
-              <div className="h-5 bg-slate-100 rounded w-40"></div>
-              <div className="h-3 bg-slate-100 rounded w-24"></div>
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3 w-24" />
             </div>
           </div>
           <div className="space-y-2 text-right">
-            <div className="h-8 bg-slate-100 rounded w-12 ml-auto"></div>
-            <div className="h-3 bg-slate-100 rounded w-8 ml-auto"></div>
+            <Skeleton className="h-8 w-12 ml-auto" />
+            <Skeleton className="h-3 w-8 ml-auto" />
           </div>
         </div>
-        <div className="h-[250px] bg-slate-50 rounded-2xl mb-6 animate-pulse"></div>
-        <div className="grid grid-cols-2 gap-4 animate-pulse">
+        <Skeleton className="h-[250px] rounded-2xl mb-6" />
+        <div className="grid grid-cols-2 gap-4">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-[72px] bg-slate-50 rounded-2xl"></div>
+            <Skeleton key={i} className="h-[72px] rounded-2xl" />
           ))}
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -50,14 +54,14 @@ const AthleteSegmentation = ({ segmentationData, loading = false }) => {
     if (active && payload && payload.length) {
       const percentage = ((payload[0].value / total) * 100).toFixed(1);
       return (
-        <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-xl shadow-slate-200/50">
-          <p className="text-sm font-black text-slate-800 mb-1">{payload[0].name}</p>
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xl">
+          <p className="text-sm font-black text-text-primary mb-1">{payload[0].name}</p>
           <div className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded-full" 
+            <div
+              className="w-3 h-3 rounded-full"
               style={{ backgroundColor: payload[0].payload.color }}
             />
-            <p className="text-xs font-bold text-slate-500">
+            <p className="text-xs font-bold text-text-secondary">
               {payload[0].value} atletas · {percentage}%
             </p>
           </div>
@@ -90,26 +94,25 @@ const AthleteSegmentation = ({ segmentationData, loading = false }) => {
   };
 
   return (
-    <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col h-full">
-      
+    <Card padding="default" className="hover:shadow-md transition-shadow duration-300 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
+          <div className="w-12 h-12 rounded-2xl bg-info-light text-primary flex items-center justify-center shadow-inner">
             <Icon name="PieChart" size={24} />
           </div>
           <div>
-            <h3 className="text-lg font-black text-slate-800 tracking-tight">
+            <h3 className="text-lg font-black text-text-primary tracking-tight">
               Segmentación
             </h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest mt-0.5">
               Por nivel de rendimiento
             </p>
           </div>
         </div>
-        <div className="text-right bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
-          <p className="text-xl font-black text-slate-800">{total}</p>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</p>
+        <div className="text-right bg-muted px-4 py-2 rounded-xl border border-border">
+          <p className="text-xl font-black text-text-primary">{total}</p>
+          <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Total</p>
         </div>
       </div>
 
@@ -150,31 +153,31 @@ const AthleteSegmentation = ({ segmentationData, loading = false }) => {
             {chartData.map((segment) => {
               const percentage = ((segment.value / total) * 100).toFixed(1);
               return (
-                <div 
-                  key={segment.name} 
-                  className="bg-slate-50/50 border border-slate-100 rounded-2xl p-3.5 hover:bg-slate-50 transition-colors"
+                <div
+                  key={segment.name}
+                  className="bg-muted/50 border border-border rounded-2xl p-3.5 hover:bg-muted transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <div
                       className="w-3 h-3 rounded-full shadow-sm"
                       style={{ backgroundColor: segment.color }}
                     />
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate">
+                    <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest truncate">
                       {segment.name}
                     </p>
                   </div>
-                  
+
                   <div>
                     <div className="flex items-end justify-between mb-1.5">
-                      <p className="text-xl font-black text-slate-800 leading-none">
+                      <p className="text-xl font-black text-text-primary leading-none">
                         {segment.value}
                       </p>
-                      <span className="text-[10px] font-bold text-slate-400">
+                      <span className="text-[10px] font-bold text-text-tertiary">
                         {percentage}%
                       </span>
                     </div>
-                    
-                    <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+
+                    <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
                       <div 
                         className="h-full rounded-full transition-all duration-1000 ease-out"
                         style={{ 
@@ -190,17 +193,15 @@ const AthleteSegmentation = ({ segmentationData, loading = false }) => {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 py-10">
-          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-sm border border-slate-100">
-            <Icon name="PieChart" size={28} className="text-slate-300" />
-          </div>
-          <p className="text-sm font-black text-slate-600 mb-1">Sin Datos Aún</p>
-          <p className="text-xs font-medium text-slate-400 max-w-[200px]">
-            La segmentación aparecerá cuando registres atletas.
-          </p>
+        <div className="flex-1 flex items-center justify-center bg-muted/50 rounded-2xl border-2 border-dashed border-border">
+          <EmptyState
+            iconName="PieChart"
+            title="Sin Datos Aún"
+            description="La segmentación aparecerá cuando registres atletas."
+          />
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 

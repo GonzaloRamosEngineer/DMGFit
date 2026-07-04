@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 
-import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
 import Icon from '../../components/AppIcon';
+import { useConfirm } from '../../components/ui/ConfirmProvider';
+import { useToast } from '../../hooks/useToast';
 import CoachesTable from './components/CoachesTable';
 import CoachFormModal from './components/CoachFormModal';
 import CoachAthletesModal from './components/CoachAthletesModal';
@@ -15,6 +16,9 @@ const normalizeRelation = (value) => {
 };
 
 const CoachesManagement = () => {
+  const confirm = useConfirm();
+  const { toast } = useToast();
+
   const [coaches, setCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -101,14 +105,21 @@ const CoachesManagement = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Seguro que deseas eliminar este profesor?')) return;
+    const ok = await confirm({
+      title: 'Eliminar profesor',
+      message: '¿Seguro que deseas eliminar este profesor?',
+      confirmLabel: 'Eliminar',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase.from('coaches').delete().eq('id', id);
       if (error) throw error;
+      toast.success('Profesor eliminado.');
       fetchCoaches();
     } catch (err) {
-      alert('Error al eliminar: ' + err.message);
+      toast.error('No se pudo eliminar.');
     }
   };
 
@@ -133,59 +144,37 @@ const CoachesManagement = () => {
         <title>Gestión de Profesores - VC Fit</title>
       </Helmet>
 
-      <div className="min-h-screen bg-[#F8FAFC] py-6 md:py-8 pb-24">
-        <div className="w-full">
-
-          {/* ── HEADER CARD (mismo patrón que payment-management) ── */}
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-7 mb-7 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <BreadcrumbTrail
-                items={[
-                  { label: 'Gestión de Profesores', path: '/coaches-management', active: true },
-                ]}
-              />
-              <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-2">
-                Equipo de Profesores
-              </h1>
-              <p className="text-slate-500 font-medium mt-1">
-                Gestiona a los entrenadores y sus asignaciones
-              </p>
-            </div>
-
-            <button
-              onClick={handleCreate}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-xl shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all w-full md:w-auto"
-            >
-              <Icon name="UserPlus" size={16} />
-              Nuevo Profesor
-            </button>
+      <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
+        {/* Header compacto */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
+              Equipo de Profesores
+            </h1>
+            <p className="text-sm text-text-secondary font-medium mt-0.5">
+              Gestiona a los entrenadores y sus asignaciones
+            </p>
           </div>
 
-          {/* Contenedor principal */}
-          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-4 sm:px-6 md:px-8 pt-6 pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-                  <Icon name="Users" size={20} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-800">Staff Activo</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                    {loading ? 'Cargando...' : `${coaches.length} entrenadores`}
-                  </p>
-                </div>
-              </div>
-            </div>
+          <button
+            onClick={handleCreate}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/90 shadow-md hover:-translate-y-0.5 text-xs uppercase tracking-widest transition-all w-full md:w-auto"
+          >
+            <Icon name="UserPlus" size={16} />
+            Nuevo Profesor
+          </button>
+        </div>
 
-            <CoachesTable
-              coaches={coaches}
-              loading={loading}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onViewAthletes={handleViewAthletes}
-              onEnableAccount={handleEnableAccount}
-            />
-          </div>
+        {/* Tabla: única card que llena el alto restante */}
+        <div className="lg:flex-1 lg:min-h-0">
+          <CoachesTable
+            coaches={coaches}
+            loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onViewAthletes={handleViewAthletes}
+            onEnableAccount={handleEnableAccount}
+          />
         </div>
       </div>
 

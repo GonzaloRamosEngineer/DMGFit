@@ -58,10 +58,10 @@ const MyPlanCard = ({ plan, kioskRemaining }) => {
   // Empty State Premium
   if (!plan) {
     return (
-      <div className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 p-8 min-h-[240px] flex flex-col items-center justify-center text-center border border-slate-800">
+      <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 min-h-[240px] flex flex-col items-center justify-center text-center border border-slate-800">
         <Icon name="CreditCard" size={32} className="text-slate-600 mb-3 opacity-50" />
         <h3 className="text-slate-400 font-bold uppercase tracking-widest text-xs">Sin Plan Activo</h3>
-        <button className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors">
+        <button className="mt-4 px-6 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-xs font-black uppercase tracking-wider transition-colors">
           Explorar Planes
         </button>
       </div>
@@ -78,7 +78,7 @@ const MyPlanCard = ({ plan, kioskRemaining }) => {
     : '—';
 
   return (
-    <div className="group relative overflow-hidden rounded-[2.5rem] bg-[#0F172A] text-white shadow-2xl shadow-slate-900/40 min-h-[280px] flex flex-col justify-between p-8 border border-white/5 transition-transform duration-500 hover:scale-[1.01]">
+    <div className="group relative overflow-hidden rounded-3xl bg-[#0F172A] text-white shadow-2xl shadow-slate-900/40 min-h-[280px] flex flex-col justify-between p-8 border border-white/5 transition-transform duration-500 hover:scale-[1.01]">
       
       {/* --- BACKGROUND FX --- */}
       {/* Noise Texture Overlay (Opcional, simulado con opacidad) */}

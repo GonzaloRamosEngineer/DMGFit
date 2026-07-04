@@ -186,7 +186,7 @@ const PlanCard = ({
 
   if (loading) {
     return (
-      <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden animate-pulse flex flex-col h-full">
+      <div className="bg-card border border-border rounded-3xl overflow-hidden animate-pulse flex flex-col h-full">
         <div className="bg-slate-950 px-6 py-6">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="space-y-3 flex-1">
@@ -199,17 +199,17 @@ const PlanCard = ({
 
         <div className="p-6 flex-1 space-y-5">
           <div className="grid grid-cols-2 gap-4">
-            <div className="h-24 rounded-2xl bg-slate-100" />
-            <div className="h-24 rounded-2xl bg-slate-100" />
+            <div className="h-24 rounded-2xl bg-muted" />
+            <div className="h-24 rounded-2xl bg-muted" />
           </div>
 
-          <div className="h-40 rounded-2xl bg-slate-50 border border-slate-100" />
+          <div className="h-40 rounded-2xl bg-muted/50 border border-border" />
         </div>
 
-        <div className="px-6 py-5 border-t border-slate-100 bg-slate-50">
+        <div className="px-6 py-5 border-t border-border bg-muted">
           <div className="flex justify-end gap-6">
-            <div className="h-5 w-16 bg-slate-200 rounded" />
-            <div className="h-5 w-20 bg-slate-200 rounded" />
+            <div className="h-5 w-16 bg-border rounded" />
+            <div className="h-5 w-20 bg-border rounded" />
           </div>
         </div>
       </div>
@@ -221,8 +221,8 @@ const PlanCard = ({
 
   return (
     <div
-      className={`bg-white border rounded-[2rem] overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/50 hover:-translate-y-1 flex flex-col h-full ${
-        isActive ? 'border-slate-200' : 'border-slate-200 opacity-95'
+      className={`bg-card border rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full ${
+        isActive ? 'border-border' : 'border-border opacity-95'
       }`}
     >
       {/* Header oscuro */}
@@ -258,54 +258,54 @@ const PlanCard = ({
       <div className="p-6 flex-1 flex flex-col">
         {/* Métricas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-[11px] font-black text-text-secondary uppercase tracking-widest mb-1">
               Precios desde
             </p>
             <div className="flex items-end gap-1">
-              <span className="text-3xl font-black text-slate-900">
+              <span className="text-3xl font-black text-text-primary">
                 {formatCurrency(lowestPrice)}
               </span>
-              <span className="text-sm font-bold text-slate-400 mb-1">/mes</span>
+              <span className="text-sm font-bold text-text-tertiary mb-1">/mes</span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-text-tertiary mt-1">
               Varía según frecuencia semanal
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-1">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <p className="text-[11px] font-black text-text-secondary uppercase tracking-widest mb-1">
               Ocupación actual
             </p>
 
             <div className="flex items-end gap-1">
-              <span className="text-3xl font-black text-slate-900">{enrolled}</span>
-              <span className="text-sm font-bold text-slate-400 mb-1">alumnos</span>
+              <span className="text-3xl font-black text-text-primary">{enrolled}</span>
+              <span className="text-sm font-bold text-text-tertiary mb-1">alumnos</span>
             </div>
 
             {accumulatedAvailability.hasRemainingData ? (
               <>
                 <div className="mt-3 flex items-end gap-1">
-                  <span className="text-xl font-black text-emerald-600">
+                  <span className="text-xl font-black text-success">
                     {accumulatedAvailability.totalRemaining}
                   </span>
-                  <span className="text-sm font-bold text-slate-400 mb-0.5">
+                  <span className="text-sm font-bold text-text-tertiary mb-0.5">
                     lugares libres
                   </span>
                 </div>
 
-                <p className="text-xs font-semibold text-slate-500 mt-1">
+                <p className="text-xs font-semibold text-text-secondary mt-1">
                   Disponibilidad horaria acumulada
                 </p>
 
                 {accumulatedAvailability.slotCount > 0 && (
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-text-tertiary mt-1">
                     Sumatoria de libres reales en {accumulatedAvailability.slotCount} slots configurados
                   </p>
                 )}
               </>
             ) : (
-              <p className="text-xs text-slate-400 mt-3">
+              <p className="text-xs text-text-tertiary mt-3">
                 Disponibilidad horaria no calculada
               </p>
             )}
@@ -313,35 +313,35 @@ const PlanCard = ({
         </div>
 
         {/* Horarios habilitados */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 flex-1">
-          <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">
+        <div className="rounded-2xl border border-border bg-card p-4 flex-1">
+          <p className="text-[11px] font-black text-text-secondary uppercase tracking-widest mb-3">
             Horarios habilitados
           </p>
 
           <div className="space-y-2 mb-3">
             {availabilitySummary.items.length > 0 ? (
               availabilitySummary.items.map((item, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm text-slate-700">
+                <div key={index} className="flex items-center gap-2 text-sm text-text-secondary">
                   <Icon
                     name={getSummaryIconName(item.startTime)}
                     size={14}
-                    className="text-slate-400"
+                    className="text-text-tertiary"
                   />
                   <span className="font-medium">{item.label}</span>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-slate-400 italic">Sin horarios definidos</p>
+              <p className="text-sm text-text-tertiary italic">Sin horarios definidos</p>
             )}
           </div>
 
           <div className="mb-4">
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-text-tertiary">
               Resumen de disponibilidad semanal del plan
             </p>
 
             {availabilitySummary.extraCount > 0 && (
-              <p className="text-[11px] font-semibold text-slate-400 mt-1">
+              <p className="text-[11px] font-semibold text-text-tertiary mt-1">
                 +{availabilitySummary.extraCount} franja{availabilitySummary.extraCount > 1 ? 's' : ''} más
               </p>
             )}
@@ -350,34 +350,34 @@ const PlanCard = ({
           <button
             type="button"
             onClick={() => onViewGrid?.(plan)}
-            className="w-full rounded-xl border border-rose-200 bg-rose-50/40 hover:bg-rose-50 text-slate-900 py-3 font-black uppercase tracking-wide text-sm transition-colors inline-flex items-center justify-center gap-2"
+            className="w-full rounded-xl border border-primary/20 bg-info-light hover:bg-info-light/70 text-primary py-3 font-black uppercase tracking-wide text-sm transition-colors inline-flex items-center justify-center gap-2"
           >
-            <span>🔍</span>
+            <Icon name="Search" size={16} />
             Ver grilla de cupos
           </button>
         </div>
       </div>
 
       {/* Footer acciones */}
-      <div className="px-6 py-5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-8">
+      <div className="px-6 py-5 border-t border-border bg-muted flex items-center justify-end gap-8">
         <button
           type="button"
           onClick={() => onEdit?.(plan)}
-          className="inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-slate-900 transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-black text-text-secondary hover:text-text-primary transition-colors"
         >
-          <Icon name="Pencil" size={14} className="text-orange-500" />
+          <Icon name="Pencil" size={14} className="text-secondary" />
           Editar
         </button>
 
         <button
           type="button"
           onClick={() => onToggleStatus?.(plan.id)}
-          className="inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-slate-900 transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-black text-text-secondary hover:text-text-primary transition-colors"
         >
           <Icon
             name={isActive ? 'CircleOff' : 'Eye'}
             size={14}
-            className={isActive ? 'text-rose-500' : 'text-emerald-500'}
+            className={isActive ? 'text-error' : 'text-success'}
           />
           {isActive ? 'Dar de baja' : 'Activar'}
         </button>
@@ -385,7 +385,7 @@ const PlanCard = ({
         <button
           type="button"
           onClick={() => onDelete?.(plan.id)}
-          className="inline-flex items-center gap-2 text-sm font-black text-slate-400 hover:text-rose-600 transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-black text-text-tertiary hover:text-error transition-colors"
           title="Eliminar plan"
         >
           <Icon name="Trash2" size={14} />

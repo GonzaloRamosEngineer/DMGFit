@@ -101,23 +101,23 @@ const AttendanceCard = ({ attendance }) => {
   // Si no hay datos, mostramos estado vacío elegante
   if (total === 0) {
      return (
-        <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm h-full flex flex-col items-center justify-center text-center opacity-60">
-            <Icon name="Calendar" size={32} className="text-slate-300 mb-2"/>
-            <p className="text-xs font-bold uppercase text-slate-400">Sin historial</p>
+        <div className="bg-card border border-border rounded-3xl p-6 shadow-sm h-full flex flex-col items-center justify-center text-center opacity-60">
+            <Icon name="Calendar" size={32} className="text-text-tertiary mb-2"/>
+            <p className="text-xs font-bold uppercase text-text-tertiary">Sin historial</p>
         </div>
      );
   }
 
   return (
-    <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] h-full relative overflow-hidden flex flex-col justify-between group">
-      
+    <div className="bg-card border border-border rounded-3xl p-6 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.05)] h-full relative overflow-hidden flex flex-col justify-between group">
+
       {/* Decoración de fondo */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-[40px] -mr-10 -mt-10 transition-opacity opacity-50 group-hover:opacity-100"></div>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-success-light rounded-full blur-[40px] -mr-10 -mt-10 transition-opacity opacity-50 group-hover:opacity-100"></div>
 
       {/* HEADER */}
       <div className="flex justify-between items-start z-10 mb-2">
         <div>
-          <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">Disciplina</h2>
+          <h2 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.25em]">Disciplina</h2>
           <div className="flex items-center gap-2 mt-1">
              <span className={`text-lg font-black tracking-tight ${status.color}`}>
                 {status.label}
@@ -128,9 +128,9 @@ const AttendanceCard = ({ attendance }) => {
         
         {/* Streak Badge (Racha) */}
         {streak > 1 && (
-            <div className="flex flex-col items-center bg-orange-50 px-2 py-1.5 rounded-xl border border-orange-100">
-                <Icon name="Flame" size={16} className="text-orange-500 animate-pulse" fill="currentColor" />
-                <span className="text-[9px] font-black text-orange-600 uppercase tracking-wide">
+            <div className="flex flex-col items-center bg-secondary/10 px-2 py-1.5 rounded-xl border border-secondary/20">
+                <Icon name="Flame" size={16} className="text-secondary animate-pulse" fill="currentColor" />
+                <span className="text-[9px] font-black text-secondary uppercase tracking-wide">
                     {streak} días
                 </span>
             </div>
@@ -164,28 +164,28 @@ const AttendanceCard = ({ attendance }) => {
           
           {/* Texto Central */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-4xl font-black text-slate-800 tracking-tighter">
-              {rate}<span className="text-lg text-slate-400">%</span>
+            <span className="text-4xl font-black text-text-primary tracking-tighter">
+              {rate}<span className="text-lg text-text-tertiary">%</span>
             </span>
           </div>
         </div>
 
         {/* Visual History (Puntitos) */}
         <div className="flex flex-col items-center mt-2">
-           <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1">Últimas Sesiones</span>
+           <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Últimas Sesiones</span>
            <HistoryDots history={recentHistory} />
         </div>
       </div>
 
       {/* FOOTER STATS */}
-      <div className="flex justify-between items-center bg-slate-50/80 rounded-2xl p-4 mt-2 border border-slate-100 backdrop-blur-sm z-10">
-        <div className="text-center w-1/2 border-r border-slate-200">
-          <p className="text-xl font-black text-slate-800 tracking-tight leading-none">{presentCount}</p>
-          <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Asistencias</p>
+      <div className="flex justify-between items-center bg-muted/80 rounded-2xl p-4 mt-2 border border-border backdrop-blur-sm z-10">
+        <div className="text-center w-1/2 border-r border-border">
+          <p className="text-xl font-black text-text-primary tracking-tight leading-none">{presentCount}</p>
+          <p className="text-[9px] font-bold text-text-tertiary uppercase mt-1">Asistencias</p>
         </div>
         <div className="text-center w-1/2">
-          <p className="text-xl font-black text-slate-400 tracking-tight leading-none">{total}</p>
-          <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Total Clases</p>
+          <p className="text-xl font-black text-text-tertiary tracking-tight leading-none">{total}</p>
+          <p className="text-[9px] font-bold text-text-tertiary uppercase mt-1">Total Clases</p>
         </div>
       </div>
 
