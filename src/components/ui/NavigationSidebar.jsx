@@ -70,7 +70,7 @@ const NavigationSidebar = ({
       icon: "Dumbbell",
       path: "/exercise-library",
       badge: 0,
-      roles: ["admin", "profesor", "atleta"],
+      roles: ["admin", "profesor"],
       description: "Biblioteca de ejercicios",
     },
     {
@@ -138,7 +138,7 @@ const NavigationSidebar = ({
     }
 
     if (role === "atleta") {
-      return item.id?.startsWith("athlete-portal") || item.id === "exercise-library";
+      return item.id?.startsWith("athlete-portal");
     }
 
     return item?.roles?.includes(role);

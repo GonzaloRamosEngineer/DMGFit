@@ -29,6 +29,7 @@ import PerformanceChart from './components/PerformanceChart';// Gráfico Lineal 
 import MetricsCard from './components/MetricsCard';          // Grid de Métricas Vivas
 import AthleteRadar from './components/AthleteRadar';        // Perfil Radar
 import MetricEntryForm from './components/MetricEntryForm';  // Input Avanzado
+import ExerciseProgressSelector from './components/ExerciseProgressSelector';
 import UpcomingSessionsCard from './components/UpcomingSessionsCard'; // Agenda Boarding Pass
 import MyPlanCard from './components/MyPlanCard';            // Membership Black Card
 import MyScheduleCard from './components/MyScheduleCard';    // Auto-gestión de turnos (preferencia)
@@ -66,6 +67,7 @@ const AthletePortal = () => {
   const [sessions, setSessions] = useState([]);
   const [payments, setPayments] = useState([]);
   const [kioskRemaining, setKioskRemaining] = useState(null);
+  const [selectedExercise, setSelectedExercise] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadErrors, setLoadErrors] = useState({});
   
@@ -293,13 +295,53 @@ const AthletePortal = () => {
           {activeSection === 'progreso' && (
             <section>
               <SectionTitle label="Mi progreso" />
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-                <div className="lg:col-span-2 space-y-5">
-                  <PerformanceChart metrics={metrics} />
-                  <MetricEntryForm athleteId={calculatedAthleteId} onSuccess={refreshMetrics} />
-                  <MetricsCard metrics={metrics} />
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
+                  <PerformanceChart metrics={metrics} compact />
+                  <AthleteRadar metrics={metrics} compact />
                 </div>
-                <AthleteRadar metrics={metrics} />
+
+                <div className="rounded-3xl border border-border bg-card shadow-[0_24px_70px_-34px_rgba(15,23,42,0.22)] overflow-hidden">
+                  <div className="flex flex-col gap-3 border-b border-border px-5 py-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
+                        Registro inteligente
+                      </p>
+                      <h3 className="text-xl font-black text-text-primary">
+                        Elegí un movimiento y cargá tu marca
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-xs font-black uppercase tracking-wider text-text-secondary">
+                      <Icon name="MousePointerClick" size={15} className="text-primary" />
+                      Flujo rápido
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] gap-0 divide-y divide-border xl:divide-x xl:divide-y-0">
+                    <div className="p-5">
+                      <ExerciseProgressSelector
+                        selectedExercise={selectedExercise}
+                        onSelect={setSelectedExercise}
+                        embedded
+                        compact
+                      />
+                    </div>
+
+                    <div className="p-5">
+                      <MetricEntryForm
+                        athleteId={calculatedAthleteId}
+                        onSuccess={refreshMetrics}
+                        selectedExercise={selectedExercise}
+                        embedded
+                        compact
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {metrics.length > 0 && (
+                  <MetricsCard metrics={metrics} />
+                )}
               </div>
             </section>
           )}
