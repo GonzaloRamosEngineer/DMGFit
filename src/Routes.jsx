@@ -25,6 +25,7 @@ import AccessControl from "./pages/access-control";
 import AccessHistory from "./pages/access-history";
 import CoachAttendance from "./pages/coach-attendance";
 import ClassSchedule from "./pages/class-schedule";
+import ExerciseLibrary from "./pages/exercise-library";
 import Unauthorized from "./pages/Unauthorized";
 
 // Rutas de Auth
@@ -120,6 +121,14 @@ const Routes = () => {
               }
             />
             <Route
+              path="/exercise-library"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
+                  <ExerciseLibrary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/performance-analytics"
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
@@ -167,6 +176,14 @@ const Routes = () => {
             {/* Solo Atleta */}
             <Route
               path="/athlete-portal"
+              element={
+                <ProtectedRoute allowedRoles={["atleta"]}>
+                  <AthletePortal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/athlete-portal/:section"
               element={
                 <ProtectedRoute allowedRoles={["atleta"]}>
                   <AthletePortal />

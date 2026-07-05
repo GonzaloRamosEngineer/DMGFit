@@ -3,6 +3,10 @@ import { Link, useLocation } from "react-router-dom";
 import Icon from "../AppIcon";
 import AlertBadge from "./AlertBadge";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  ATHLETE_PORTAL_SECTIONS,
+  DEFAULT_ATHLETE_PORTAL_SECTION,
+} from "../../config/athletePortalSections";
 
 const NavigationSidebar = ({
   isCollapsed = false,
@@ -23,15 +27,16 @@ const NavigationSidebar = ({
       roles: ["admin"],
       description: "Vista general del sistema",
     },
-    {
-      id: "athlete-portal",
-      label: "Mi Portal",
-      icon: "Home",
-      path: "/athlete-portal",
+    ...ATHLETE_PORTAL_SECTIONS.map((section) => ({
+      id: `athlete-portal-${section.id}`,
+      label: section.label,
+      icon: section.icon,
+      path: section.path,
       badge: 0,
       roles: ["atleta"],
-      description: "Portal del atleta",
-    },
+      description: section.description,
+      exact: section.id === DEFAULT_ATHLETE_PORTAL_SECTION,
+    })),
     {
       id: "profesores",
       label: "Profesores",
@@ -58,6 +63,15 @@ const NavigationSidebar = ({
       badge: 0,
       roles: ["admin"],
       description: "Planes de entrenamiento",
+    },
+    {
+      id: "exercise-library",
+      label: "Ejercicios",
+      icon: "Dumbbell",
+      path: "/exercise-library",
+      badge: 0,
+      roles: ["admin", "profesor"],
+      description: "Biblioteca de ejercicios",
     },
     {
       id: "pagos",
@@ -120,17 +134,20 @@ const NavigationSidebar = ({
     const role = currentUser?.role;
 
     if (role === "profesor") {
-      return item.id === "mi-panel" || item.id === "horarios";
+      return item.id === "mi-panel" || item.id === "horarios" || item.id === "exercise-library";
     }
 
     if (role === "atleta") {
-      return item.id === "athlete-portal";
+      return item.id?.startsWith("athlete-portal");
     }
 
     return item?.roles?.includes(role);
   });
 
-  const isActive = (path) => {
+  const isActive = (item) => {
+    const path = item?.path;
+    if (item?.exact) return location?.pathname === path;
+
     return (
       location?.pathname === path || location?.pathname?.startsWith(path + "/")
     );
@@ -247,7 +264,7 @@ const NavigationSidebar = ({
                 relative flex items-center h-11 px-3 rounded-lg
                 transition-all duration-200 group
                 ${
-                  isActive(item?.path)
+                  isActive(item)
                     ? "bg-primary/10 text-primary shadow-sm"
                     : "text-foreground hover:bg-muted hover:text-primary"
                 }
@@ -260,7 +277,7 @@ const NavigationSidebar = ({
                   name={item?.icon}
                   size={20}
                   color={
-                    isActive(item?.path)
+                    isActive(item)
                       ? "var(--color-primary)"
                       : "currentColor"
                   }

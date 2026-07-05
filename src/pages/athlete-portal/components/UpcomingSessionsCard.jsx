@@ -153,13 +153,10 @@ const UpcomingSessionsCard = ({ sessions }) => {
            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4 border border-dashed border-border">
               <Icon name="Coffee" className="text-text-tertiary" size={24} />
            </div>
-           <h3 className="text-text-primary font-black text-sm uppercase tracking-wide">Día de Descanso</h3>
+           <h3 className="text-text-primary font-black text-sm uppercase tracking-wide">Sin sesiones próximas</h3>
            <p className="text-xs text-text-tertiary mt-2 max-w-[200px] leading-relaxed">
-              No tienes sesiones programadas próximamente. ¡Aprovecha para recuperar energía!
+              Cuando tengas una clase asignada, va a aparecer en tu agenda.
            </p>
-           <button className="mt-6 px-5 py-2 bg-primary text-primary-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 transition-colors">
-              Agendar Clase
-           </button>
         </div>
      );
   }

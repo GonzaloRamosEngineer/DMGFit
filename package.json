@@ -61,7 +61,10 @@
   "scripts": {
     "start": "vite",
     "build": "vite build --sourcemap",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "seed:exercises": "node scripts/seed-exercises.mjs",
+    "seed:exercises:dry": "node scripts/seed-exercises.mjs --dry-run",
+    "seed:exercises:sql": "node scripts/seed-exercises.mjs --sql"
   },
   "eslintConfig": {
     "extends": [

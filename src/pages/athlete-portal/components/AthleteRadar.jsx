@@ -91,29 +91,26 @@ const CustomTooltip = ({ active, payload }) => {
 
 // --- MAIN COMPONENT ---
 
-const AthleteRadar = ({ metrics }) => {
+const AthleteRadar = ({ metrics, compact = false }) => {
   const { data, score } = useRadarData(metrics);
   const isEnoughData = data.length >= 3;
 
   return (
-    <div className="bg-slate-900 rounded-3xl p-8 shadow-2xl shadow-slate-900/50 text-white relative overflow-hidden h-full min-h-[400px] flex flex-col">
-      
-      {/* Background Ambience */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20 pointer-events-none"></div>
-      <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-500 rounded-full blur-[80px] opacity-10 pointer-events-none"></div>
+    <div className={`bg-slate-950 rounded-3xl ${compact ? 'p-5 min-h-[270px]' : 'p-8 min-h-[400px]'} shadow-[0_24px_60px_-28px_rgba(2,6,23,0.75)] text-white relative overflow-hidden flex flex-col border border-slate-800`}>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/60 to-transparent pointer-events-none"></div>
 
       {/* Header */}
-      <div className="relative z-10 flex justify-between items-start mb-6">
+      <div className={`relative z-10 flex justify-between items-start ${compact ? 'mb-3' : 'mb-6'}`}>
         <div>
           <div className="flex items-center gap-3 mb-1">
-             <div className="p-2 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm">
-                <Icon name="Crosshair" className="text-blue-400" size={20} />
+             <div className={`${compact ? 'p-1.5' : 'p-2'} bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm`}>
+                <Icon name="Crosshair" className="text-blue-400" size={compact ? 16 : 20} />
              </div>
-             <h3 className="text-xl font-black tracking-tight text-white uppercase italic">
+             <h3 className={`${compact ? 'text-base' : 'text-xl'} font-black text-white uppercase italic`}>
                Perfil <span className="text-blue-500">Atlético</span>
              </h3>
           </div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] pl-1">
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em] pl-1">
             Análisis Multidimensional
           </p>
         </div>
@@ -121,7 +118,7 @@ const AthleteRadar = ({ metrics }) => {
         {/* Score Badge */}
         {isEnoughData && (
           <div className="text-right">
-             <span className="block text-[32px] font-black leading-none tracking-tighter text-white">
+             <span className={`${compact ? 'text-2xl' : 'text-[32px]'} block font-black leading-none text-white`}>
                {score}
              </span>
              <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">
@@ -134,7 +131,7 @@ const AthleteRadar = ({ metrics }) => {
       {/* Content Area */}
       <div className="flex-1 relative z-10 w-full flex items-center justify-center">
         {isEnoughData ? (
-          <div className="w-full h-[300px]">
+          <div className={`w-full ${compact ? 'h-[185px]' : 'h-[300px]'}`}>
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data}>
                 <defs>
@@ -172,8 +169,8 @@ const AthleteRadar = ({ metrics }) => {
           </div>
         ) : (
           /* Empty State con estilo */
-          <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-slate-700/50 rounded-3xl bg-slate-800/30 w-full h-[250px]">
-             <Icon name="Activity" className="text-slate-600 mb-3" size={32} />
+          <div className={`flex flex-col items-center justify-center text-center border border-dashed border-slate-700/70 rounded-3xl bg-slate-900/70 w-full ${compact ? 'h-[170px] p-4' : 'h-[250px] p-6'}`}>
+             <Icon name="Activity" className="text-slate-600 mb-3" size={compact ? 24 : 32} />
              <h4 className="text-slate-300 font-bold text-sm mb-1">Datos Insuficientes</h4>
              <p className="text-slate-500 text-xs max-w-[200px]">
                Registra al menos 3 métricas diferentes para generar tu mapa de radar.

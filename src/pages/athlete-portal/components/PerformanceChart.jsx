@@ -85,8 +85,8 @@ const usePerformanceData = (metrics, selectedMetric, timeRange) => {
 
 // --- SUB-COMPONENTS ---
 
-const ChartControls = React.memo(({ ranges, activeRange, onRangeChange, metrics, activeMetric, onMetricChange }) => (
-  <div className="flex flex-col space-y-6">
+const ChartControls = React.memo(({ ranges, activeRange, onRangeChange, metrics, activeMetric, onMetricChange, compact = false }) => (
+  <div className="flex flex-col">
     <div className="flex flex-wrap items-center justify-between gap-4">
       {/* Pills de Métricas con Scroll Oculto */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-2 px-2">
@@ -95,9 +95,10 @@ const ChartControls = React.memo(({ ranges, activeRange, onRangeChange, metrics,
             key={m}
             onClick={() => onMetricChange(m)}
             className={cn(
-              "whitespace-nowrap px-5 py-2 rounded-full text-[10px] font-bold tracking-widest transition-all duration-300 border uppercase",
+              "whitespace-nowrap rounded-full border text-[10px] font-bold tracking-widest transition-all duration-300 uppercase",
+              compact ? "px-3 py-1.5" : "px-5 py-2",
               activeMetric === m
-                ? "bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-200 scale-105"
+                ? "bg-slate-900 border-slate-900 text-white shadow-sm"
                 : "bg-transparent border-border text-text-tertiary hover:border-border hover:text-text-secondary"
             )}
           >
@@ -127,7 +128,7 @@ const ChartControls = React.memo(({ ranges, activeRange, onRangeChange, metrics,
   </div>
 ));
 
-const StatsGrid = ({ stats, unit }) => {
+const StatsGrid = ({ stats, unit, compact = false }) => {
   if (!stats) return null;
   const items = [
     { label: 'Promedio', value: `${stats.avg} ${unit}` },
@@ -137,13 +138,16 @@ const StatsGrid = ({ stats, unit }) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-t border-border">
+    <div className={cn(
+      "grid grid-cols-2 md:grid-cols-4 border-t border-border",
+      compact ? "gap-4 py-4" : "gap-8 py-8"
+    )}>
       {items.map((item, i) => (
         <div key={i}>
           <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-1">
             {item.label}
           </p>
-          <p className="text-xl font-black text-text-primary tracking-tighter">
+          <p className={cn("font-black text-text-primary", compact ? "text-base" : "text-xl")}>
             {item.value}
           </p>
         </div>
@@ -161,7 +165,7 @@ const ChartTooltip = ({ active, payload, label }) => {
       </p>
       <div className="flex items-center justify-between gap-6">
         <span className="text-[10px] font-bold text-text-secondary uppercase">Valor</span>
-        <span className="text-xl font-black text-text-primary tracking-tighter">
+        <span className="text-xl font-black text-text-primary">
           {payload[0].value} <span className="text-xs font-medium text-primary">{payload[0].payload.unit}</span>
         </span>
       </div>
@@ -171,7 +175,7 @@ const ChartTooltip = ({ active, payload, label }) => {
 
 // --- MAIN COMPONENT ---
 
-const PerformanceChart = ({ metrics = [] }) => {
+const PerformanceChart = ({ metrics = [], compact = false }) => {
   const [selectedMetric, setSelectedMetric] = useState('Peso Corporal');
   const [timeRange, setTimeRange] = useState('3M');
   
@@ -190,9 +194,12 @@ const PerformanceChart = ({ metrics = [] }) => {
   // Empty State Consistente
   if (availableMetrics.length === 0) {
     return (
-      <div className="bg-card rounded-3xl p-12 border border-border col-span-2 h-[450px] flex flex-col items-center justify-center text-center opacity-60">
-        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4 border border-dashed border-border">
-           <Icon name="Activity" className="text-text-tertiary" size={24} />
+      <div className={cn(
+        "bg-card rounded-3xl border border-border flex flex-col items-center justify-center text-center opacity-70",
+        compact ? "h-[270px] p-8" : "h-[450px] p-12 col-span-2"
+      )}>
+        <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center mb-4 border border-dashed border-border">
+           <Icon name="Activity" className="text-text-tertiary" size={22} />
         </div>
         <h3 className="text-text-primary font-black text-sm uppercase tracking-wide">Sin datos aún</h3>
         <p className="text-xs text-text-tertiary mt-2 max-w-[200px]">
@@ -203,7 +210,10 @@ const PerformanceChart = ({ metrics = [] }) => {
   }
 
   return (
-    <div className="bg-card rounded-3xl p-8 lg:p-12 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] border border-border col-span-2 flex flex-col space-y-10">
+    <div className={cn(
+      "bg-card rounded-3xl shadow-[0_20px_50px_-24px_rgba(15,23,42,0.14)] border border-border flex flex-col",
+      compact ? "p-6 space-y-5" : "p-8 lg:p-12 space-y-10 col-span-2"
+    )}>
       
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -212,7 +222,7 @@ const PerformanceChart = ({ metrics = [] }) => {
               <div className="p-2 bg-info-light rounded-xl text-primary">
                  <Icon name="Activity" size={20} />
               </div>
-              <h3 className="text-2xl font-black text-text-primary tracking-tight italic uppercase">
+              <h3 className={cn("font-black text-text-primary italic uppercase", compact ? "text-lg" : "text-2xl")}>
                 Performance <span className="text-primary">Analytics</span>
               </h3>
            </div>
@@ -221,7 +231,7 @@ const PerformanceChart = ({ metrics = [] }) => {
            </p>
         </div>
         
-        <button className="flex items-center gap-2 px-6 py-3 bg-muted hover:bg-slate-900 text-text-primary hover:text-white rounded-2xl transition-all duration-500 group">
+        <button className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-2 text-text-primary transition-all duration-300 hover:bg-slate-900 hover:text-white group">
           <Icon name="Download" size={14} className="group-hover:-translate-y-0.5 transition-transform" />
           <span className="text-[10px] font-black uppercase tracking-widest">Exportar</span>
         </button>
@@ -231,10 +241,11 @@ const PerformanceChart = ({ metrics = [] }) => {
       <ChartControls 
         ranges={ranges} activeRange={timeRange} onRangeChange={setTimeRange}
         metrics={availableMetrics} activeMetric={selectedMetric} onMetricChange={setSelectedMetric}
+        compact={compact}
       />
 
       {/* Chart Area */}
-      <div className="h-[350px] w-full -ml-4">
+      <div className={cn("w-full -ml-4", compact ? "h-[220px]" : "h-[350px]")}>
         {data.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
@@ -278,10 +289,13 @@ const PerformanceChart = ({ metrics = [] }) => {
       </div>
 
       {/* Stats Footer */}
-      <StatsGrid stats={stats} unit={data[0]?.unit || ''} />
+      <StatsGrid stats={stats} unit={data[0]?.unit || ''} compact={compact} />
 
       {/* Metadata Footer */}
-      <footer className="flex justify-between items-center text-[8px] font-black text-text-tertiary uppercase tracking-[0.3em]">
+      <footer className={cn(
+        "justify-between items-center text-[8px] font-black text-text-tertiary uppercase tracking-[0.3em]",
+        compact ? "hidden md:flex" : "flex"
+      )}>
         <span>Sincronizado: {new Date().toLocaleDateString()}</span>
         <span className="flex items-center gap-1 italic">
           <Icon name="ShieldCheck" size={10} /> Datos Verificados
