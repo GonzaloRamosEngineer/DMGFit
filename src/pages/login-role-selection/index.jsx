@@ -113,8 +113,15 @@ const LoginRoleSelection = () => {
     setError('');
 
     try {
+      // Login flexible: si el identificador no tiene "@", se trata como DNI y se
+      // mapea al email interno {DNI}@vcfit.internal (socios sin email entran con DNI).
+      const idRaw = formData.email.trim();
+      const loginEmail = idRaw.includes('@')
+        ? idRaw
+        : `${idRaw.replace(/\D/g, '')}@vcfit.internal`;
+
       const { error: loginError, user } = await login({
-        email: formData.email.trim(),
+        email: loginEmail,
         password: formData.password
       });
 
@@ -212,18 +219,18 @@ const LoginRoleSelection = () => {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                   <label htmlFor="email" className="block text-xs font-bold text-stone-700 mb-2 tracking-widest uppercase">
-                    Email
+                    Email o DNI
                   </label>
                   <Input
                     id="email"
                     name="email"
-                    type="email"
+                    type="text"
                     value={formData.email}
                     onChange={handleInputChange}
-                    placeholder="tuemail@..."
+                    placeholder="tu email o tu DNI"
                     className="w-full"
                     required
-                    disabled={isLoading} 
+                    disabled={isLoading}
                   />
                 </div>
 
