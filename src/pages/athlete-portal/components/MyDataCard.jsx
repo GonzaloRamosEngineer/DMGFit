@@ -3,7 +3,7 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
-import { getMyProfile, updateMyProfile } from '../../../services/athletes';
+import { getMyProfile, updateMyProfile, changeMyPassword } from '../../../services/athletes';
 import { useToast } from '../../../hooks/useToast';
 
 const EDITABLE = [
@@ -25,6 +25,9 @@ const MyDataCard = () => {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({});
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pw, setPw] = useState({ next: '', confirm: '' });
+  const [pwSaving, setPwSaving] = useState(false);
 
   const load = async () => {
     try {
@@ -61,6 +64,22 @@ const MyDataCard = () => {
     }
   };
 
+  const savePassword = async () => {
+    if ((pw.next || '').length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (pw.next !== pw.confirm) { toast.error('Las contraseñas no coinciden.'); return; }
+    setPwSaving(true);
+    try {
+      await changeMyPassword(pw.next);
+      toast.success('Contraseña actualizada.');
+      setPwOpen(false);
+      setPw({ next: '', confirm: '' });
+    } catch (e) {
+      toast.error(e.message || 'No se pudo cambiar la contraseña.');
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
   if (!loading && (!data || data.athlete_id == null)) return null;
 
   return (
@@ -76,7 +95,10 @@ const MyDataCard = () => {
           </div>
         </div>
         {!loading && (
-          <Button variant="outline" size="sm" iconName="Pencil" onClick={openModal}>Editar</Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" iconName="KeyRound" onClick={() => setPwOpen(true)}>Contraseña</Button>
+            <Button variant="outline" size="sm" iconName="Pencil" onClick={openModal}>Editar</Button>
+          </div>
         )}
       </div>
 
@@ -124,6 +146,26 @@ const MyDataCard = () => {
           <div className="sm:col-span-2">
             <Input label="Condición médica / lesión" value={form.medical_conditions || ''} onChange={setField('medical_conditions')} description="Si no tenés nada, escribí 'No'." />
           </div>
+        </div>
+      </Modal>
+
+      {/* Modal: cambiar contraseña */}
+      <Modal
+        open={pwOpen}
+        onClose={() => setPwOpen(false)}
+        title="Cambiar contraseña"
+        subtitle="Elegí una contraseña personal (mínimo 6 caracteres)."
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setPwOpen(false)} disabled={pwSaving}>Cancelar</Button>
+            <Button variant="default" onClick={savePassword} loading={pwSaving} iconName="Check">Guardar</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Input label="Nueva contraseña" type="password" value={pw.next} onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))} />
+          <Input label="Repetir contraseña" type="password" value={pw.confirm} onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))} />
         </div>
       </Modal>
     </div>

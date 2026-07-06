@@ -203,3 +203,10 @@ export const updateMyProfile = async (payload) => {
   if (error) throw error;
   return { success: true };
 };
+
+// El propio usuario cambia su contraseña (tiene su sesión; no requiere service_role).
+export const changeMyPassword = async (newPassword) => {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+  return { success: true };
+};

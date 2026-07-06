@@ -113,15 +113,8 @@ const AthleteCard = ({
 
         {/* 6. Acciones */}
         <div className="flex items-center justify-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
-          {athlete.needsActivation && canEnable && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onEnableAccount?.(athlete); }}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-warning hover:bg-warning-light transition-colors"
-              title="Habilitar Cuenta"
-            >
-              <Icon name="UserCheck" size={14} />
-            </button>
-          )}
+          {/* Activación de cuenta por EMAIL desactivada: los atletas usan login por DNI
+              (clave inicial = DNI). Ver scripts/activate-athletes.mjs y docs/plan-login-por-dni.md. */}
 
           {athlete.paymentStatus !== 'paid' && (
             <button
