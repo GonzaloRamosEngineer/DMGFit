@@ -210,3 +210,14 @@ export const changeMyPassword = async (newPassword) => {
   if (error) throw error;
   return { success: true };
 };
+
+// Activa el login por DNI de un atleta vía Edge Function (service_role server-side).
+// Requiere deployar supabase/functions/activate-athlete. Idempotente.
+export const activateAthleteLogin = async (athleteId) => {
+  const { data, error } = await supabase.functions.invoke('activate-athlete', {
+    body: { athlete_id: athleteId },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data; // { ok, dni, already?, message }
+};

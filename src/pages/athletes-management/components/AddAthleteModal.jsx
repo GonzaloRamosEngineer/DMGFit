@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
-import { createFullAthlete } from "../../../services/athletes";
+import { createFullAthlete, activateAthleteLogin } from "../../../services/athletes";
 import { fetchPlanPricing, fetchPlanSlots } from "../../../services/plans";
 import Icon from "../../../components/AppIcon";
 import { useToast } from "../../../hooks/useToast";
@@ -555,6 +555,17 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
 
       if (!result.success) {
         throw new Error(result.error);
+      }
+
+      // Activar login por DNI automáticamente (clave inicial = DNI).
+      // Graceful: si la Edge Function no está deployada, el atleta igual queda creado.
+      try {
+        const newAthleteId = result.data?.id;
+        if (newAthleteId) await activateAthleteLogin(newAthleteId);
+        toast.success("Atleta creado. Puede entrar con su DNI (usuario y clave = DNI).");
+      } catch (actErr) {
+        console.warn("No se activó el login automáticamente:", actErr);
+        toast.info("Atleta creado. Activá su login por DNI luego (activación in-app no disponible aún).");
       }
 
       onAthleteAdded();
