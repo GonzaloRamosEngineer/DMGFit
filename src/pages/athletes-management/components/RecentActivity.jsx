@@ -53,7 +53,7 @@ const RecentActivity = ({ activities, loading = false }) => {
   };
 
   return (
-    <Card padding="default" className="relative overflow-hidden">
+    <Card padding="default" className="relative shrink-0">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6 relative z-card">
         <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center border border-border shadow-sm">

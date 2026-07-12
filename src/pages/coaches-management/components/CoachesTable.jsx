@@ -108,7 +108,7 @@ const CoachesTable = ({
                 Rol & Especialidad
               </th>
               <th className="text-center px-6 py-4 text-[11px] font-semibold tracking-wider uppercase text-text-secondary">
-                Alumnos
+                Atletas
               </th>
               <th className="text-center px-6 py-4 text-[11px] font-semibold tracking-wider uppercase text-text-secondary">
                 Estado
@@ -295,7 +295,7 @@ const CoachesTable = ({
                   onClick={() => onViewAthletes?.(coach)}
                   className="text-[12px] font-semibold text-text-secondary hover:text-primary"
                 >
-                  {coach.totalAthletes || 0} Alumnos
+                  {coach.totalAthletes || 0} Atletas
                 </button>
                 <div className="flex gap-4 text-text-tertiary">
                   <button onClick={() => onEdit?.(coach)} className="hover:text-text-secondary"><Icon name="Pencil" size={16} /></button>

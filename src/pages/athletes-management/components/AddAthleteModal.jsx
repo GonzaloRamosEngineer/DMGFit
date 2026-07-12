@@ -4,6 +4,7 @@ import { createFullAthlete, activateAthleteLogin } from "../../../services/athle
 import { fetchPlanPricing, fetchPlanSlots } from "../../../services/plans";
 import Icon from "../../../components/AppIcon";
 import { useToast } from "../../../hooks/useToast";
+import { hoyLocal } from "../../../utils/formatters";
 
 const DAYS = [
   "Domingo",
@@ -30,6 +31,10 @@ const getVisitsLabel = (value) => {
   return `${n} ${n === 1 ? "vez" : "veces"} / semana`;
 };
 
+// Regla de negocio (acceso flexible): saldo mensual = frecuencia × 4 semanas.
+const ACCESSES_PER_VISIT = 4;
+const getAccessesPerMonth = (value) => Number(value || 0) * ACCESSES_PER_VISIT;
+
 const formatCurrency = (value) => {
   const amount = Number(value || 0);
   return new Intl.NumberFormat("es-AR", {
@@ -44,6 +49,8 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [chargeNow, setChargeNow] = useState(true); // true = cobrar en el alta; false = pago pendiente
 
   const [plans, setPlans] = useState([]);
   const [pricingTiers, setPricingTiers] = useState([]);
@@ -66,7 +73,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     planId: "",
     visitsPerWeek: "",
     selectedSlotIds: [],
-    joinDate: new Date().toISOString().split("T")[0],
+    joinDate: hoyLocal(),
     amount: "",
   });
 
@@ -361,6 +368,8 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Limpiar el error inline del campo apenas el usuario lo corrige
+    setFieldErrors((prev) => (prev[name] ? { ...prev, [name]: undefined } : prev));
   };
 
   const toggleRequestedDay = (dayIndex, disabled) => {
@@ -543,6 +552,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
         tier_price: finalPrice,
         payment_amount: finalPrice,
         payment_method: "efectivo",
+        register_payment: chargeNow,
         join_date: formData.joinDate || null,
         birth_date: formData.birthDate,
         gender: formData.gender !== "select" ? formData.gender : null,
@@ -562,7 +572,11 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       try {
         const newAthleteId = result.data?.id;
         if (newAthleteId) await activateAthleteLogin(newAthleteId);
-        toast.success("Atleta creado. Puede entrar con su DNI (usuario y clave = DNI).");
+        toast.success(
+          chargeNow
+            ? "Atleta creado y pago registrado. Puede entrar con su DNI (usuario y clave = DNI)."
+            : "Atleta creado con pago pendiente. Puede entrar con su DNI; registrá el pago en Pagos cuando lo abone."
+        );
       } catch (actErr) {
         console.warn("No se activó el login automáticamente:", actErr);
         toast.info("Atleta creado. Activá su login por DNI luego (activación in-app no disponible aún).");
@@ -572,7 +586,15 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
       onClose();
     } catch (error) {
       console.error("Error registrando atleta:", error);
-      toast.error(error.message || "Error al registrar el atleta");
+      const msg = error.message || "Error al registrar el atleta";
+      // Error de validación de DNI duplicado → mostrarlo inline en el campo (paso 1),
+      // no como toast global. El usuario ve exactamente qué corregir.
+      if (/dni/i.test(msg) && /(existe|duplicad|registrad)/i.test(msg)) {
+        setFieldErrors((prev) => ({ ...prev, dni: "Ya existe un atleta con este DNI." }));
+        setActiveStep(1);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -621,8 +643,19 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
                   onChange={handleChange}
                   required
                   placeholder="12345678"
-                  className={inputClasses}
+                  aria-invalid={Boolean(fieldErrors.dni)}
+                  className={
+                    fieldErrors.dni
+                      ? "w-full px-3 py-2.5 bg-rose-50 border border-rose-400 rounded-xl text-slate-800 text-sm focus:outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15 font-medium transition-all placeholder:text-rose-300"
+                      : inputClasses
+                  }
                 />
+                {fieldErrors.dni && (
+                  <p className="mt-1.5 ml-1 flex items-center gap-1.5 text-xs font-semibold text-rose-600">
+                    <Icon name="AlertCircle" size={14} className="shrink-0" />
+                    {fieldErrors.dni}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -800,7 +833,7 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
               ) : (
                 availableVisitOptions.map((value) => (
                   <option key={value} value={value}>
-                    {getVisitsLabel(value)}
+                    {getVisitsLabel(value)} · {getAccessesPerMonth(value)} accesos/mes
                   </option>
                 ))
               )}
@@ -828,6 +861,34 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
           </div>
         </div>
 
+        {/* Cobrar ahora / cobrar después */}
+        <div className={`rounded-xl border p-3.5 transition-colors ${chargeNow ? "border-emerald-200 bg-emerald-50/50" : "border-amber-200 bg-amber-50/60"}`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Icon name={chargeNow ? "CheckCircle" : "Clock"} size={16} className={chargeNow ? "text-emerald-600" : "text-amber-600"} />
+                <p className="text-sm font-bold text-slate-800">
+                  {chargeNow ? "Cobrar la inscripción ahora" : "Registrar sin cobro (pago pendiente)"}
+                </p>
+              </div>
+              <p className="text-xs text-slate-500 mt-1 ml-[26px]">
+                {chargeNow
+                  ? "Se registra el pago como abonado y arranca el ciclo."
+                  : "El atleta entra igual y descuenta accesos; el kiosco avisará “cuota pendiente” hasta que registres el pago en Pagos."}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={chargeNow}
+              onClick={() => setChargeNow((v) => !v)}
+              className={`relative shrink-0 w-[46px] h-[26px] rounded-full transition-colors ${chargeNow ? "bg-emerald-500" : "bg-amber-400"}`}
+            >
+              <span className={`absolute top-[2px] left-[2px] w-[22px] h-[22px] rounded-full bg-white shadow transition-transform ${chargeNow ? "translate-x-[20px]" : "translate-x-0"}`} />
+            </button>
+          </div>
+        </div>
+
         {selectedPlan && (
           <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3">
             <p className="text-[11px] font-black text-blue-800 uppercase tracking-widest">
@@ -840,6 +901,11 @@ const AddAthleteModal = ({ onClose, onAthleteAdded }) => {
               {formData.visitsPerWeek && (
                 <span className="px-3 py-1.5 rounded-full bg-white border border-blue-100 text-xs font-bold text-blue-700">
                   {getVisitsLabel(formData.visitsPerWeek)}
+                </span>
+              )}
+              {formData.visitsPerWeek && (
+                <span className="px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs font-bold">
+                  {getAccessesPerMonth(formData.visitsPerWeek)} accesos/mes
                 </span>
               )}
               {formData.amount !== "" && (

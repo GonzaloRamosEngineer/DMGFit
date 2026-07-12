@@ -77,19 +77,6 @@ module.exports = {
         caption: ['Source Sans 3', 'sans-serif'],
         data: ['JetBrains Mono', 'monospace']
       },
-      spacing: {
-        '6': '6px',
-        '12': '12px',
-        '18': '18px',
-        '24': '24px',
-        '28': '28px',
-        '32': '32px',
-        '36': '36px',
-        '48': '48px',
-        '64': '64px',
-        '80': '80px',
-        '120': '120px'
-      },
       borderRadius: {
         'sm': 'var(--radius-sm)',
         'DEFAULT': 'var(--radius)',

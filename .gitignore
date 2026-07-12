@@ -22,3 +22,6 @@ scripts/data/
 # Vite build output (Vercel builds in CI)
 dist/
 
+
+# Supabase CLI temp
+supabase/.temp/

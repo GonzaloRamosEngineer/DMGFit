@@ -56,7 +56,7 @@ const NextSessionHero = ({ session }) => {
              </span>
           </div>
           <div className="text-right">
-             <h2 className="text-3xl font-black tracking-tighter leading-none">{session.time}</h2>
+             <h2 className="text-3xl font-black tracking-tighter leading-none text-white">{session.time}</h2>
              <p className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-0.5">Inicio</p>
           </div>
         </div>
@@ -67,7 +67,7 @@ const NextSessionHero = ({ session }) => {
               <Icon name={theme.icon} size={14} />
               <span className="text-[10px] font-bold uppercase tracking-widest">{session.type}</span>
            </div>
-           <h3 className="text-2xl font-black italic tracking-tight leading-tight">
+           <h3 className="text-2xl font-black italic tracking-tight leading-tight text-white">
              {session.title || session.type} {/* Fallback si no hay título específico */}
            </h3>
         </div>

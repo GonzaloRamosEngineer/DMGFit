@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
+import { hoyLocal } from '../../utils/formatters';
 
 // UI Components
 import BreadcrumbTrail from '../../components/ui/BreadcrumbTrail';
@@ -22,7 +23,7 @@ const ProfessorDashboard = () => {
   
   // UI State
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(hoyLocal());
 
   // Data State
   const [coachProfile, setCoachProfile] = useState(null);
@@ -134,7 +135,7 @@ const ProfessorDashboard = () => {
           .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time));
 
         // Stats
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = hoyLocal();
         const sessionsToday = rawSessions.filter(s => s.session_date === todayStr);
         const completed = rawSessions.filter(s => s.status === 'completed').length;
         const rate = rawSessions.length > 0 ? Math.round((completed / rawSessions.length) * 100) : 0;
@@ -322,7 +323,7 @@ const ProfessorDashboard = () => {
 
                   <div className="bg-[#0F172A] text-white p-6 rounded-3xl shadow-xl relative overflow-hidden">
                      <div className="flex items-center justify-between mb-4 relative z-10">
-                        <h3 className="font-bold uppercase tracking-widest text-sm">Notas del Coach</h3>
+                        <h3 className="font-bold uppercase tracking-widest text-sm text-white">Notas del Coach</h3>
                         <button className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
                            <Icon name="Plus" size={16} />
                         </button>

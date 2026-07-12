@@ -4,6 +4,7 @@ import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import QuickActionMenu from '../../../components/ui/QuickActionMenu';
+import { formatearFecha } from '../../../utils/formatters';
 import { useConfirm } from '../../../components/ui/ConfirmProvider';
 import { useToast } from '../../../hooks/useToast';
 import { deactivateAthlete } from '../../../services/athletes';
@@ -292,7 +293,7 @@ const AthleteHeader = ({
                 <p className="text-xs text-muted-foreground uppercase font-medium">Miembro desde</p>
                 <p className="text-sm font-bold text-foreground">
                   {athlete.join_date || athlete.joinDate
-                    ? new Date(athlete.join_date || athlete.joinDate).toLocaleDateString('es-ES')
+                    ? formatearFecha(athlete.join_date || athlete.joinDate)
                     : '—'}
                 </p>
               </div>

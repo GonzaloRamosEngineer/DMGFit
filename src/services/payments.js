@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { hoyLocal } from '../utils/formatters';
 
 /**
  * Obtiene el historial de pagos de un atleta específico.
@@ -28,7 +29,7 @@ export const generateMonthlyInvoices = async () => {
     const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString();
     
     // Fecha limpia para la base de datos (YYYY-MM-DD) para evitar problemas con tipos 'date'
-    const paymentDateClean = today.toISOString().split('T')[0];
+    const paymentDateClean = hoyLocal();
 
     console.log(`1. Periodo detectado: ${currentMonthStart} a ${currentMonthEnd}`);
 

@@ -5,7 +5,7 @@ import { cn } from '../../../utils/cn';
 import Icon from '../../AppIcon';
 
 const toastVariants = cva(
-  'relative flex items-start gap-3 w-80 max-w-[calc(100vw-2rem)] p-4 rounded-2xl border bg-card shadow-lg',
+  'relative flex items-start gap-3 w-[22rem] max-w-[calc(100vw-2rem)] p-4 rounded-2xl border bg-card shadow-lg',
   {
     variants: {
       variant: {

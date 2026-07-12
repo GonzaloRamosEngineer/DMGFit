@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import Icon from "../../../components/AppIcon";
 import { useToast } from "../../../hooks/useToast";
+import { hoyLocal, formatearFecha } from "../../../utils/formatters";
 
 // --- UTILS & HELPERS ---
 const formatCurrency = (amount) => {
@@ -122,7 +123,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
     amount: "",
     method: "efectivo",
     concept: "",
-    paymentDate: new Date().toISOString().split("T")[0],
+    paymentDate: hoyLocal(),
   });
 
   // --- DESCUENTOS ---
@@ -367,7 +368,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
       amount: "",
       method: "efectivo",
       concept: "",
-      paymentDate: new Date().toISOString().split("T")[0],
+      paymentDate: hoyLocal(),
     });
   };
 
@@ -708,9 +709,7 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
                                   </p>
                                   <p className="text-[10px] font-bold text-error">
                                     Vencimiento:{" "}
-                                    {new Date(
-                                      debt.payment_date,
-                                    ).toLocaleDateString()}
+                                    {formatearFecha(debt.payment_date)}
                                   </p>
                                 </div>
                               </div>

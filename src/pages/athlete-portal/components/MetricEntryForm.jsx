@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import Icon from '../../../components/AppIcon';
+import { hoyLocal } from '../../../utils/formatters';
 
 // --- UTILS & STYLES ---
 
@@ -173,7 +174,7 @@ export default function MetricEntryForm({ athleteId, onSuccess, selectedExercise
     name: '',
     unit: '',
     value: '',
-    date: new Date().toISOString().split('T')[0]
+    date: hoyLocal()
   });
 
   // Estado del Catálogo y UI

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { hoyLocal } from '../utils/formatters';
 
 /**
  * Consulta un atleta por su ID
@@ -99,7 +100,7 @@ export const createFullAthlete = async (athleteData) => {
 };
 
 export const deactivateAthlete = async (athleteId) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = hoyLocal();
 
   const { error: athleteError } = await supabase
     .from('athletes')
@@ -119,7 +120,7 @@ export const deactivateAthlete = async (athleteId) => {
   return { success: true };
 };
 
-export const fetchAthleteAssignedSlots = async (athleteId, effectiveDate = new Date().toISOString().split('T')[0]) => {
+export const fetchAthleteAssignedSlots = async (athleteId, effectiveDate = hoyLocal()) => {
   const { data, error } = await supabase
     .from('athlete_slot_assignments')
     .select(`
@@ -151,7 +152,7 @@ export const reassignAthleteSlots = async ({
   planId,
   visitsPerWeek,
   selectedWeeklyScheduleIds,
-  effectiveDate = new Date().toISOString().split('T')[0],
+  effectiveDate = hoyLocal(),
 }) => {
   try {
     const { data, error } = await supabase.rpc('reassign_athlete_slots_atomic', {

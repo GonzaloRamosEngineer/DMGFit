@@ -480,7 +480,7 @@ const PaymentManagement = () => {
                 variant={kpiOverdueAmount > 0 ? 'danger' : 'neutral'}
               />
               <KpiCard
-                title="Alumnos con deuda"
+                title="Atletas con deuda"
                 value={`${kpiDebtorsCount} `}
                 variant={kpiDebtorsCount > 0 ? 'warning' : 'neutral'}
               />
@@ -531,7 +531,7 @@ const PaymentManagement = () => {
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar alumno por nombre..."
+                  placeholder="Buscar atleta por nombre..."
                   className="w-full pl-11 pr-4 py-3 bg-muted border border-border rounded-xl text-sm font-semibold text-text-secondary outline-none focus:border-primary focus:bg-card transition-colors"
                 />
               </div>
@@ -544,7 +544,7 @@ const PaymentManagement = () => {
               <thead className="bg-muted text-[10px] font-black text-text-tertiary uppercase tracking-widest sticky top-0 z-card">
                 <tr>
                   <th className="px-6 py-4 w-[140px]">Fecha</th>
-                  <th className="px-6 py-4">Cliente / Alumno</th>
+                  <th className="px-6 py-4">Atleta</th>
                   <th className="px-6 py-4">Concepto</th>
                   <th className="px-6 py-4 w-[160px]">Método</th>
                   <th className="px-6 py-4 text-right w-[160px]">Monto</th>

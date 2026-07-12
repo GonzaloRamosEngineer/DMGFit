@@ -1,5 +1,6 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
+import { formatearFecha } from '../../../utils/formatters';
 
 const UpcomingSessions = ({ sessions, loading = false }) => {
   if (loading) {
@@ -54,7 +55,7 @@ const UpcomingSessions = ({ sessions, loading = false }) => {
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-muted-foreground mt-1">
                     <div className="flex items-center gap-1.5">
                       <Icon name="Calendar" size={14} />
-                      <span>{new Date(session.session_date).toLocaleDateString()}</span>
+                      <span>{formatearFecha(session.session_date)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Icon name="Clock" size={14} />

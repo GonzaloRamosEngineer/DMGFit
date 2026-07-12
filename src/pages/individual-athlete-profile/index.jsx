@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { fetchKioskRemaining } from "../../services/kiosk";
 import { fetchPlanSlots } from "../../services/plans";
 import { reassignAthleteSlots } from "../../services/athletes";
+import { hoyLocal, formatearFecha } from "../../utils/formatters";
 
 // Context
 import { useAuth } from "../../contexts/AuthContext";
@@ -249,7 +250,9 @@ const AthleteAccessLog = ({
   );
 };
 
-// --- SUB-COMPONENTE INTERNO: MEMBRESÍA ESTRUCTURAL / GESTIÓN ---
+// --- SUB-COMPONENTE INTERNO: MEMBRESÍA Y HORARIOS ---
+// Fila-resumen siempre visible (turnos + horarios en chips horizontales);
+// la gestión (editar plan / modificar horarios) se pliega detrás de "Gestionar".
 const StructuralMembershipCard = ({
   athlete,
   assignedSlots = [],
@@ -265,45 +268,153 @@ const StructuralMembershipCard = ({
   canModifySchedule = false,
   loadingScheduleModal = false,
 }) => {
+  const [open, setOpen] = useState(false);
+
   if (loading) {
     return (
       <div className="bg-card border border-border rounded-xl p-4 mb-4 animate-pulse">
-        <div className="h-5 bg-muted/50 rounded w-1/3 mb-4"></div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 bg-muted/30 rounded-lg"></div>
+        <div className="h-5 bg-muted/50 rounded w-1/3 mb-3"></div>
+        <div className="flex gap-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-8 w-28 bg-muted/30 rounded-lg"></div>
           ))}
         </div>
-        <div className="h-24 bg-muted/30 rounded-lg"></div>
       </div>
     );
   }
 
   if (!athlete) return null;
 
-  const groupedByDay = DAYS.map((day, index) => ({
-    day,
-    slots: assignedSlots.filter(
-      (assignment) =>
-        Number(normalizeRelation(assignment.weekly_schedule)?.day_of_week) ===
-        index
-    ),
-  })).filter((group) => group.slots.length > 0);
+  const scheduleChips = assignedSlots
+    .map((assignment) => normalizeRelation(assignment.weekly_schedule))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const dayDiff = Number(a.day_of_week) - Number(b.day_of_week);
+      if (dayDiff !== 0) return dayDiff;
+      return String(a.start_time).localeCompare(String(b.start_time));
+    });
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 mb-4">
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
-        <div>
-          <h3 className="text-sm font-black text-text-primary">
-            Membresía Estructural
-          </h3>
-          <p className="text-xs text-text-secondary">
-            Resumen real del plan contratado, frecuencia, precio y horarios
-            asignados.
-          </p>
+    <div className="bg-card border border-border rounded-xl mb-4">
+      {/* RESUMEN SIEMPRE VISIBLE */}
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Icon name="CalendarDays" size={18} className="text-primary shrink-0" />
+            <h3 className="text-sm font-black text-text-primary">
+              Membresía y horarios
+            </h3>
+            <span className="text-xs text-text-secondary whitespace-nowrap">
+              · {scheduleChips.length}{" "}
+              {scheduleChips.length === 1 ? "turno" : "turnos"}
+            </span>
+          </div>
+
+          {canManageMembership && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-text-secondary hover:bg-muted transition-colors shrink-0"
+            >
+              {open ? "Cerrar" : "Gestionar"}
+              <Icon name={open ? "ChevronUp" : "ChevronDown"} size={16} />
+            </button>
+          )}
         </div>
 
-        {canManageMembership && (
+        <div className="mt-3">
+          {scheduleChips.length === 0 ? (
+            <p className="text-xs text-text-secondary">
+              Sin turnos asignados.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {scheduleChips.map((schedule) => (
+                <span
+                  key={schedule.id}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-info-light text-info border border-info/20 text-xs font-bold"
+                >
+                  <span className="uppercase tracking-wide">
+                    {DAYS[Number(schedule.day_of_week)]?.slice(0, 3) || "—"}
+                  </span>
+                  <span className="opacity-50">·</span>
+                  <span>
+                    {String(schedule.start_time).slice(0, 5)}–
+                    {String(schedule.end_time).slice(0, 5)}
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* GESTIÓN (colapsable) */}
+      {canManageMembership && open && (
+        <div className="border-t border-border p-4 space-y-4">
+          <div className="border border-border rounded-xl p-4 bg-muted">
+            <div className="flex items-center gap-2 mb-3">
+              <Icon name="Settings2" size={16} className="text-text-secondary" />
+              <h4 className="text-sm font-black text-text-primary">
+                Editar plan y frecuencia
+              </h4>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                  Plan
+                </label>
+                <select
+                  name="planId"
+                  value={membershipForm.planId}
+                  onChange={onMembershipChange}
+                  className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm"
+                >
+                  <option value="">Seleccionar...</option>
+                  {availablePlans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                  Opción / Variante
+                </label>
+                <select
+                  name="planOption"
+                  value={membershipForm.planOption}
+                  onChange={onMembershipChange}
+                  disabled={
+                    !membershipForm.planId || availablePlanOptions.length === 0
+                  }
+                  className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm disabled:opacity-60"
+                >
+                  <option value="">
+                    {membershipForm.planId
+                      ? "Sin opción"
+                      : "Selecciona un plan primero"}
+                  </option>
+                  {availablePlanOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] text-text-secondary">
+              La frecuencia (ej. de 2x a 3x por semana) se ajusta cambiando el
+              plan/opción y luego reasignando los horarios con “Modificar
+              horarios”.
+            </p>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -315,7 +426,9 @@ const StructuralMembershipCard = ({
                   : "bg-muted text-text-tertiary cursor-not-allowed"
               }`}
             >
-              {loadingScheduleModal ? "Cargando horarios..." : "Modificar horarios"}
+              {loadingScheduleModal
+                ? "Cargando horarios..."
+                : "Modificar horarios"}
             </button>
 
             <button
@@ -331,151 +444,14 @@ const StructuralMembershipCard = ({
               {savingMembership ? "Guardando..." : "Guardar membresía"}
             </button>
           </div>
-        )}
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-        <div className="border border-border rounded-lg p-3 bg-muted">
-          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-            Plan
-          </p>
-          <p className="mt-1 text-sm font-black text-text-primary">
-            {athlete.planName || "Sin Plan"}
-          </p>
-          <p className="text-xs text-text-secondary">{athlete.planOption || "Sin opción"}</p>
-        </div>
-
-        <div className="border border-border rounded-lg p-3 bg-muted">
-          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-            Frecuencia
-          </p>
-          <p className="mt-1 text-sm font-black text-text-primary">
-            {athlete.visits_per_week ? `${athlete.visits_per_week}x / semana` : "—"}
-          </p>
-          <p className="text-xs text-text-secondary">Visitas contratadas</p>
-        </div>
-
-        <div className="border border-border rounded-lg p-3 bg-muted">
-          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-            Precio acordado
-          </p>
-          <p className="mt-1 text-sm font-black text-text-primary">
-            {athlete.plan_tier_price ? formatCurrency(athlete.plan_tier_price) : "—"}
-          </p>
-          <p className="text-xs text-text-secondary">Tier real del atleta</p>
-        </div>
-
-        <div className="border border-border rounded-lg p-3 bg-muted">
-          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-            Slots activos
-          </p>
-          <p className="mt-1 text-sm font-black text-text-primary">
-            {assignedSlots.length}
-          </p>
-          <p className="text-xs text-text-secondary">Asignaciones vigentes</p>
-        </div>
-      </div>
-
-      {canManageMembership && (
-        <div className="border border-border rounded-xl p-4 bg-muted mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Icon name="Settings2" size={16} className="text-text-secondary" />
-            <h4 className="text-sm font-black text-text-primary">
-              Editar asignación actual
-            </h4>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-                Plan
-              </label>
-              <select
-                name="planId"
-                value={membershipForm.planId}
-                onChange={onMembershipChange}
-                className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm"
-              >
-                <option value="">Seleccionar...</option>
-                {availablePlans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-                Opción / Variante
-              </label>
-              <select
-                name="planOption"
-                value={membershipForm.planOption}
-                onChange={onMembershipChange}
-                disabled={!membershipForm.planId || availablePlanOptions.length === 0}
-                className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm disabled:opacity-60"
-              >
-                <option value="">
-                  {membershipForm.planId
-                    ? "Sin opción"
-                    : "Selecciona un plan primero"}
-                </option>
-                {availablePlanOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="text-[11px] text-warning bg-warning-light border border-warning/20 rounded-lg px-3 py-2">
+            La reasignación de plan, frecuencia y turnos debe hacerse desde este
+            flujo para evitar inconsistencias entre cupos, precios, kiosco y
+            pagos.
           </div>
         </div>
       )}
-
-      <div className="border border-border rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Icon name="CalendarDays" size={16} className="text-primary" />
-          <h4 className="text-sm font-black text-text-primary">Horarios asignados</h4>
-        </div>
-
-        {groupedByDay.length === 0 ? (
-          <div className="text-sm text-text-secondary border border-dashed border-border rounded-lg p-4 bg-muted">
-            El atleta no tiene slots semanales activos asignados.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {groupedByDay.map((group) => (
-              <div key={group.day}>
-                <p className="text-xs font-black text-text-secondary uppercase tracking-wider mb-2">
-                  {group.day}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {group.slots
-                    .map((assignment) => normalizeRelation(assignment.weekly_schedule))
-                    .filter(Boolean)
-                    .sort((a, b) =>
-                      String(a.start_time).localeCompare(String(b.start_time))
-                    )
-                    .map((schedule) => (
-                      <span
-                        key={schedule.id}
-                        className="px-3 py-2 rounded-lg bg-info-light text-info border border-info/20 text-xs font-bold"
-                      >
-                        {String(schedule.start_time).slice(0, 5)} -{" "}
-                        {String(schedule.end_time).slice(0, 5)}
-                      </span>
-                    ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-3 text-[11px] text-warning bg-warning-light border border-warning/20 rounded-lg px-3 py-2">
-        La reasignación de plan, frecuencia y slots debe hacerse desde este flujo
-        para evitar inconsistencias entre cupos, pricing, kiosk y pagos.
-      </div>
     </div>
   );
 };
@@ -523,7 +499,7 @@ const NotesPreview = ({ notes = [], loading = false, onViewMore }) => {
               className="bg-muted/30 border border-border rounded-lg p-3 transition-smooth hover:bg-muted/50"
             >
               <p className="text-xs text-muted-foreground mb-1">
-                {new Date(note.date || note.timestamp).toLocaleDateString()}
+                {formatearFecha(note.date)}
               </p>
               <p className="text-sm text-foreground leading-relaxed">
                 {note.content}
@@ -603,7 +579,7 @@ const IndividualAthleteProfile = () => {
 
         if (athleteError) throw athleteError;
 
-        const todayStr = new Date().toISOString().split("T")[0];
+        const todayStr = hoyLocal();
 
         const [
           metricsRes,
@@ -924,7 +900,7 @@ const IndividualAthleteProfile = () => {
 
     return [
       {
-        title: "Tasa de Asistencia (Clases)",
+        title: "Asistencia a clases",
         value: `${rate}`,
         unit: "%",
         change: "Global",
@@ -933,7 +909,7 @@ const IndividualAthleteProfile = () => {
         iconColor: "var(--color-primary)",
       },
       {
-        title: "Visitas Totales (Molinete)",
+        title: "Ingresos por kiosco",
         value: `${totalAccess}`,
         unit: "ingresos",
         change: "Histórico",
@@ -942,7 +918,7 @@ const IndividualAthleteProfile = () => {
         iconColor: "var(--color-success)",
       },
       {
-        title: "Saldo Sesiones (Actual)",
+        title: "Saldo de sesiones",
         value: profileData.kioskRemaining?.remaining ?? "—",
         unit: "ses.",
         change: profileData.kioskRemaining?.period_end || "Sin período",
@@ -950,21 +926,11 @@ const IndividualAthleteProfile = () => {
         icon: "Wallet",
         iconColor: "var(--color-accent)",
       },
-      {
-        title: "Slots Activos",
-        value: profileData.assignedSlots?.length ?? 0,
-        unit: "slots",
-        change: "Estructural",
-        changeType: "neutral",
-        icon: "CalendarDays",
-        iconColor: "var(--color-secondary)",
-      },
     ];
   }, [
     profileData.attendance,
     profileData.accessLogs,
     profileData.kioskRemaining,
-    profileData.assignedSlots,
   ]);
 
   const isInternalEmail = (email = "") =>
@@ -989,7 +955,7 @@ const IndividualAthleteProfile = () => {
         .insert({
           athlete_id: athleteId,
           content,
-          date: new Date().toISOString().split("T")[0],
+          date: hoyLocal(),
           type: "general",
           coach_id: currentUser?.coachId || null,
         })
@@ -1061,9 +1027,9 @@ const IndividualAthleteProfile = () => {
           />
 
           {/* KPI STRIP */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {loading
-              ? [1, 2, 3, 4].map((i) => (
+              ? [1, 2, 3].map((i) => (
                   <div
                     key={i}
                     className="h-24 bg-card border border-border rounded-xl animate-pulse"
@@ -1077,7 +1043,9 @@ const IndividualAthleteProfile = () => {
             <div className="flex space-x-1 min-w-max">
               {[
                 { key: "summary", label: "Resumen" },
-                { key: "performance", label: "Rendimiento" },
+                ...(profileData.metrics.length > 0
+                  ? [{ key: "performance", label: "Rendimiento" }]
+                  : []),
                 { key: "attendance", label: "Asistencia" },
                 { key: "payments", label: "Pagos" },
                 { key: "health", label: "Salud" },
@@ -1127,7 +1095,13 @@ const IndividualAthleteProfile = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <HealthMetrics metrics={profileData.latestMetrics} loading={loading} />
+                  {(loading ||
+                    Object.keys(profileData.latestMetrics).length > 0) && (
+                    <HealthMetrics
+                      metrics={profileData.latestMetrics}
+                      loading={loading}
+                    />
+                  )}
 
                   <AthleteAccessLog
                     logs={profileData.accessLogs}
@@ -1136,11 +1110,13 @@ const IndividualAthleteProfile = () => {
                     onViewMore={() => setActiveTab("access")}
                   />
 
-                  <NotesPreview
-                    notes={profileData.notes}
-                    loading={loading}
-                    onViewMore={() => setActiveTab("notes")}
-                  />
+                  {(loading || profileData.notes.length > 0) && (
+                    <NotesPreview
+                      notes={profileData.notes}
+                      loading={loading}
+                      onViewMore={() => setActiveTab("notes")}
+                    />
+                  )}
                 </div>
               </div>
             )}

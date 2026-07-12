@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
+import { formatearFecha } from '../../../utils/formatters';
 
 const CoachNotes = ({ notes, onAddNote, loading = false }) => {
   const [newNote, setNewNote] = useState('');
@@ -87,7 +88,7 @@ const CoachNotes = ({ notes, onAddNote, loading = false }) => {
                     {note.author || 'Entrenador'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(note.date || note.timestamp).toLocaleDateString()}
+                    {formatearFecha(note.date)}
                   </p>
                 </div>
               </div>

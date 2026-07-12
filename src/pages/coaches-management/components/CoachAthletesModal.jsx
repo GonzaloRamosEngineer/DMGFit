@@ -132,7 +132,7 @@ const CoachAthletesModal = ({ coach, onClose }) => {
               </div>
               <p className="text-sm font-black text-text-secondary mb-1">Sin atletas asignados</p>
               <p className="text-xs font-medium text-text-tertiary max-w-[250px]">
-                Aún no has vinculado a ningún alumno con este profesor.
+                Aún no has vinculado a ningún atleta con este profesor.
               </p>
             </div>
           )}

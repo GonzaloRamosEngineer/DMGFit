@@ -1,5 +1,6 @@
 import React from 'react';
 import Icon from '../../../components/AppIcon';
+import { formatearFecha } from '../../../utils/formatters';
 
 const HealthMetrics = ({ metrics, loading = false }) => {
   
@@ -85,7 +86,7 @@ const HealthMetrics = ({ metrics, loading = false }) => {
                 {/* Por ahora mostramos la fecha del dato */}
                 <div className="text-right">
                    <p className="text-[10px] text-muted-foreground">
-                     {new Date(metric.date).toLocaleDateString()}
+                     {formatearFecha(metric.date)}
                    </p>
                 </div>
               </div>

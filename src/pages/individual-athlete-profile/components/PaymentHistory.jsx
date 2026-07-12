@@ -1,6 +1,7 @@
 // C:\Projects\DMG Fitness\src\pages\individual-athlete-profile\components\PaymentHistory.jsx
 import React from 'react';
 import Icon from '../../../components/AppIcon';
+import { formatearFecha } from '../../../utils/formatters';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('es-AR', {
@@ -68,7 +69,7 @@ const PaymentHistory = ({ payments, loading = false }) => {
                   {payment.concept || payment.description || 'Pago sin concepto'}
                 </p>
                 <p className="text-xs md:text-sm text-muted-foreground">
-                  {new Date(payment.payment_date || payment.date).toLocaleDateString()}
+                  {formatearFecha(payment.payment_date || payment.date)}
                 </p>
               </div>
             </div>

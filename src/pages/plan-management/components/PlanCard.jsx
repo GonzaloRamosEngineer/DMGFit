@@ -280,7 +280,7 @@ const PlanCard = ({
 
             <div className="flex items-end gap-1">
               <span className="text-3xl font-black text-text-primary">{enrolled}</span>
-              <span className="text-sm font-bold text-text-tertiary mb-1">alumnos</span>
+              <span className="text-sm font-bold text-text-tertiary mb-1">atletas</span>
             </div>
 
             {accumulatedAvailability.hasRemainingData ? (

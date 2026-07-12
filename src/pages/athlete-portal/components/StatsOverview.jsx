@@ -95,7 +95,7 @@ const StatCard = ({ title, value, unit, icon, theme = 'light', trend, subtext, a
           {title}
         </p>
         <div className="flex items-baseline gap-1">
-          <h3 className="text-3xl font-black tracking-tighter">
+          <h3 className={`text-3xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-text-primary'}`}>
             {value}
           </h3>
           {unit && <span className={`text-xs font-bold uppercase ${isDark ? 'text-slate-500' : 'text-text-tertiary'}`}>{unit}</span>}

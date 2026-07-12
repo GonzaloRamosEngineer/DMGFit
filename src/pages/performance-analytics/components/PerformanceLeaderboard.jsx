@@ -57,29 +57,28 @@ const PerformanceLeaderboard = ({ athletes, onAthleteClick, loading = false }) =
               key={athlete.id}
               onClick={() => onAthleteClick && onAthleteClick(athlete)}
               className={`
-                flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-lg border transition-smooth cursor-pointer
+                flex items-center gap-2 md:gap-3 p-3 md:p-4 rounded-lg border transition-smooth cursor-pointer
                 ${index < 3 ? 'bg-primary/5 border-primary/20' : 'bg-muted/30 border-border'}
                 hover:bg-primary/10 hover:border-primary/30
               `}
             >
-              <div className="flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-full bg-background border border-border flex-shrink-0">
-                <span className={`text-sm md:text-base font-heading font-bold ${index < 3 ? 'text-primary' : 'text-muted-foreground'}`}>
+              <div className="relative flex-shrink-0">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 bg-background flex items-center justify-center">
+                  {athlete.avatar || athlete.avatar_url ? (
+                    <Image
+                      src={athlete.avatar || athlete.avatar_url}
+                      alt={athlete.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Icon name="User" size={20} className="text-muted-foreground" />
+                  )}
+                </div>
+                <span className={`absolute -bottom-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full bg-background border border-border text-[10px] font-heading font-bold ${index < 3 ? 'text-primary' : 'text-muted-foreground'}`}>
                   {index + 1}
                 </span>
               </div>
-              
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-primary/20 flex-shrink-0 bg-background flex items-center justify-center">
-                {athlete.avatar || athlete.avatar_url ? (
-                  <Image
-                    src={athlete.avatar || athlete.avatar_url}
-                    alt={athlete.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Icon name="User" size={20} className="text-muted-foreground" />
-                )}
-              </div>
-              
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm md:text-base font-medium text-foreground truncate">
@@ -89,7 +88,7 @@ const PerformanceLeaderboard = ({ athletes, onAthleteClick, loading = false }) =
                      <Icon name="Trophy" size={14} color="var(--color-secondary)" className="flex-shrink-0 md:w-4 md:h-4" />
                   )}
                 </div>
-                <p className="text-xs md:text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground truncate">
                   {athlete.email || 'Atleta'}
                 </p>
               </div>
