@@ -5,25 +5,9 @@ import Input from '../../components/ui/Input';
 import { Card, CardBody, CardHeader, CardTitle } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { fetchExercises, getExerciseFacets } from '../../services/exercises';
-
-const CATEGORY_LABELS = {
-  strength: 'Fuerza',
-  cardio: 'Cardio',
-  mobility: 'Movilidad',
-  stretching: 'Estiramiento',
-  skill: 'Técnica',
-  other: 'Otro',
-};
-
-const TRACKING_LABELS = {
-  reps_weight: 'Series + peso',
-  reps: 'Repeticiones',
-  time: 'Tiempo',
-  distance: 'Distancia',
-  time_distance: 'Tiempo + distancia',
-  bodyweight: 'Peso corporal',
-  assisted_bodyweight: 'Asistido',
-};
+import ExerciseCard from './components/ExerciseCard';
+import ExerciseDetailModal from './components/ExerciseDetailModal';
+import { CATEGORY_LABELS, MEDIA_ATTRIBUTION } from './components/constants';
 
 const normalize = (value = '') =>
   String(value)
@@ -50,36 +34,6 @@ const SelectFilter = ({ label, value, onChange, options }) => (
   </label>
 );
 
-const ExerciseCard = ({ exercise }) => {
-  const muscle = exercise.primary_muscle || exercise.muscle_group || 'Sin grupo';
-  const category = CATEGORY_LABELS[exercise.category] || exercise.category || 'Catálogo';
-  const tracking = TRACKING_LABELS[exercise.tracking_type] || exercise.tracking_type || 'Registro';
-
-  return (
-    <article className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-muted text-text-secondary group-hover:bg-primary/10 group-hover:text-primary">
-        <Icon name={exercise.category === 'cardio' ? 'HeartPulse' : 'Dumbbell'} size={22} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate text-sm font-black text-text-primary">
-          {exercise.name}
-        </h3>
-        <p className="mt-1 truncate text-xs font-semibold text-text-tertiary">
-          {muscle}{exercise.equipment ? ` · ${exercise.equipment}` : ''}
-        </p>
-      </div>
-      <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-        <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-text-secondary">
-          {category}
-        </span>
-        <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
-          {tracking}
-        </span>
-      </div>
-    </article>
-  );
-};
-
 const ExerciseLibrary = () => {
   const [allExercises, setAllExercises] = useState([]);
   const [exercises, setExercises] = useState([]);
@@ -89,6 +43,7 @@ const ExerciseLibrary = () => {
   const [muscle, setMuscle] = useState('all');
   const [equipment, setEquipment] = useState('all');
   const [category, setCategory] = useState('all');
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -247,7 +202,11 @@ const ExerciseLibrary = () => {
               ) : (
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                   {exercises.map((exercise) => (
-                    <ExerciseCard key={exercise.id || exercise.slug || exercise.name} exercise={exercise} />
+                    <ExerciseCard
+                      key={exercise.id || exercise.slug || exercise.name}
+                      exercise={exercise}
+                      onSelect={setSelected}
+                    />
                   ))}
                 </div>
               )}
@@ -275,18 +234,24 @@ const ExerciseLibrary = () => {
             <Card padding="none" className="rounded-2xl">
               <CardHeader className="mb-0 p-6 pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Icon name="Database" size={18} className="text-primary" />
-                  Seed
+                  <Icon name="PlayCircle" size={18} className="text-primary" />
+                  Media
                 </CardTitle>
               </CardHeader>
               <CardBody className="space-y-2 px-6 pb-6 text-xs font-semibold leading-relaxed text-text-tertiary">
-                <p>Fuente versionada en `supabase/seeds/exercises_hevy_es.txt`.</p>
-                <p>Importador: `node scripts/seed-exercises.mjs`.</p>
+                <p>Cada ejercicio incluye animación de la ejecución e instrucciones paso a paso. Pasá el mouse sobre la miniatura o abrí el detalle.</p>
+                <p className="text-text-secondary">{MEDIA_ATTRIBUTION}</p>
               </CardBody>
             </Card>
           </aside>
         </div>
       </div>
+
+      <ExerciseDetailModal
+        exercise={selected}
+        open={Boolean(selected)}
+        onClose={() => setSelected(null)}
+      />
     </>
   );
 };
