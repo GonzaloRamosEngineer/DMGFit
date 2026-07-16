@@ -80,7 +80,23 @@ const ActiveWorkout = ({
     return () => clearInterval(t);
   }, []);
 
-  const elapsedSec = Math.max(0, Math.floor((now - new Date(draft.startedAt).getTime()) / 1000));
+  const paused = !draft.segmentStart;
+  const elapsedSec = Math.max(
+    0,
+    Math.floor(
+      (draft.accumulatedSec || 0) +
+        (draft.segmentStart ? (now - new Date(draft.segmentStart).getTime()) / 1000 : 0)
+    )
+  );
+
+  const togglePause = () => {
+    if (paused) {
+      onChange({ ...draft, segmentStart: new Date().toISOString() });
+    } else {
+      const ran = Math.max(0, (Date.now() - new Date(draft.segmentStart).getTime()) / 1000);
+      onChange({ ...draft, accumulatedSec: (draft.accumulatedSec || 0) + ran, segmentStart: null });
+    }
+  };
 
   const { volume, seriesDone } = useMemo(() => {
     let vol = 0;
@@ -130,12 +146,10 @@ const ActiveWorkout = ({
     patchEntries(draft.entries.filter((_, i) => i !== entryIdx));
   };
 
-  const canFinish = seriesDone > 0 && !saving;
-
   return (
     <div className="space-y-5">
       {/* Barra superior: título + acciones */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
         <input
           value={draft.title}
           onChange={(e) => onChange({ ...draft, title: e.target.value })}
@@ -144,11 +158,21 @@ const ActiveWorkout = ({
         />
         <button
           type="button"
-          onClick={onFinish}
-          disabled={!canFinish}
-          className={`h-11 shrink-0 rounded-full px-6 text-sm font-black text-white shadow-sm transition-all ${
-            canFinish ? 'bg-primary hover:scale-[1.02] active:scale-[0.98]' : 'cursor-not-allowed bg-primary/40'
+          onClick={togglePause}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors ${
+            paused
+              ? 'border-warning/30 bg-warning-light text-warning'
+              : 'border-border bg-card text-text-secondary hover:text-primary'
           }`}
+          aria-label={paused ? 'Reanudar entrenamiento' : 'Pausar entrenamiento'}
+        >
+          <Icon name={paused ? 'Play' : 'Pause'} size={17} />
+        </button>
+        <button
+          type="button"
+          onClick={onFinish}
+          disabled={saving}
+          className="h-11 shrink-0 rounded-full bg-primary px-6 text-sm font-black text-white shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
         >
           {saving ? 'Guardando…' : 'Terminar'}
         </button>
@@ -156,7 +180,11 @@ const ActiveWorkout = ({
 
       {/* HUD */}
       <div className="grid grid-cols-3 gap-4 rounded-3xl border border-border bg-card px-5 py-4">
-        <HudStat label="Duración" value={formatDuration(elapsedSec)} accent />
+        <HudStat
+          label={paused ? 'En pausa' : 'Duración'}
+          value={formatDuration(elapsedSec)}
+          accent={!paused}
+        />
         <HudStat label="Volumen" value={`${volume.toLocaleString('es-AR')} kg`} />
         <HudStat label="Series" value={seriesDone} />
       </div>

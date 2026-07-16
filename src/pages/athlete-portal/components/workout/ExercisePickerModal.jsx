@@ -47,17 +47,44 @@ const PickerRow = ({ exercise, selected, onToggle, onInfo }) => (
   </div>
 );
 
-const FilterSelect = ({ value, onChange, options, allLabel }) => (
-  <select
-    value={value}
-    onChange={(e) => onChange(e.target.value)}
-    className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-muted px-3 text-xs font-black uppercase tracking-wide text-text-secondary outline-none transition-colors focus:border-primary"
-  >
-    <option value="all">{allLabel}</option>
-    {options.map((o) => (
-      <option key={o} value={o}>{o}</option>
-    ))}
-  </select>
+const FilterPill = ({ value, allLabel, onClick }) => {
+  const active = value !== 'all';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-black transition-colors ${
+        active ? 'bg-primary text-white' : 'bg-muted text-text-secondary hover:bg-muted/70'
+      }`}
+    >
+      <span className="truncate">{active ? value : allLabel}</span>
+      <Icon name="ChevronDown" size={14} className="shrink-0" />
+    </button>
+  );
+};
+
+/** Hoja de opciones para un filtro (estilo bottom-sheet de Hevy). */
+const FilterSheet = ({ open, onClose, title, options, value, onSelect, allLabel }) => (
+  <Modal open={open} onClose={onClose} title={title} size="sm">
+    <div className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">
+      {[{ key: 'all', label: allLabel }, ...options.map((o) => ({ key: o, label: o }))].map((opt) => {
+        const selected = value === opt.key;
+        return (
+          <button
+            key={opt.key}
+            type="button"
+            onClick={() => { onSelect(opt.key); onClose(); }}
+            className={`flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition-colors ${
+              selected ? 'bg-primary/10 text-primary' : 'text-text-primary hover:bg-muted'
+            }`}
+          >
+            <span className="truncate">{opt.label}</span>
+            {selected ? <Icon name="Check" size={17} className="shrink-0" /> : null}
+          </button>
+        );
+      })}
+    </div>
+  </Modal>
 );
 
 /**
@@ -71,6 +98,7 @@ const ExercisePickerModal = ({ open, onClose, onAdd, onInfo, recentIds = [], exc
   const [equipment, setEquipment] = useState('all');
   const [muscle, setMuscle] = useState('all');
   const [selected, setSelected] = useState(new Map());
+  const [sheet, setSheet] = useState(null); // 'equipment' | 'muscle' | null
 
   useEffect(() => {
     if (!open) return;
@@ -151,8 +179,8 @@ const ExercisePickerModal = ({ open, onClose, onAdd, onInfo, recentIds = [], exc
         </div>
 
         <div className="flex shrink-0 gap-2">
-          <FilterSelect value={equipment} onChange={setEquipment} options={facets.equipment} allLabel="Todo equipamiento" />
-          <FilterSelect value={muscle} onChange={setMuscle} options={facets.muscles} allLabel="Todos los músculos" />
+          <FilterPill value={equipment} allLabel="Todo equipamiento" onClick={() => setSheet('equipment')} />
+          <FilterPill value={muscle} allLabel="Todos los músculos" onClick={() => setSheet('muscle')} />
         </div>
 
         <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
@@ -197,6 +225,25 @@ const ExercisePickerModal = ({ open, onClose, onAdd, onInfo, recentIds = [], exc
           </div>
         ) : null}
       </div>
+
+      <FilterSheet
+        open={sheet === 'equipment'}
+        onClose={() => setSheet(null)}
+        title="Equipamiento"
+        options={facets.equipment}
+        value={equipment}
+        onSelect={setEquipment}
+        allLabel="Todo equipamiento"
+      />
+      <FilterSheet
+        open={sheet === 'muscle'}
+        onClose={() => setSheet(null)}
+        title="Grupo muscular"
+        options={facets.muscles}
+        value={muscle}
+        onSelect={setMuscle}
+        allLabel="Todos los músculos"
+      />
     </Modal>
   );
 };

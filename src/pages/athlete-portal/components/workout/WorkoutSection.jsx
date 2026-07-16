@@ -18,6 +18,9 @@ const loadDraft = (athleteId) => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.startedAt || !Array.isArray(parsed.entries)) return null;
+    // Compatibilidad con borradores previos al soporte de pausa.
+    if (parsed.segmentStart === undefined) parsed.segmentStart = parsed.startedAt;
+    if (parsed.accumulatedSec === undefined) parsed.accumulatedSec = 0;
     return parsed;
   } catch {
     return null;
@@ -168,7 +171,8 @@ const WorkoutSection = ({ athleteId }) => {
   }, [recent]);
 
   const startWorkout = () => {
-    updateDraft({ title: 'Entrenamiento', startedAt: new Date().toISOString(), entries: [] });
+    const nowIso = new Date().toISOString();
+    updateDraft({ title: 'Entrenamiento', startedAt: nowIso, segmentStart: nowIso, accumulatedSec: 0, entries: [] });
     setJustSaved(null);
     setPickerOpen(true);
   };
@@ -185,7 +189,10 @@ const WorkoutSection = ({ athleteId }) => {
     const entries = draft.entries
       .map((entry) => ({ ...entry, sets: entry.sets.filter((s) => s.done).map(setToPayload) }))
       .filter((entry) => entry.sets.length > 0);
-    if (!entries.length) return;
+    if (!entries.length) {
+      toast.error('Marcá al menos una serie con ✓ para poder terminar (o descartá el entrenamiento).');
+      return;
+    }
 
     const ok = await confirm({
       title: 'Terminar entrenamiento',
@@ -194,13 +201,19 @@ const WorkoutSection = ({ athleteId }) => {
     });
     if (!ok) return;
 
+    // Duración efectiva (descuenta pausas): ended_at = inicio + tiempo activo.
+    const activeSec =
+      (draft.accumulatedSec || 0) +
+      (draft.segmentStart ? Math.max(0, (Date.now() - new Date(draft.segmentStart).getTime()) / 1000) : 0);
+    const endedAt = new Date(new Date(draft.startedAt).getTime() + Math.round(activeSec) * 1000).toISOString();
+
     try {
       setSaving(true);
       await saveWorkout({
         athleteId,
         title: draft.title,
         startedAt: draft.startedAt,
-        endedAt: new Date().toISOString(),
+        endedAt,
         entries,
       });
       setJustSaved({ title: draft.title || 'Entrenamiento', entries });

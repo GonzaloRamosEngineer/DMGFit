@@ -15,6 +15,20 @@ const sizeMap = {
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
 
+// Contador global de modales abiertos: con modales apilados (ej. selector de
+// ejercicios + detalle), restaurar el overflow "capturado" dejaba el body
+// bloqueado si se cerraban en otro orden. El scroll vuelve solo cuando el
+// último modal se cierra.
+let bodyLockCount = 0;
+const lockBodyScroll = () => {
+  bodyLockCount += 1;
+  document.body.style.overflow = 'hidden';
+};
+const unlockBodyScroll = () => {
+  bodyLockCount = Math.max(0, bodyLockCount - 1);
+  if (bodyLockCount === 0) document.body.style.overflow = '';
+};
+
 const Modal = ({
   open,
   onClose,
@@ -35,8 +49,7 @@ const Modal = ({
     if (!open) return;
 
     previouslyFocused.current = document.activeElement;
-    const { overflow } = document.body.style;
-    document.body.style.overflow = 'hidden';
+    lockBodyScroll();
 
     // Enfocar el panel al abrir.
     const t = setTimeout(() => panelRef.current?.focus(), 0);
@@ -68,7 +81,7 @@ const Modal = ({
     return () => {
       clearTimeout(t);
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = overflow;
+      unlockBodyScroll();
       previouslyFocused.current?.focus?.();
     };
   }, [open, closeOnEsc, onClose]);
