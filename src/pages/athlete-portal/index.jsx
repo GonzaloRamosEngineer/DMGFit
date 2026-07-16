@@ -37,7 +37,7 @@ import MyDataCard from './components/MyDataCard';            // Autoservicio: mi
 import PaymentsCard from './components/PaymentsCard';        // Wallet Financiera
 import AttendanceCard from './components/AttendanceCard';    // Monitor de Hábito
 import CoachNotesCard from './components/CoachNotesCard';    // Feed de Feedback
-import ExerciseBrowser from '../exercise-library/components/ExerciseBrowser'; // Biblioteca de ejercicios
+import WorkoutSection from './components/workout/WorkoutSection'; // Registrador de entrenamiento + biblioteca
 
 const runPortalTask = async (key, task, fallback) => {
   try {
@@ -347,13 +347,10 @@ const AthletePortal = () => {
             </section>
           )}
 
-          {activeSection === 'ejercicios' && (
+          {activeSection === 'entrenar' && (
             <section>
-              <SectionTitle label="Biblioteca" />
-              <ExerciseBrowser
-                title="Biblioteca de ejercicios"
-                subtitle="Explorá el catálogo, mirá la ejecución en video y aprendé la técnica de cada movimiento."
-              />
+              <SectionTitle label="Entrenamiento" />
+              <WorkoutSection athleteId={calculatedAthleteId} />
             </section>
           )}
 
