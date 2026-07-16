@@ -30,11 +30,11 @@ export const ATHLETE_PORTAL_SECTIONS = [
     description: 'Métricas y rendimiento',
   },
   {
-    id: 'ejercicios',
-    label: 'Ejercicios',
+    id: 'entrenar',
+    label: 'Entrenar',
     icon: 'Dumbbell',
-    path: '/athlete-portal/ejercicios',
-    description: 'Biblioteca y técnica',
+    path: '/athlete-portal/entrenar',
+    description: 'Registrar entrenamiento',
   },
   {
     id: 'coach',
