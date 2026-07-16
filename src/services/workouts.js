@@ -102,6 +102,53 @@ export const fetchExerciseHistory = async (athleteId, exerciseId, limit = 60) =>
   return [...bySession.values()];
 };
 
+/**
+ * Progreso de fuerza del atleta: todas sus series con fecha de sesión y
+ * ejercicio, agrupadas por ejercicio → por sesión, con mejor serie, 1RM
+ * estimado (Epley: carga × (1 + reps/30)) y volumen por sesión.
+ */
+export const fetchStrengthProgress = async (athleteId) => {
+  const { data, error } = await supabase
+    .from('workout_results')
+    .select(`
+      exercise_id, set_index, reps_done, load_done, created_at,
+      workout_sessions ( session_date ),
+      exercises ( id, name, primary_muscle, muscle_group, image_url, video_url, tracking_type, equipment )
+    `)
+    .eq('athlete_id', athleteId)
+    .not('load_done', 'is', null)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  const byExercise = new Map();
+  (data ?? []).forEach((row) => {
+    if (!row.exercises) return;
+    const key = row.exercise_id;
+    if (!byExercise.has(key)) {
+      byExercise.set(key, { exercise: row.exercises, sessions: new Map() });
+    }
+    const date = row.workout_sessions?.session_date || row.created_at?.slice(0, 10);
+    const group = byExercise.get(key);
+    if (!group.sessions.has(date)) {
+      group.sessions.set(date, { date, bestLoad: 0, best1rm: 0, volume: 0 });
+    }
+    const s = group.sessions.get(date);
+    const load = Number(row.load_done) || 0;
+    const reps = Number(row.reps_done) || 0;
+    s.bestLoad = Math.max(s.bestLoad, load);
+    s.best1rm = Math.max(s.best1rm, reps > 0 ? load * (1 + reps / 30) : load);
+    s.volume += load * reps;
+  });
+
+  return [...byExercise.values()]
+    .map(({ exercise, sessions }) => ({
+      exercise,
+      points: [...sessions.values()].sort((a, b) => (a.date < b.date ? -1 : 1)),
+    }))
+    .sort((a, b) => b.points.length - a.points.length);
+};
+
 /** Volumen (kg) de una lista de filas de resultados: Σ carga × reps. */
 export const computeVolume = (rows = []) =>
   rows.reduce((total, row) => {

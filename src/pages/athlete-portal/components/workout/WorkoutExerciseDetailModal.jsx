@@ -6,6 +6,7 @@ import ExerciseThumb from '../../../exercise-library/components/ExerciseThumb';
 import { MEDIA_ATTRIBUTION } from '../../../exercise-library/components/constants';
 import { fetchExerciseHistory } from '../../../../services/workouts';
 import { formatearFecha } from '../../../../utils/formatters';
+import ExerciseTrendChart from './ExerciseTrendChart';
 
 const formatSet = (set) => {
   const parts = [];
@@ -43,6 +44,18 @@ const WorkoutExerciseDetailModal = ({ exercise, athleteId, open, onClose }) => {
     [exercise]
   );
 
+  // Mejor serie (kg) por sesión, para la curva del Resumen (estilo Hevy).
+  const trendPoints = useMemo(() => {
+    if (!history?.length) return [];
+    return history
+      .map((session) => ({
+        date: session.date,
+        value: Math.max(...session.sets.map((s) => Number(s.load_done) || 0)),
+      }))
+      .filter((p) => p.date && p.value > 0)
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+  }, [history]);
+
   if (!exercise) return null;
   const secondary = Array.isArray(exercise.secondary_muscles) ? exercise.secondary_muscles : [];
 
@@ -79,6 +92,22 @@ const WorkoutExerciseDetailModal = ({ exercise, athleteId, open, onClose }) => {
                 </span>
               ))}
             </div>
+            {trendPoints.length >= 2 ? (
+              <div className="rounded-2xl border border-border p-4">
+                <div className="mb-1 flex items-baseline gap-2">
+                  <p className="text-lg font-black tabular-nums text-text-primary">
+                    {trendPoints[trendPoints.length - 1].value.toLocaleString('es-AR')} kg
+                  </p>
+                  <p className="text-xs font-bold text-text-tertiary">
+                    {formatearFecha(trendPoints[trendPoints.length - 1].date)}
+                  </p>
+                  <p className="ml-auto text-[10px] font-black uppercase tracking-widest text-text-tertiary">
+                    Mayor peso
+                  </p>
+                </div>
+                <ExerciseTrendChart points={trendPoints} unit="kg" height={140} gradientId="detailTrend" />
+              </div>
+            ) : null}
             {exercise.image_url ? (
               <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
                 {MEDIA_ATTRIBUTION}
