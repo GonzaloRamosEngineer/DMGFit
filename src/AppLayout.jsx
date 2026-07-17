@@ -28,7 +28,7 @@ const AppLayout = () => {
       />
 
       <main className="flex-1 min-w-0 overflow-x-hidden pt-20 lg:pt-0">
-        <div className="min-h-screen bg-background px-0 sm:px-1 lg:px-2 py-6 md:py-8">
+        <div className="min-h-screen bg-background px-0 sm:px-1 lg:px-2 pb-6 md:pb-8 pt-0 lg:pt-8">
           <Outlet />
         </div>
       </main>
