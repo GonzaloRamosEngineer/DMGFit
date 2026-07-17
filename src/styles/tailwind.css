@@ -108,6 +108,16 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* iOS Safari hace auto-zoom al enfocar controles con font-size < 16px
+     y el zoom queda pegado en toda la SPA; 16px en mobile lo evita. */
+  @media (max-width: 1023px) {
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
   /* Typography Hierarchy */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif;
