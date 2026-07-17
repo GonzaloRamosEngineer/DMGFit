@@ -180,17 +180,15 @@ const NavigationSidebar = ({
   return (
     <>
       {/* Botón Mobile */}
-      <button
-        onClick={handleMobileToggle}
-        className="fixed top-4 left-4 z-40 lg:hidden bg-card p-3 rounded-lg shadow-lg transition-smooth hover:bg-muted border border-border"
-        aria-label="Toggle navigation menu"
-      >
-        <Icon
-          name={isMobileOpen ? "X" : "Menu"}
-          size={24}
-          color="var(--color-foreground)"
-        />
-      </button>
+      {!isMobileOpen && (
+        <button
+          onClick={handleMobileToggle}
+          className="fixed top-4 left-4 z-40 lg:hidden bg-card p-3 rounded-lg shadow-lg transition-smooth hover:bg-muted border border-border"
+          aria-label="Abrir menú de navegación"
+        >
+          <Icon name="Menu" size={24} color="var(--color-foreground)" />
+        </button>
+      )}
 
       {/* Sidebar */}
       <aside
@@ -226,6 +224,15 @@ const NavigationSidebar = ({
       <Icon name="Dumbbell" size={22} color="#FFFFFF" />
     </div>
   )}
+
+  {/* Botón cerrar — solo mobile, dentro del panel */}
+  <button
+    onClick={handleMobileToggle}
+    className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-border bg-card hover:bg-muted transition-all flex-shrink-0"
+    aria-label="Cerrar menú de navegación"
+  >
+    <Icon name="X" size={20} color="var(--color-foreground)" />
+  </button>
 
   {/* Botón colapsar — siempre visible en desktop */}
   <button
