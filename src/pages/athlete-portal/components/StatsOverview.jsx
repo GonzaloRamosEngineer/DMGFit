@@ -27,10 +27,10 @@ const calculateTrend = (metrics, name) => {
 
 // Clasifica el Ratio de Fuerza (Total / Peso Corporal)
 const getStrengthTier = (ratio) => {
-  if (ratio >= 2.5) return { label: 'Élite', color: 'text-purple-400', bg: 'bg-purple-400/10' };
-  if (ratio >= 2.0) return { label: 'Avanzado', color: 'text-indigo-400', bg: 'bg-indigo-400/10' };
-  if (ratio >= 1.5) return { label: 'Intermedio', color: 'text-blue-400', bg: 'bg-blue-400/10' };
-  return { label: 'Base', color: 'text-slate-400', bg: 'bg-slate-100' };
+  if (ratio >= 2.5) return { label: 'Élite', color: 'text-purple-600', bg: 'bg-purple-50' };
+  if (ratio >= 2.0) return { label: 'Avanzado', color: 'text-indigo-600', bg: 'bg-indigo-50' };
+  if (ratio >= 1.5) return { label: 'Intermedio', color: 'text-blue-600', bg: 'bg-blue-50' };
+  return { label: 'Base', color: 'text-text-secondary', bg: 'bg-muted' };
 };
 
 // --- SUB-COMPONENTS ---
@@ -58,31 +58,15 @@ const TrendPill = ({ trend, inverse = false }) => {
   );
 };
 
-const StatCard = ({ title, value, unit, icon, theme = 'light', trend, subtext, active = false }) => {
-  // Estilos base según el tema (Dark para destacado, Light para estándar)
-  const isDark = theme === 'dark';
-  
-  const containerClasses = isDark
-    ? "bg-slate-900 text-white shadow-xl shadow-slate-900/20 border-slate-800"
-    : "bg-card text-text-primary shadow-sm border-border hover:border-primary/15 hover:shadow-md";
-
-  const iconBoxClasses = isDark
-    ? "bg-white/10 text-white"
+const StatCard = ({ title, value, unit, icon, trend, subtext, highlight = false }) => {
+  const iconBoxClasses = highlight
+    ? "bg-info-light text-primary"
     : "bg-muted text-text-secondary group-hover:bg-info-light group-hover:text-primary";
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl p-5 border transition-all duration-300 group flex flex-col justify-between h-full min-h-[140px] ${containerClasses}`}>
-      
-      {/* Background Decorativo (Solo Dark) */}
-      {isDark && (
-        <>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600 rounded-full blur-[60px] opacity-20 -mr-10 -mt-10"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-600 rounded-full blur-[50px] opacity-20 -ml-10 -mb-10"></div>
-        </>
-      )}
-
+    <div className="relative overflow-hidden rounded-3xl p-5 border bg-card text-text-primary shadow-sm border-border hover:border-primary/15 hover:shadow-md transition-all duration-300 group flex flex-col justify-between h-full min-h-[140px]">
       {/* Header */}
-      <div className="flex justify-between items-start mb-2 relative z-10">
+      <div className="flex justify-between items-start mb-2">
         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${iconBoxClasses}`}>
           <Icon name={icon} size={20} />
         </div>
@@ -90,17 +74,17 @@ const StatCard = ({ title, value, unit, icon, theme = 'light', trend, subtext, a
       </div>
 
       {/* Content */}
-      <div className="relative z-10">
-        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDark ? 'text-slate-400' : 'text-text-tertiary'}`}>
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 text-text-tertiary">
           {title}
         </p>
         <div className="flex items-baseline gap-1">
-          <h3 className={`text-3xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-text-primary'}`}>
+          <h3 className="text-3xl font-black tracking-tighter text-text-primary">
             {value}
           </h3>
-          {unit && <span className={`text-xs font-bold uppercase ${isDark ? 'text-slate-500' : 'text-text-tertiary'}`}>{unit}</span>}
+          {unit && <span className="text-xs font-bold uppercase text-text-tertiary">{unit}</span>}
         </div>
-        
+
         {/* Subtext / Tier Badge */}
         {subtext && (
           <div className="mt-2">
@@ -145,19 +129,19 @@ const StatsOverview = ({ metrics, attendanceRate }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       
-      {/* 1. CARD DESTACADA: Disciplina (Dark Mode) */}
-      <StatCard 
-        theme="dark"
+      {/* 1. CARD DESTACADA: Disciplina */}
+      <StatCard
+        highlight
         title="Disciplina"
         value={attendanceRate}
         unit="%"
         icon="Calendar"
         subtext={
           <div className="flex items-center gap-2 mt-1">
-            <div className={`h-1.5 w-full bg-slate-800 rounded-full overflow-hidden`}>
-               <div className="h-full bg-blue-500 rounded-full" style={{ width: `${attendanceRate}%` }}></div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+               <div className="h-full bg-primary rounded-full" style={{ width: `${attendanceRate}%` }}></div>
             </div>
-            <span className="text-[9px] font-bold text-blue-400 uppercase">Tasa</span>
+            <span className="text-[9px] font-bold text-primary uppercase">Tasa</span>
           </div>
         }
       />

@@ -23,13 +23,13 @@ const STATUS_LABELS = {
 // --- MAIN COMPONENT ---
 
 const MyPlanCard = ({ plan, kioskRemaining }) => {
-  // Empty State Premium
+  // Empty State
   if (!plan) {
     return (
-      <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 min-h-[240px] flex flex-col items-center justify-center text-center border border-slate-800">
-        <Icon name="CreditCard" size={32} className="text-slate-600 mb-3 opacity-50" />
-        <h3 className="text-slate-400 font-bold uppercase tracking-widest text-xs">Sin Plan Activo</h3>
-        <p className="mt-3 text-xs text-slate-500 max-w-[220px] leading-relaxed">
+      <div className="rounded-3xl border border-dashed border-border bg-muted p-8 min-h-[240px] flex flex-col items-center justify-center text-center">
+        <Icon name="CreditCard" size={32} className="text-text-tertiary mb-3" />
+        <h3 className="text-text-secondary font-bold text-sm">Sin plan activo</h3>
+        <p className="mt-2 text-xs text-text-tertiary max-w-[220px] leading-relaxed">
           Cuando el staff active tu membresía, el detalle del plan va a aparecer acá.
         </p>
       </div>
@@ -45,6 +45,7 @@ const MyPlanCard = ({ plan, kioskRemaining }) => {
   const renewalLabel = kioskRemaining?.period_end
     ? new Date(kioskRemaining.period_end + 'T00:00:00').toLocaleDateString('es-AR', { month: 'short', day: 'numeric' })
     : '—';
+  const isActive = plan.athlete_status === 'active';
   const statusLabel = STATUS_LABELS[plan.athlete_status] || 'Plan registrado';
   const accessLabel = hasAccessBalance
     ? `${remaining} accesos disponibles`
@@ -54,99 +55,81 @@ const MyPlanCard = ({ plan, kioskRemaining }) => {
     : 'Frecuencia registrada';
 
   return (
-    <div className="group relative overflow-hidden rounded-3xl bg-[#0F172A] text-white shadow-2xl shadow-slate-900/40 min-h-[280px] flex flex-col justify-between p-8 border border-white/5 transition-transform duration-500 hover:scale-[1.01]">
-      
-      {/* --- BACKGROUND FX --- */}
-      {/* Noise Texture Overlay (Opcional, simulado con opacidad) */}
-      <div className="absolute inset-0 bg-white opacity-[0.02] pointer-events-none z-0 mix-blend-overlay"></div>
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 opacity-90"></div>
-      
-      {/* Patrón de Chip Holográfico */}
-      <div className="absolute top-8 right-8 opacity-20">
-         <Icon name="Cpu" size={48} strokeWidth={1} />
-      </div>
+    <div className="relative overflow-hidden rounded-3xl bg-card border border-border shadow-sm min-h-[280px] flex flex-col justify-between p-6 md:p-8">
+      {/* Cinta superior con gradiente de marca */}
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-accent to-success" />
 
-      {/* --- CONTENT LAYER --- */}
-      <div className="relative z-10 flex flex-col h-full justify-between">
-        
-        {/* HEADER: Tipo de Pase & Estado */}
+      <div className="flex flex-col h-full justify-between">
+        {/* HEADER: Estado & Plan */}
         <div className="flex justify-between items-start">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]"></div>
-               <span className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.2em]">
-                 {statusLabel}
-               </span>
-            </div>
-            <h2 className="text-3xl font-black tracking-tighter text-white italic">
+            <span
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border mb-3 ${
+                isActive
+                  ? 'bg-success-light text-success border-success/20'
+                  : 'bg-muted text-text-secondary border-border'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-success' : 'bg-text-tertiary'}`} />
+              {statusLabel}
+            </span>
+            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-text-primary">
               {plan.name}
             </h2>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-              {plan.id ? `ID: MBr-${plan.id.toString().padStart(4, '0')}` : 'Plan sin ID visible'}
-            </p>
+          </div>
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-info-light text-primary flex items-center justify-center">
+            <Icon name="CreditCard" size={20} />
           </div>
         </div>
 
-        {/* BODY: Schedule & Info */}
-        <div className="space-y-4">
-           {/* Saldo de accesos del período (real) */}
-           <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 pl-1">
-                 Accesos este mes
-              </p>
-              <div className="bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
-                 {hasAccessBalance ? (
-                   <>
-                     <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black text-white tracking-tight">{remaining}</span>
-                        <span className="text-xs font-bold text-slate-400">de {allowed} disponibles</span>
-                     </div>
-                     <div className="mt-3 h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-400 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-                     </div>
-                     <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-2">
-                        {consumed} usados en el período
-                     </p>
-                   </>
-                 ) : (
-                   <p className="text-xs font-bold text-slate-400">{statusLabel}</p>
-                 )}
-              </div>
-           </div>
+        {/* BODY: Saldo de accesos del período (real) */}
+        <div className="mt-5">
+          <p className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider mb-2">
+            Accesos este mes
+          </p>
+          <div className="bg-muted p-4 rounded-xl">
+            {hasAccessBalance ? (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-text-primary tracking-tight">{remaining}</span>
+                  <span className="text-xs font-bold text-text-secondary">de {allowed} disponibles</span>
+                </div>
+                <div className="mt-3 h-1.5 w-full bg-border rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                </div>
+                <p className="text-[11px] text-text-tertiary font-medium mt-2">
+                  {consumed} usados en el período
+                </p>
+              </>
+            ) : (
+              <p className="text-xs font-bold text-text-secondary">{statusLabel}</p>
+            )}
+          </div>
         </div>
 
-        {/* FOOTER: Price & Dates */}
-        <div className="flex items-end justify-between pt-4 border-t border-white/10 mt-4">
-           <div>
-              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
-                 Vigencia
-              </p>
-              <div className="flex items-center gap-1.5 text-slate-300">
-                 <Icon name="Calendar" size={12} />
-                 <span className="text-xs font-bold">
-                    {renewalLabel}
-                 </span>
-              </div>
-           </div>
+        {/* FOOTER: Vigencia & Precio */}
+        <div className="flex items-end justify-between pt-4 border-t border-border mt-5">
+          <div>
+            <p className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider mb-0.5">
+              Vigencia
+            </p>
+            <div className="flex items-center gap-1.5 text-text-secondary">
+              <Icon name="Calendar" size={13} />
+              <span className="text-xs font-bold">{renewalLabel}</span>
+            </div>
+          </div>
 
-           <div className="text-right">
-              <div className="flex items-baseline justify-end gap-1">
-                 <span className="text-2xl font-black text-white tracking-tight">
-                    {formatCurrency(plan.price)}
-                 </span>
-                 <span className="text-[10px] font-bold text-slate-400 uppercase">
-                    /Mes
-                 </span>
-              </div>
-              <p className="text-[8px] text-emerald-400 font-black uppercase tracking-widest mt-1">
-                 {accessLabel}
-              </p>
-              <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mt-1">
-                 {frequencyLabel}
-              </p>
-           </div>
+          <div className="text-right">
+            <div className="flex items-baseline justify-end gap-1">
+              <span className="text-2xl font-black text-text-primary tracking-tight">
+                {formatCurrency(plan.price)}
+              </span>
+              <span className="text-[10px] font-bold text-text-tertiary uppercase">/mes</span>
+            </div>
+            <p className="text-[10px] text-success font-bold mt-1">{accessLabel}</p>
+            <p className="text-[10px] text-text-tertiary font-medium mt-0.5">{frequencyLabel}</p>
+          </div>
         </div>
-
       </div>
     </div>
   );

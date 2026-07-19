@@ -31,7 +31,8 @@ import AthleteRadar from './components/AthleteRadar';        // Perfil Radar
 import MetricEntryForm from './components/MetricEntryForm';  // Mediciones y tests
 import ExerciseProgressCard from './components/workout/ExerciseProgressCard'; // Progreso por ejercicio (workouts)
 import UpcomingSessionsCard from './components/UpcomingSessionsCard'; // Agenda Boarding Pass
-import MyPlanCard from './components/MyPlanCard';            // Membership Black Card
+import MyPlanCard from './components/MyPlanCard';            // Card de membresía (Cuenta)
+import MembershipSummaryCard from './components/MembershipSummaryCard'; // Resumen compacto (Inicio)
 import MyScheduleCard from './components/MyScheduleCard';    // Auto-gestión de turnos (preferencia)
 import MyDataCard from './components/MyDataCard';            // Autoservicio: mis datos
 import PaymentsCard from './components/PaymentsCard';        // Wallet Financiera
@@ -260,7 +261,7 @@ const AthletePortal = () => {
               <section>
                 <SectionTitle label="Resumen" />
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
-                  <MyPlanCard plan={planForDisplay} kioskRemaining={kioskRemaining} />
+                  <MembershipSummaryCard plan={planForDisplay} kioskRemaining={kioskRemaining} />
                   <UpcomingSessionsCard sessions={sessions} />
                   <CoachNotesCard notes={notes} />
                 </div>

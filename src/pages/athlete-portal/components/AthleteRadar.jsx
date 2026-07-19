@@ -71,15 +71,15 @@ const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-3 rounded-xl shadow-2xl z-50">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+      <div className="bg-popover border border-border p-3 rounded-xl shadow-lg z-50">
+        <p className="text-[10px] font-black uppercase tracking-widest text-text-tertiary mb-1">
           {data.subject}
         </p>
         <div className="flex items-baseline gap-2">
-          <span className="text-white font-black text-lg">
-            {data.raw} <span className="text-xs text-slate-500 font-bold">{data.unit}</span>
+          <span className="text-text-primary font-black text-lg">
+            {data.raw} <span className="text-xs text-text-tertiary font-bold">{data.unit}</span>
           </span>
-          <span className="text-blue-400 text-xs font-bold">
+          <span className="text-primary text-xs font-bold">
             ({data.score}%)
           </span>
         </div>
@@ -96,32 +96,30 @@ const AthleteRadar = ({ metrics, compact = false }) => {
   const isEnoughData = data.length >= 3;
 
   return (
-    <div className={`bg-slate-950 rounded-3xl ${compact ? 'p-5 min-h-[270px]' : 'p-8 min-h-[400px]'} shadow-[0_24px_60px_-28px_rgba(2,6,23,0.75)] text-white relative overflow-hidden flex flex-col border border-slate-800`}>
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/60 to-transparent pointer-events-none"></div>
-
+    <div className={`bg-card rounded-3xl ${compact ? 'p-5 min-h-[270px]' : 'p-8 min-h-[400px]'} shadow-sm text-text-primary relative overflow-hidden flex flex-col border border-border`}>
       {/* Header */}
       <div className={`relative z-10 flex justify-between items-start ${compact ? 'mb-3' : 'mb-6'}`}>
         <div>
           <div className="flex items-center gap-3 mb-1">
-             <div className={`${compact ? 'p-1.5' : 'p-2'} bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm`}>
-                <Icon name="Crosshair" className="text-blue-400" size={compact ? 16 : 20} />
+             <div className={`${compact ? 'p-1.5' : 'p-2'} bg-info-light rounded-lg`}>
+                <Icon name="Crosshair" className="text-primary" size={compact ? 16 : 20} />
              </div>
-             <h3 className={`${compact ? 'text-base' : 'text-xl'} font-black text-white uppercase italic`}>
-               Perfil <span className="text-blue-500">Atlético</span>
+             <h3 className={`${compact ? 'text-base' : 'text-xl'} font-black text-text-primary tracking-tight`}>
+               Perfil Atlético
              </h3>
           </div>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.18em] pl-1">
-            Análisis Multidimensional
+          <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.18em] pl-1">
+            Tus métricas en un vistazo
           </p>
         </div>
 
         {/* Score Badge */}
         {isEnoughData && (
           <div className="text-right">
-             <span className={`${compact ? 'text-2xl' : 'text-[32px]'} block font-black leading-none text-white`}>
+             <span className={`${compact ? 'text-2xl' : 'text-[32px]'} block font-black leading-none text-text-primary`}>
                {score}
              </span>
-             <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">
+             <span className="text-[9px] font-bold text-primary uppercase tracking-widest bg-info-light px-2 py-0.5 rounded-full">
                Puntaje Global
              </span>
           </div>
@@ -141,11 +139,11 @@ const AthleteRadar = ({ metrics, compact = false }) => {
                   </linearGradient>
                 </defs>
                 
-                <PolarGrid stroke="#334155" strokeDasharray="4 4" />
-                
-                <PolarAngleAxis 
-                  dataKey="subject" 
-                  tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }} 
+                <PolarGrid stroke="#E2E8F0" strokeDasharray="4 4" />
+
+                <PolarAngleAxis
+                  dataKey="subject"
+                  tick={{ fill: '#64748B', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}
                 />
                 
                 <PolarRadiusAxis 
@@ -169,11 +167,11 @@ const AthleteRadar = ({ metrics, compact = false }) => {
           </div>
         ) : (
           /* Empty State con estilo */
-          <div className={`flex flex-col items-center justify-center text-center border border-dashed border-slate-700/70 rounded-3xl bg-slate-900/70 w-full ${compact ? 'h-[170px] p-4' : 'h-[250px] p-6'}`}>
-             <Icon name="Activity" className="text-slate-600 mb-3" size={compact ? 24 : 32} />
-             <h4 className="text-slate-300 font-bold text-sm mb-1">Datos Insuficientes</h4>
-             <p className="text-slate-500 text-xs max-w-[200px]">
-               Registra al menos 3 métricas diferentes para generar tu mapa de radar.
+          <div className={`flex flex-col items-center justify-center text-center border border-dashed border-border rounded-3xl bg-muted w-full ${compact ? 'h-[170px] p-4' : 'h-[250px] p-6'}`}>
+             <Icon name="Activity" className="text-text-tertiary mb-3" size={compact ? 24 : 32} />
+             <h4 className="text-text-secondary font-bold text-sm mb-1">Datos insuficientes</h4>
+             <p className="text-text-tertiary text-xs max-w-[200px]">
+               Registrá al menos 3 métricas diferentes para generar tu mapa de radar.
              </p>
           </div>
         )}
@@ -181,14 +179,14 @@ const AthleteRadar = ({ metrics, compact = false }) => {
 
       {/* Footer / Legend */}
       {isEnoughData && (
-        <div className="mt-4 flex justify-center gap-6 border-t border-slate-800 pt-4 relative z-10">
+        <div className="mt-4 flex justify-center gap-6 border-t border-border pt-4 relative z-10">
            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_#3B82F6]"></span>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Rendimiento Actual</span>
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary">Rendimiento actual</span>
            </div>
-           <div className="flex items-center gap-2 opacity-50">
-              <span className="w-2 h-2 rounded-full border border-slate-500 border-dashed"></span>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Benchmark (100%)</span>
+           <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full border border-text-tertiary border-dashed"></span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-text-tertiary">Máximo (100%)</span>
            </div>
         </div>
       )}

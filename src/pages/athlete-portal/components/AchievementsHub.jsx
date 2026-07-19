@@ -114,45 +114,41 @@ const useGamification = (metrics, attendanceRate) => {
 // --- SUB-COMPONENTS ---
 
 const LevelCard = ({ stats }) => (
-  <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-8 text-white shadow-2xl shadow-slate-200/50 md:col-span-1 group">
-    {/* Background Effects */}
-    <div className="absolute -right-10 -top-10 h-64 w-64 rounded-full bg-blue-600/20 blur-[80px] transition-all duration-700 group-hover:bg-blue-500/30" />
-    <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-indigo-500/10 blur-[60px]" />
-
-    <div className="relative z-10 flex h-full flex-col justify-between">
+  <div className="relative overflow-hidden rounded-3xl bg-card border border-border p-8 text-text-primary shadow-sm md:col-span-1">
+    <div className="flex h-full flex-col justify-between">
       <div>
         <div className="mb-6 flex items-center justify-between">
-          <div className="rounded-xl bg-white/5 p-2 backdrop-blur-md border border-white/10">
-            <Icon name="Award" className="text-blue-400" size={20} />
+          <div className="rounded-xl bg-info-light p-2">
+            <Icon name="Award" className="text-primary" size={20} />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-            Elite Member
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-tertiary">
+            Mi nivel
           </span>
         </div>
 
         <div className="mb-1">
-          <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">Nivel Actual</span>
-          <h2 className="text-5xl font-black tracking-tighter text-white">
+          <span className="text-sm font-bold text-text-secondary uppercase tracking-wider">Nivel actual</span>
+          <h2 className="text-5xl font-black tracking-tighter text-text-primary">
             {stats.level}
           </h2>
         </div>
       </div>
 
       <div className="space-y-3">
-        <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
           <span>Progreso</span>
           <span>{stats.nextLevelXP} XP para Nivel {stats.level + 1}</span>
         </div>
-        
+
         {/* Progress Bar Container */}
-        <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-slate-800/50 box-shadow-inner">
-          <div 
+        <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
             className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 transition-all duration-1000 ease-out"
             style={{ width: `${stats.progress}%` }}
           />
         </div>
-        
-        <p className="text-right text-[10px] text-slate-500 font-medium">
+
+        <p className="text-right text-[10px] text-text-tertiary font-medium">
           Total XP: {stats.totalXP.toLocaleString()}
         </p>
       </div>
