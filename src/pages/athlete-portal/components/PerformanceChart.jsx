@@ -7,9 +7,10 @@ import Icon from '../../../components/AppIcon';
 
 // --- CONFIG & UTILS ---
 
+// Paleta de dato de los charts del portal: el azul es el primary de marca.
 const THEME = {
-  primary: "#2563EB",
-  grid: "#F8FAFC",
+  primary: "#0066FF",
+  grid: "#F1F5F9",
   text: "#94A3B8",
   accent: "#0F172A"
 };
@@ -98,7 +99,7 @@ const ChartControls = React.memo(({ ranges, activeRange, onRangeChange, metrics,
               "whitespace-nowrap rounded-full border text-[10px] font-bold tracking-widest transition-all duration-300 uppercase",
               compact ? "px-3 py-1.5" : "px-5 py-2",
               activeMetric === m
-                ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                ? "bg-primary border-primary text-white shadow-sm"
                 : "bg-transparent border-border text-text-tertiary hover:border-border hover:text-text-secondary"
             )}
           >
@@ -133,7 +134,7 @@ const StatsGrid = ({ stats, unit, compact = false }) => {
   const items = [
     { label: 'Promedio', value: `${stats.avg} ${unit}` },
     { label: 'Máximo', value: `${stats.max} ${unit}` },
-    { label: 'Volatilidad', value: stats.volatility },
+    { label: 'Variación', value: stats.volatility },
     { label: 'Registros', value: stats.count },
   ];
 
@@ -144,7 +145,7 @@ const StatsGrid = ({ stats, unit, compact = false }) => {
     )}>
       {items.map((item, i) => (
         <div key={i}>
-          <p className="text-[9px] font-black text-text-tertiary uppercase tracking-[0.2em] mb-1">
+          <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.18em] mb-1">
             {item.label}
           </p>
           <p className={cn("font-black text-text-primary", compact ? "text-base" : "text-xl")}>
@@ -159,7 +160,7 @@ const StatsGrid = ({ stats, unit, compact = false }) => {
 const ChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
   return (
-    <div className="bg-card border border-border p-4 rounded-2xl shadow-2xl shadow-slate-200/50">
+    <div className="bg-card border border-border p-4 rounded-2xl shadow-lg">
       <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-2 border-b border-border pb-2">
         {label}
       </p>
@@ -217,21 +218,21 @@ const PerformanceChart = ({ metrics = [], compact = false }) => {
       
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-           <div className="flex items-center gap-2 mb-1">
-              <div className="p-2 bg-info-light rounded-xl text-primary">
-                 <Icon name="Activity" size={20} />
-              </div>
-              <h3 className={cn("font-black text-text-primary italic uppercase", compact ? "text-lg" : "text-2xl")}>
-                Performance <span className="text-primary">Analytics</span>
+        <div className="flex items-center gap-3">
+           <div className="p-2 bg-info-light rounded-xl text-primary">
+              <Icon name="Activity" size={20} />
+           </div>
+           <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
+                Mediciones · Evolución
+              </p>
+              <h3 className={cn("font-black text-text-primary tracking-tight", compact ? "text-lg" : "text-2xl")}>
+                Evolución de tus métricas
               </h3>
            </div>
-           <p className="text-text-tertiary font-bold text-[9px] uppercase tracking-[0.4em] pl-11 -mt-1">
-             Inteligencia Biométrica
-           </p>
         </div>
-        
-        <button className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-2 text-text-primary transition-all duration-300 hover:bg-slate-900 hover:text-white group">
+
+        <button className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-2 text-text-primary transition-all duration-300 hover:bg-primary hover:text-white group">
           <Icon name="Download" size={14} className="group-hover:-translate-y-0.5 transition-transform" />
           <span className="text-[10px] font-black uppercase tracking-widest">Exportar</span>
         </button>
@@ -293,13 +294,10 @@ const PerformanceChart = ({ metrics = [], compact = false }) => {
 
       {/* Metadata Footer */}
       <footer className={cn(
-        "justify-between items-center text-[8px] font-black text-text-tertiary uppercase tracking-[0.3em]",
+        "justify-end items-center text-[10px] font-bold text-text-tertiary",
         compact ? "hidden md:flex" : "flex"
       )}>
-        <span>Sincronizado: {new Date().toLocaleDateString()}</span>
-        <span className="flex items-center gap-1 italic">
-          <Icon name="ShieldCheck" size={10} /> Datos Verificados
-        </span>
+        <span>Actualizado el {new Date().toLocaleDateString('es-AR')}</span>
       </footer>
     </div>
   );

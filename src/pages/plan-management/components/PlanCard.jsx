@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import Icon from '../../../components/AppIcon';
+import InfoTip from '../../../components/ui/InfoTip';
 
 const DAYS_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
@@ -187,13 +188,13 @@ const PlanCard = ({
   if (loading) {
     return (
       <div className="bg-card border border-border rounded-3xl overflow-hidden animate-pulse flex flex-col h-full">
-        <div className="bg-slate-950 px-6 py-6">
+        <div className="px-6 py-6 border-b border-border">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="space-y-3 flex-1">
-              <div className="h-8 w-48 bg-slate-800 rounded-lg" />
-              <div className="h-4 w-72 bg-slate-800 rounded-lg" />
+              <div className="h-8 w-48 bg-muted rounded-lg" />
+              <div className="h-4 w-72 bg-muted rounded-lg" />
             </div>
-            <div className="h-8 w-20 bg-slate-800 rounded-full" />
+            <div className="h-8 w-20 bg-muted rounded-full" />
           </div>
         </div>
 
@@ -225,14 +226,14 @@ const PlanCard = ({
         isActive ? 'border-border' : 'border-border opacity-95'
       }`}
     >
-      {/* Header oscuro */}
-      <div className="bg-gradient-to-r from-slate-950 to-slate-900 px-6 py-6">
+      {/* Header */}
+      <div className="px-6 py-5 border-b border-border">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="text-2xl font-black text-white uppercase tracking-wide truncate">
+            <h3 className="text-xl font-black text-text-primary tracking-tight truncate">
               {plan?.name || 'Plan'}
             </h3>
-            <p className="text-sm text-slate-300 mt-2 line-clamp-2 min-h-[40px]">
+            <p className="text-sm text-text-secondary mt-1.5 line-clamp-2 min-h-[40px]">
               {plan?.description || 'Sin descripción disponible.'}
             </p>
           </div>
@@ -240,13 +241,13 @@ const PlanCard = ({
           <span
             className={`px-3 py-1 rounded-full text-xs font-black border flex-shrink-0 inline-flex items-center gap-2 ${
               isActive
-                ? 'bg-emerald-950/70 text-emerald-400 border-emerald-800'
-                : 'bg-slate-800 text-slate-300 border-slate-700'
+                ? 'bg-success-light text-success border-success/20'
+                : 'bg-muted text-text-secondary border-border'
             }`}
           >
             <span
               className={`w-2.5 h-2.5 rounded-full ${
-                isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                isActive ? 'bg-success' : 'bg-text-tertiary'
               }`}
             />
             {isActive ? 'Activo' : 'Inactivo'}
@@ -274,9 +275,15 @@ const PlanCard = ({
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-4">
-            <p className="text-[11px] font-black text-text-secondary uppercase tracking-widest mb-1">
-              Ocupación actual
-            </p>
+            <div className="flex items-center gap-0.5 mb-1">
+              <p className="text-[11px] font-black text-text-secondary uppercase tracking-widest">
+                Ocupación actual
+              </p>
+              <InfoTip
+                title="Ocupación actual"
+                text="Cuántos atletas están anotados en este plan y cuántos lugares quedan libres en total entre todos los horarios de la semana."
+              />
+            </div>
 
             <div className="flex items-end gap-1">
               <span className="text-3xl font-black text-text-primary">{enrolled}</span>
@@ -294,13 +301,9 @@ const PlanCard = ({
                   </span>
                 </div>
 
-                <p className="text-xs font-semibold text-text-secondary mt-1">
-                  Disponibilidad horaria acumulada
-                </p>
-
                 {accumulatedAvailability.slotCount > 0 && (
                   <p className="text-[11px] text-text-tertiary mt-1">
-                    Sumatoria de libres reales en {accumulatedAvailability.slotCount} slots configurados
+                    Sumando los {accumulatedAvailability.slotCount} horarios de la semana
                   </p>
                 )}
               </>

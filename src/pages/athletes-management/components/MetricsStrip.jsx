@@ -1,142 +1,56 @@
 import React from 'react';
-import Icon from '../../../components/AppIcon';
-import { getMetricPalette } from '../../../constants/metricPalettes';
-import { Card } from '../../../components/ui/Card';
-import { Skeleton } from '../../../components/ui/Skeleton';
+import StatCard from '../../../components/ui/StatCard';
 
 const MetricsStrip = ({ metrics, loading }) => {
+  const pendingCount = Math.max(
+    0,
+    (metrics?.totalAthletes || 0) - (metrics?.upToDateCount || 0),
+  );
+
   const metricCards = [
     {
       id: 'total',
-      label: 'Total Atletas',
+      label: 'Total de atletas',
       value: metrics?.totalAthletes || 0,
+      subtitle: 'Registrados en el sistema',
       icon: 'Users',
-      color: 'blue',
-      trend: '+12',
-      trendDirection: 'up',
-      sparklineData: [45, 52, 48, 61, 58, 65, 68]
+      tone: 'neutral',
+      info: 'Todos los atletas cargados en el sistema, estén activos o no.',
     },
     {
       id: 'active',
-      label: 'Activos Este Mes',
+      label: 'Activos',
       value: metrics?.activeThisMonth || 0,
+      subtitle: 'Con membresía vigente',
       icon: 'Activity',
-      color: 'emerald',
-      trend: '+8',
-      trendDirection: 'up',
-      sparklineData: [32, 38, 35, 42, 45, 48, 52]
+      tone: 'success',
+      info: 'Atletas con la membresía vigente. Los inactivos no pueden entrar al gimnasio.',
     },
     {
-      id: 'performance',
-      label: 'Rendimiento Prom. (Mes)',
-      value: `${metrics?.avgPerformance || 0}`,
-      icon: 'TrendingUp',
-      color: 'violet',
-      trend: '+5%',
-      trendDirection: 'up',
-      sparklineData: [72, 75, 73, 78, 80, 82, 85]
+      id: 'new',
+      label: 'Nuevos este mes',
+      value: metrics?.newThisMonth || 0,
+      subtitle: 'Se sumaron al gimnasio',
+      icon: 'UserPlus',
+      tone: 'neutral',
+      info: 'Atletas que se dieron de alta durante este mes.',
     },
     {
-      id: 'retention',
-      label: 'Tasa de Retención',
-      value: `${metrics?.retentionRate || 0}%`,
-      icon: 'Target',
-      color: 'amber',
-      trend: '-2%',
-      trendDirection: 'down',
-      sparklineData: [88, 90, 89, 87, 86, 85, 84]
-    }
+      id: 'uptodate',
+      label: 'Al día con la cuota',
+      value: metrics?.upToDateCount || 0,
+      subtitle: pendingCount > 0 ? `${pendingCount} con pagos pendientes` : 'Nadie debe',
+      icon: 'CheckCircle',
+      tone: pendingCount > 0 ? 'warning' : 'success',
+      info: 'Atletas cuyo último pago figura como cobrado. El resto tiene una cuota pendiente o vencida (se cobra desde Caja y Cobros).',
+    },
   ];
 
-  const renderSparkline = (data, colorTheme) => {
-    const max = Math.max(...data);
-    const min = Math.min(...data);
-    const range = max - min || 1; // Evitar división por cero
-    const width = 60;
-    const height = 24;
-    
-    const points = data?.map((value, index) => {
-      const x = (index / (data.length - 1)) * width;
-      const y = height - ((value - min) / range) * height;
-      return `${x},${y}`;
-    }).join(' ');
-
-    return (
-      <svg width={width} height={height} className="overflow-visible">
-        <polyline
-          points={points}
-          fill="none"
-          className={colorTheme.stroke}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        {[1, 2, 3, 4].map((i) => (
-          <Card key={i} padding="default" className="flex flex-col gap-4">
-            <div className="flex items-center gap-4">
-              <Skeleton className="w-12 h-12 rounded-2xl" />
-              <div className="space-y-2 flex-1">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-6 w-16" />
-              </div>
-            </div>
-            <div className="flex justify-between items-center mt-2">
-              <Skeleton className="h-4 w-12" />
-              <Skeleton className="h-6 w-16" />
-            </div>
-          </Card>
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-      {metricCards.map((card) => {
-        const colorTheme = getMetricPalette(card.color);
-        const isUp = card.trendDirection === 'up';
-
-        return (
-          <Card key={card.id} padding="default" interactive>
-            <div className="flex items-center space-x-4 mb-5">
-              <div className={`w-12 h-12 rounded-2xl ${colorTheme.bg} ${colorTheme.text} flex items-center justify-center shadow-inner`}>
-                <Icon name={card.icon} size={24} />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-1">
-                  {card.label}
-                </p>
-                <p className="text-2xl font-black text-text-primary tracking-tight">
-                  {card.value}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                isUp ? 'bg-success-light text-success' : 'bg-error-light text-error'
-              }`}>
-                <Icon
-                  name={isUp ? 'TrendingUp' : 'TrendingDown'}
-                  size={12}
-                  strokeWidth={3}
-                />
-                {card.trend}
-              </div>
-              <div className="opacity-80">
-                {renderSparkline(card.sparklineData, colorTheme)}
-              </div>
-            </div>
-          </Card>
-        );
-      })}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      {loading
+        ? [1, 2, 3, 4].map((i) => <StatCard key={i} loading />)
+        : metricCards.map((card) => <StatCard key={card.id} {...card} />)}
     </div>
   );
 };

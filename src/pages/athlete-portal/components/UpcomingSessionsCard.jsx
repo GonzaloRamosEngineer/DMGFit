@@ -8,7 +8,7 @@ const getSessionTheme = (type = '') => {
   const t = type.toLowerCase();
   if (t.includes('yoga') || t.includes('flex')) return { color: 'text-emerald-500', bg: 'bg-emerald-500', gradient: 'from-emerald-500 to-teal-600', icon: 'Feather' };
   if (t.includes('cross') || t.includes('hiit')) return { color: 'text-orange-500', bg: 'bg-orange-500', gradient: 'from-orange-500 to-red-600', icon: 'Zap' };
-  if (t.includes('fuerza') || t.includes('strength')) return { color: 'text-slate-800', bg: 'bg-slate-800', gradient: 'from-slate-700 to-slate-900', icon: 'Anchor' };
+  if (t.includes('fuerza') || t.includes('strength')) return { color: 'text-indigo-700', bg: 'bg-indigo-700', gradient: 'from-blue-700 to-indigo-800', icon: 'Anchor' };
   // Default (Blue)
   return { color: 'text-blue-600', bg: 'bg-blue-600', gradient: 'from-blue-600 to-indigo-600', icon: 'Activity' };
 };

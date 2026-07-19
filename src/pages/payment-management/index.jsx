@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabaseClient';
 import Icon from '../../components/AppIcon';
 import { useToast } from '../../hooks/useToast';
 import { EmptyState } from '../../components/ui/EmptyState';
+import StatCard from '../../components/ui/StatCard';
 
 // Modal
 import AddPaymentModal from './components/AddPaymentModal';
@@ -80,28 +81,6 @@ const mapMethodLabel = (method) => {
   if (m === 'transferencia') return 'Transferencia';
   if (m === 'mp' || m === 'mercadopago') return 'Mercado Pago';
   return method ? String(method) : '—';
-};
-
-const KpiCard = ({ title, value, variant = 'neutral' }) => {
-  const border =
-    variant === 'success'
-      ? 'border-l-4 border-success'
-      : variant === 'danger'
-        ? 'border-l-4 border-error'
-        : variant === 'warning'
-          ? 'border-l-4 border-warning'
-          : 'border-l-4 border-border';
-
-  return (
-    <div className={`bg-card rounded-2xl border border-border shadow-sm p-5 ${border}`}>
-      <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.2em]">
-        {title}
-      </p>
-      <div className="mt-2 text-3xl font-black text-text-primary tracking-tight">
-        {value}
-      </div>
-    </div>
-  );
 };
 
 // --- MODAL DETALLE DE PAGO ---
@@ -748,30 +727,34 @@ const PaymentManagement = () => {
         </div>
 
         {/* KPI STRIP (3) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 shrink-0">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 shrink-0">
           {loading ? (
-            [1, 2, 3].map((i) => (
-              <div key={i} className="bg-card rounded-2xl border border-border shadow-sm p-5 h-[92px] animate-pulse">
-                <div className="h-3 bg-muted rounded w-1/2" />
-                <div className="h-8 bg-muted rounded w-2/3 mt-4" />
-              </div>
-            ))
+            [1, 2, 3].map((i) => <StatCard key={i} loading />)
           ) : (
             <>
-              <KpiCard
-                title="Ingresos del mes"
+              <StatCard
+                label="Ingresos del mes"
                 value={formatCurrency(kpiMonthlyRevenue)}
-                variant="success"
+                subtitle="Pagos ya cobrados"
+                icon="Wallet"
+                tone="success"
+                info="La plata que efectivamente entró este mes: cuotas y ventas ya cobradas."
               />
-              <KpiCard
-                title="Total vencido (a cobrar)"
+              <StatCard
+                label="Vencido a cobrar"
                 value={formatCurrency(kpiOverdueAmount)}
-                variant={kpiOverdueAmount > 0 ? 'danger' : 'neutral'}
+                subtitle={kpiOverdueAmount > 0 ? 'Cuotas atrasadas' : 'Nada vencido'}
+                icon="AlertCircle"
+                tone={kpiOverdueAmount > 0 ? 'danger' : 'neutral'}
+                info="El total de cuotas que ya pasaron su fecha de pago y siguen sin cobrarse."
               />
-              <KpiCard
-                title="Atletas con deuda"
-                value={`${kpiDebtorsCount} `}
-                variant={kpiDebtorsCount > 0 ? 'warning' : 'neutral'}
+              <StatCard
+                label="Atletas con deuda"
+                value={kpiDebtorsCount}
+                subtitle={kpiDebtorsCount > 0 ? 'Tienen pagos pendientes' : 'Todos al día'}
+                icon="UserX"
+                tone={kpiDebtorsCount > 0 ? 'warning' : 'neutral'}
+                info="Cuántos atletas deben al menos una cuota. Se les puede registrar el pago desde esta pantalla."
               />
             </>
           )}

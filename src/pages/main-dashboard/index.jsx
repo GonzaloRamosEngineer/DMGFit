@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabaseClient';
 
 // Componentes del Dashboard
 import DashboardHeader from './components/DashboardHeader';
-import KPICard from './components/KPICard';
+import StatCard from '../../components/ui/StatCard';
 import AlertFeed from './components/AlertFeed';
 import SessionSummaryGrid from './components/SessionSummaryGrid';
 
@@ -61,7 +61,7 @@ const MainDashboard = () => {
         supabase.from('payments').select('id, amount, status, payment_date, athletes ( profiles ( full_name ) )').eq('status', 'pending'),
         supabase
           .from('access_logs')
-          .select('id, check_in_time, access_granted, reason_code, rejection_reason, athletes ( profiles ( full_name ) ), coaches ( profiles ( full_name ) )')
+          .select('id, check_in_time, access_granted, reason_code, rejection_reason, coach_id, athletes ( profiles ( full_name ) ), coaches ( profiles ( full_name ) )')
           .eq('local_checkin_date', today)
           .order('check_in_time', { ascending: false }),
         supabase.from('attendance').select('session_id').eq('date', today).eq('status', 'present'),
@@ -91,50 +91,52 @@ const MainDashboard = () => {
       const overdueAmount = overduePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
       const accessLogs = todayAccessLogs || [];
-      const grantedCount = accessLogs.filter((log) => log.access_granted).length;
+      // El kiosco registra atletas y profesores en la misma tabla: acá los separamos.
+      const athleteEntriesCount = accessLogs.filter((log) => log.access_granted && !log.coach_id).length;
       const deniedLogs = accessLogs.filter((log) => !log.access_granted);
       const deniedCount = deniedLogs.length;
-
-      const warningCount = null;
+      const coachesTodayCount = new Set(
+        accessLogs.filter((log) => log.access_granted && log.coach_id).map((log) => log.coach_id),
+      ).size;
 
       setKpiStats([
         {
-          title: 'Atletas Activos',
+          label: 'Atletas activos',
           value: activeAthletes || 0,
-          trend: 'neutral',
-          trendValue: '',
+          subtitle: `De ${totalAthletes || 0} en total`,
           icon: 'Users',
-          threshold: 'green',
-          subtitle: `De ${totalAthletes || 0} totales`,
+          tone: 'neutral',
+          info: 'Socios con la membresía activa: son los que hoy pueden entrar al gimnasio.',
         },
         {
-          title: 'Accesos Hoy',
-          value: grantedCount,
-          trend: deniedCount > 0 ? 'down' : 'neutral',
-          trendValue: deniedCount > 0 ? `${deniedCount} denegados` : 'Sin denegados',
+          label: 'Accesos hoy',
+          value: athleteEntriesCount,
+          subtitle: deniedCount > 0
+            ? `${deniedCount} ${deniedCount === 1 ? 'rechazado' : 'rechazados'}`
+            : 'Sin rechazos',
           icon: 'DoorOpen',
-          threshold: deniedCount > 0 ? 'yellow' : 'green',
-          subtitle: warningCount !== null
-            ? `${warningCount} warnings`
-            : 'Basado en access_logs',
+          tone: deniedCount > 0 ? 'warning' : 'neutral',
+          info: 'Atletas que entraron hoy marcando su DNI en la pantalla de acceso. Un rechazo es alguien que el sistema no dejó pasar (por ejemplo, por cuota vencida).',
         },
         {
-          title: 'Pagos Vencidos',
+          label: 'Pagos vencidos',
           value: overduePayments.length,
-          trend: overduePayments.length > 0 ? 'down' : 'neutral',
-          trendValue: dueTodayPayments.length > 0 ? `${dueTodayPayments.length} vencen hoy` : 'Sin vencimientos hoy',
+          subtitle: overduePayments.length > 0
+            ? `$${overdueAmount.toLocaleString('es-AR')} a cobrar`
+            : dueTodayPayments.length > 0
+              ? `${dueTodayPayments.length} vencen hoy`
+              : 'Sin cuotas vencidas',
           icon: 'CreditCard',
-          threshold: overduePayments.length > 0 ? 'red' : dueTodayPayments.length > 0 ? 'yellow' : 'green',
-          subtitle: `$${overdueAmount.toLocaleString('es-AR')} vencido`,
+          tone: overduePayments.length > 0 ? 'danger' : dueTodayPayments.length > 0 ? 'warning' : 'success',
+          info: 'Cuotas que ya pasaron su fecha de pago y todavía no se cobraron. El monto es el total que hay para reclamar.',
         },
         {
-          title: 'Sesiones Hoy',
-          value: todaysSessions?.length || 0,
-          trend: 'neutral',
-          trendValue: 'Planificación diaria',
-          icon: 'Calendar',
-          threshold: 'green',
-          subtitle: 'Agenda operativa',
+          label: 'Profesores hoy',
+          value: coachesTodayCount,
+          subtitle: 'Ficharon su entrada',
+          icon: 'UserCheck',
+          tone: 'neutral',
+          info: 'Profesores que marcaron su entrada de hoy en la pantalla de acceso.',
         },
       ]);
 
@@ -270,8 +272,8 @@ const MainDashboard = () => {
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 shrink-0">
           {loading
-            ? [1, 2, 3, 4].map((i) => <KPICard key={i} loading={true} />)
-            : kpiStats.map((kpi, index) => <KPICard key={index} {...kpi} />)}
+            ? [1, 2, 3, 4].map((i) => <StatCard key={i} loading={true} />)
+            : kpiStats.map((kpi, index) => <StatCard key={index} {...kpi} />)}
         </div>
 
         {/* Fila inferior: Agenda (ancha) + Notificaciones (angosta), llena el alto restante */}

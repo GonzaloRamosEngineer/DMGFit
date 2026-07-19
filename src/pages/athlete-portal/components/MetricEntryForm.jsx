@@ -312,10 +312,10 @@ export default function MetricEntryForm({ athleteId, onSuccess, selectedExercise
           </div>
         )}
         <h3 className={cx("font-black text-text-primary flex items-center gap-3", compact ? "text-lg" : "text-xl")}>
-          <div className={cx("bg-primary rounded-xl text-primary-foreground shadow-md", compact ? "p-2" : "p-2.5")}>
+          <div className={cx("bg-info-light rounded-xl text-primary", compact ? "p-2" : "p-2.5")}>
             <Icon name="Plus" size={compact ? 18 : 20} strokeWidth={3} />
           </div>
-          Registrar <span className="text-primary">Progreso</span>
+          Registrar progreso
         </h3>
       </div>
 
@@ -330,9 +330,9 @@ export default function MetricEntryForm({ athleteId, onSuccess, selectedExercise
                     type="button"
                     key={m}
                     onClick={() => handleQuickClick(m)}
-                    className={`whitespace-nowrap rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border ${compact ? 'px-3 py-1.5' : 'px-4 py-2'} ${
+                    className={`whitespace-nowrap rounded-full text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border ${compact ? 'px-3 py-1.5' : 'px-4 py-2'} ${
                        formData.name === m
-                       ? 'bg-slate-900 border-slate-900 text-white shadow-md'
+                       ? 'bg-primary border-primary text-white shadow-sm'
                        : 'bg-card border-border text-text-secondary hover:border-primary/40 hover:text-primary'
                     }`}
                  >
@@ -403,7 +403,7 @@ export default function MetricEntryForm({ athleteId, onSuccess, selectedExercise
                        ? 'bg-success text-success-foreground shadow-md hover:bg-success/90'
                        : status === 'error'
                           ? 'bg-error text-error-foreground shadow-md'
-                          : 'bg-primary text-primary-foreground shadow-md hover:bg-slate-900 hover:shadow-slate-300'
+                          : 'bg-primary text-primary-foreground shadow-md hover:bg-primary/90'
                  } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                  {status === 'loading' && <span>Cargando...</span>}
