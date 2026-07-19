@@ -4,15 +4,14 @@ import Icon from '../../../components/AppIcon';
 const QuickStats = ({ stats }) => {
   const items = [
     { label: 'Total Atletas', value: stats?.totalAthletes || 0, icon: 'Users', color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Planes Activos', value: stats?.activePlans || 0, icon: 'Package', color: 'text-purple-600', bg: 'bg-purple-50' },
-    { label: 'Sesiones Hoy', value: stats?.todaySessions || 0, icon: 'Calendar', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Completado', value: `${stats?.completionRate || 0}%`, icon: 'Activity', color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'Mi Asistencia (mes)', value: stats?.myCheckinsMonth || 0, icon: 'UserCheck', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Sesiones Hoy', value: stats?.todaySessions || 0, icon: 'Calendar', color: 'text-orange-600', bg: 'bg-orange-50' },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {items.map((item, idx) => (
-        <div key={idx} className="bg-card border border-border rounded-3xl p-6 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
+        <div key={idx} className="bg-card border border-border rounded-3xl p-5 shadow-sm hover:shadow-md transition-all flex items-center justify-between group">
            <div>
               <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest mb-1">{item.label}</p>
               <p className="text-3xl font-black text-text-primary tracking-tighter">{item.value}</p>

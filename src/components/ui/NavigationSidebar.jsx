@@ -130,19 +130,23 @@ const NavigationSidebar = ({
     },
   ];
 
-  const menuItems = allMenuItems.filter((item) => {
+  const menuItems = (() => {
     const role = currentUser?.role;
 
+    // El profe arranca en "Mi Panel" → va primero, luego Planificación y Ejercicios.
     if (role === "profesor") {
-      return item.id === "mi-panel" || item.id === "horarios" || item.id === "exercise-library";
+      const order = ["mi-panel", "horarios", "exercise-library"];
+      return order
+        .map((id) => allMenuItems.find((i) => i.id === id))
+        .filter(Boolean);
     }
 
     if (role === "atleta") {
-      return item.id?.startsWith("athlete-portal");
+      return allMenuItems.filter((item) => item.id?.startsWith("athlete-portal"));
     }
 
-    return item?.roles?.includes(role);
-  });
+    return allMenuItems.filter((item) => item?.roles?.includes(role));
+  })();
 
   const isActive = (item) => {
     const path = item?.path;

@@ -29,6 +29,7 @@ const AthleteHeader = ({
   loading = false,
   onEnableAccess,
   canEnable = false,
+  canManage = false,
 }) => {
   const [processingStatus, setProcessingStatus] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -227,14 +228,16 @@ const AthleteHeader = ({
               </Button>
             )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              iconName="Calendar"
-              onClick={onScheduleSession}
-            >
-              Agendar
-            </Button>
+            {canManage && (
+              <Button
+                variant="outline"
+                size="sm"
+                iconName="Calendar"
+                onClick={onScheduleSession}
+              >
+                Agendar
+              </Button>
+            )}
 
             <button
               onClick={() => setShowDetails(!showDetails)}
@@ -248,11 +251,13 @@ const AthleteHeader = ({
               />
             </button>
 
-            <QuickActionMenu
-              entityId={athlete.id}
-              entityType="athlete"
-              availableActions={quickActions}
-            />
+            {canManage && (
+              <QuickActionMenu
+                entityId={athlete.id}
+                entityType="athlete"
+                availableActions={quickActions}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -300,18 +305,20 @@ const AthleteHeader = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              iconName="UserX"
-              onClick={handleToggleAthleteStatus}
-              loading={processingStatus}
-              className="border-warning/40 text-warning hover:bg-warning-light"
-            >
-              {athlete.status === 'active' ? 'Desactivar Atleta' : 'Atleta Inactivo'}
-            </Button>
-          </div>
+          {canManage && (
+            <div className="flex items-center justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                iconName="UserX"
+                onClick={handleToggleAthleteStatus}
+                loading={processingStatus}
+                className="border-warning/40 text-warning hover:bg-warning-light"
+              >
+                {athlete.status === 'active' ? 'Desactivar Atleta' : 'Atleta Inactivo'}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

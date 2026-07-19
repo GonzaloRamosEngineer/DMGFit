@@ -725,7 +725,10 @@ const IndividualAthleteProfile = () => {
     });
   }, [profileData.athlete]);
 
-  const canManageMembership = currentUser?.role && currentUser.role !== "atleta";
+  // Solo el admin gestiona (editar plan/horario, dar de baja, ver finanzas y exportar).
+  // El profesor entra en "vista entrenador": lee todo salvo pagos y puede cargar notas.
+  const isAdmin = currentUser?.role === "admin";
+  const canManageMembership = isAdmin;
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -996,7 +999,9 @@ const IndividualAthleteProfile = () => {
         <div className="max-w-7xl mx-auto">
           <BreadcrumbTrail
             items={[
-              { label: "Gestión de Atletas", path: "/athletes-management" },
+              isAdmin
+                ? { label: "Gestión de Atletas", path: "/athletes-management" }
+                : { label: "Mi Panel", path: "/professor-dashboard" },
               { label: profileData.athlete?.name || "Perfil", path: "#", active: true },
             ]}
           />
@@ -1005,9 +1010,10 @@ const IndividualAthleteProfile = () => {
             athlete={profileData.athlete}
             loading={loading}
             onScheduleSession={canModifySchedule ? handleOpenScheduleModal : undefined}
-            onExport={handleExportPDF}
-            canEnable={currentUser?.role === "admin"}
+            onExport={isAdmin ? handleExportPDF : undefined}
+            canEnable={isAdmin}
             onEnableAccess={handleEnableAccess}
+            canManage={isAdmin}
           />
 
           <StructuralMembershipCard
@@ -1047,7 +1053,7 @@ const IndividualAthleteProfile = () => {
                   ? [{ key: "performance", label: "Rendimiento" }]
                   : []),
                 { key: "attendance", label: "Asistencia" },
-                { key: "payments", label: "Pagos" },
+                ...(isAdmin ? [{ key: "payments", label: "Pagos" }] : []),
                 { key: "health", label: "Salud" },
                 { key: "notes", label: "Notas" },
                 { key: "access", label: "Accesos" },
@@ -1074,24 +1080,26 @@ const IndividualAthleteProfile = () => {
                 <div className="lg:col-span-2 space-y-6">
                   <UpcomingSessions sessions={profileData.sessions} loading={loading} />
 
-                  <div className="bg-card border border-border rounded-xl p-4 md:p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-base md:text-lg font-heading font-semibold text-foreground">
-                        Últimos Pagos
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("payments")}
-                        className="text-xs font-bold text-primary hover:underline"
-                      >
-                        Ver todos
-                      </button>
+                  {isAdmin && (
+                    <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-base md:text-lg font-heading font-semibold text-foreground">
+                          Últimos Pagos
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("payments")}
+                          className="text-xs font-bold text-primary hover:underline"
+                        >
+                          Ver todos
+                        </button>
+                      </div>
+                      <PaymentHistory
+                        payments={(profileData.payments || []).slice(0, 5)}
+                        loading={loading}
+                      />
                     </div>
-                    <PaymentHistory
-                      payments={(profileData.payments || []).slice(0, 5)}
-                      loading={loading}
-                    />
-                  </div>
+                  )}
                 </div>
 
                 <div className="space-y-6">
@@ -1132,7 +1140,7 @@ const IndividualAthleteProfile = () => {
               />
             )}
 
-            {activeTab === "payments" && (
+            {activeTab === "payments" && isAdmin && (
               <PaymentHistory payments={profileData.payments} loading={loading} />
             )}
 

@@ -41,19 +41,25 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
 
     try {
       const normalizedEmail = formData.email.trim();
-      // Generamos el email interno basado en DNI para consistencia
+      const dniDigits = formData.dni.trim().replace(/\D/g, '');
+      const phone = (formData.phone || '').trim();
+      // Email interno alineado al login por DNI: {DNI}@vcfit.internal
+      // (mismo esquema que los atletas → entran con su DNI como usuario y clave).
       const isInternal = !normalizedEmail || normalizedEmail.includes('.internal');
-      const finalEmail = isInternal 
-        ? `sin_email_${formData.dni.trim().replace(/\D/g, '')}@dmg.internal`
+      const finalEmail = isInternal
+        ? `${dniDigits}@vcfit.internal`
         : normalizedEmail;
 
       if (coachToEdit) {
         // --- LÓGICA DE EDICIÓN ---
+        // DNI y teléfono viven en profiles (que es donde el kiosco y el login los buscan).
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ 
-            full_name: formData.fullName, 
-            email: normalizedEmail 
+          .update({
+            full_name: formData.fullName,
+            email: finalEmail,
+            dni: dniDigits || null,
+            phone: phone || null,
           })
           .eq('id', coachToEdit.profileId); // <- Corrección: usando profileId que definimos en index.jsx
 
@@ -64,31 +70,33 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
           .update({
             specialization: formData.specialization,
             bio: formData.bio,
-            phone: formData.phone
+            phone: phone
           })
           .eq('id', coachToEdit.id);
 
         if (coachError) throw coachError;
-        
+
       } else {
         // --- CREACIÓN SIEMPRE COMO FANTASMA (Camino Seguro) ---
         const profileId = crypto.randomUUID();
-        
-        // 1. Insertamos en profiles
+
+        // 1. Insertamos en profiles (DNI + teléfono para kiosco/login)
         const { error: pErr } = await supabase.from('profiles').insert({
-          id: profileId, 
-          full_name: formData.fullName, 
-          email: finalEmail, 
-          role: 'profesor'
+          id: profileId,
+          full_name: formData.fullName,
+          email: finalEmail,
+          role: 'profesor',
+          dni: dniDigits || null,
+          phone: phone || null,
         });
         if (pErr) throw pErr;
 
         // 2. Insertamos la ficha técnica del profesor
         const { error: cErr } = await supabase.from('coaches').insert({
-          profile_id: profileId, 
+          profile_id: profileId,
           specialization: formData.specialization || 'General',
-          bio: formData.bio || '', 
-          phone: formData.phone
+          bio: formData.bio || '',
+          phone: phone
         });
         if (cErr) throw cErr;
       }
@@ -156,7 +164,8 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
 
               <div>
                 <label className={labelClasses}>DNI / ID <span className="text-error">*</span></label>
-                <input name="dni" value={formData.dni} onChange={handleChange} required disabled={!!coachToEdit} placeholder="12345678" className={`${inputClasses} ${coachToEdit ? 'bg-muted text-text-tertiary cursor-not-allowed' : ''}`} />
+                <input name="dni" value={formData.dni} onChange={handleChange} required placeholder="12345678" className={inputClasses} />
+                <p className="text-[10px] text-text-tertiary mt-1 ml-1">Con este DNI el profe entra a la app y ficha en el kiosco.</p>
               </div>
               
               <div>

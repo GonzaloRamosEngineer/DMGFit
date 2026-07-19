@@ -139,7 +139,7 @@ const Routes = () => {
             <Route
               path="/individual-athlete-profile/:id"
               element={
-                <ProtectedRoute allowedRoles={["admin"]}>
+                <ProtectedRoute allowedRoles={["admin", "profesor"]}>
                   <IndividualAthleteProfile />
                 </ProtectedRoute>
               }

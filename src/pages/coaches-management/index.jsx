@@ -46,7 +46,9 @@ const CoachesManagement = () => {
           profiles:profile_id (
             full_name,
             email,
-            avatar_url
+            avatar_url,
+            dni,
+            phone
           ),
           athletes:athletes(count)
         `)
@@ -71,7 +73,8 @@ const CoachesManagement = () => {
           avatar: profile?.avatar_url || '',
           specialization: coachRow.specialization || '',
           bio: coachRow.bio || '',
-          phone: coachRow.phone || '',
+          dni: profile?.dni || '',
+          phone: profile?.phone || coachRow.phone || '',
           totalAthletes: Number(athletesCountRelation?.count || 0),
           needsActivation: isInternalEmail || rawEmail === '',
         };
