@@ -1,6 +1,6 @@
 # DMGFit — Estado y Roadmap
 
-_Última actualización: 2026-07-18_
+_Última actualización: 2026-07-19_
 
 > Documento vivo de estado del producto y prioridades. Complementa la doc técnica
 > del repo (CLAUDE.md, `docs/tarea-*.md`) y el análisis de auditoría.
@@ -15,10 +15,12 @@ auditoría se sumó superficie de producto (biblioteca de ejercicios con media,
 registrador de entrenamiento estilo Hevy, portal del atleta por secciones,
 progreso de fuerza) y se cerraron varios bloqueantes transversales.
 
-**El rol profesor — antes el frente más flojo (🔴) — quedó resuelto (🟢)**
-(ver detalle abajo). El próximo frente importante es **Pagos** (🟠): funciona
-para registrar, pero todavía no es "fuente de verdad contable". Ver
-[`docs/tarea-pagos.md`](./tarea-pagos.md) para el plan masticado.
+**El rol profesor y Pagos — antes los frentes más flojos — quedaron resueltos (🟢).**
+Pagos pasó de "sólo registro" a **fuente de verdad contable** (migración 0026 en prod:
+integridad, generación idempotente, editar/anular con auditoría, "vencido" unificado con
+el kiosco, comprobante no-fiscal con WhatsApp y gráficos reales). Ver
+[`docs/tarea-pagos.md`](./tarea-pagos.md). El próximo frente es **editar datos personales
+del atleta** (requisito 3).
 
 ---
 
@@ -29,7 +31,7 @@ para registrar, pero todavía no es "fuente de verdad contable". Ver
 | 1 | Ordenar operación (kiosco) | 🟢 Listo | Sólido, en uso |
 | 2 | Horarios / planificación | 🟢 Listo | — |
 | 3 | Registros de atletas | 🟡 Listo con huecos | Falta **editar datos personales** ya cargados |
-| 4 | Pagos | 🟠 Registra, no es fuente de verdad | **Próximo frente** → `tarea-pagos.md` |
+| 4 | Pagos | 🟢 Resuelto | Fuente de verdad (0026 en prod) → `tarea-pagos.md` |
 | 5 | Profesores | 🟢 Resuelto | Login, panel, vista entrenador, asistencia, seguimiento |
 
 ---
@@ -63,12 +65,14 @@ está. Si se quiere asistencia de alumnos real, hay que modelarla sobre el kiosc
 
 ## Frentes abiertos (prioridad)
 
-### 1) Pagos confiables 🟠 — PRÓXIMO
-Ver [`docs/tarea-pagos.md`](./tarea-pagos.md). Resumen: generación de cuotas manual y
-no idempotente, "vencido" sólo derivado en el front (y con criterio distinto al del
-kiosco), no se puede editar/borrar un pago, sin CHECK de monto, 8 componentes muertos.
+### 1) Pagos confiables 🟢 — RESUELTO (2026-07-19)
+Ver [`docs/tarea-pagos.md`](./tarea-pagos.md) (sección "ESTADO: RESUELTO"). Migración 0026
+en prod: integridad + generación idempotente vía RPC + editar/anular con auditoría +
+"vencido" alineado al kiosco (verificado con datos reales) + comprobante no-fiscal con
+WhatsApp + gráficos reales. **Fase 2 pendiente:** recordatorios automáticos a deudores,
+factura fiscal AFIP/ARCA, `pg_cron` opcional.
 
-### 2) Editar datos personales del atleta 🟡
+### 2) Editar datos personales del atleta 🟡 — PRÓXIMO
 Hoy se puede cambiar plan/frecuencia/horarios y dar de baja, pero **nombre/DNI/tel/
 email/dirección no tienen form de edición**. (Nota: la pantalla de **profes** sí quedó
 con DNI/teléfono editables; el de **atletas** no.)
@@ -95,8 +99,8 @@ con DNI/teléfono editables; el de **atletas** no.)
 
 ## Orden sugerido hacia "Fase 2 cerrada"
 
-1. **Pagos confiables** (`tarea-pagos.md`) — mayor peso para el cliente.
-2. **Editar datos personales del atleta** (chico, cierra el requisito 3).
+1. ~~**Pagos confiables**~~ ✅ hecho (2026-07-19) — ver `tarea-pagos.md`.
+2. **Editar datos personales del atleta** (chico, cierra el requisito 3) — **próximo**.
 3. **Baseline + tracking de migraciones** (continuidad).
 4. **Limpieza de demo** (pdf-export, performance-analytics, BulkActionsBar).
 5. **Higiene**: sacar deps muertas, code-splitting, tests mínimos sobre RPCs críticas.

@@ -10,9 +10,16 @@ import { EmptyState } from '../../components/ui/EmptyState';
 
 // Modal
 import AddPaymentModal from './components/AddPaymentModal';
+import PaymentReceipt from './components/PaymentReceipt';
+import PaymentInsights from './components/PaymentInsights';
 
-// Servicio de Generación de Cuotas
-import { generateMonthlyInvoices } from '../../services/payments';
+// Servicio de pagos
+import {
+  generateMonthlyInvoices,
+  fetchBillingStatus,
+  updatePayment,
+  voidPayment,
+} from '../../services/payments';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('es-AR', {
@@ -98,12 +105,80 @@ const KpiCard = ({ title, value, variant = 'neutral' }) => {
 };
 
 // --- MODAL DETALLE DE PAGO ---
-const PaymentDetailModal = ({ payment, onClose, onNavigate }) => {
+const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid, onReceipt }) => {
+  const [mode, setMode] = useState('view'); // 'view' | 'edit'
+  const [busy, setBusy] = useState(false);
+  const [showVoid, setShowVoid] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+
+  const [form, setForm] = useState({
+    amount: '',
+    method: 'efectivo',
+    concept: '',
+    payment_date: '',
+    reason: '',
+  });
+
+  useEffect(() => {
+    if (payment) {
+      setMode('view');
+      setShowVoid(false);
+      setVoidReason('');
+      setForm({
+        amount: String(payment.amount ?? ''),
+        method: payment.method || 'efectivo',
+        concept: payment.concept || '',
+        payment_date: payment.payment_date || '',
+        reason: '',
+      });
+    }
+  }, [payment]);
+
   if (!payment) return null;
 
   const amount = Number(payment.amount || 0);
   const baseAmount = Number(payment.base_amount || amount);
   const hasDiscount = payment.discount_value && Number(payment.discount_value) > 0;
+
+  const setField = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
+
+  const handleSaveEdit = async () => {
+    const patch = {};
+    const newAmount = Number(form.amount);
+    if (Number.isFinite(newAmount) && newAmount >= 0 && newAmount !== amount) {
+      // Editar el monto lo aplana: pasa a ser un importe corregido sin descuento.
+      patch.amount = newAmount;
+      patch.base_amount = newAmount;
+      patch.discount_value = 0;
+      patch.discount_type = null;
+    }
+    if (form.method !== (payment.method || 'efectivo')) patch.method = form.method;
+    if (form.concept !== (payment.concept || '')) patch.concept = form.concept;
+    if (form.payment_date && form.payment_date !== payment.payment_date) {
+      patch.payment_date = form.payment_date;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      setMode('view');
+      return;
+    }
+
+    try {
+      setBusy(true);
+      await onEdit(payment.id, patch, form.reason?.trim() || null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVoid = async () => {
+    try {
+      setBusy(true);
+      await onVoid(payment.id, voidReason?.trim() || null);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div
@@ -175,13 +250,15 @@ const PaymentDetailModal = ({ payment, onClose, onNavigate }) => {
             <div className="bg-muted rounded-xl p-3">
               <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-1">Estado</p>
               <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                payment.status === 'paid'
-                  ? 'bg-success-light text-success'
-                  : payment.isPastDue
-                    ? 'bg-error-light text-error'
-                    : 'bg-warning-light text-warning'
+                payment.status === 'void'
+                  ? 'bg-muted text-text-tertiary line-through'
+                  : payment.status === 'paid'
+                    ? 'bg-success-light text-success'
+                    : payment.isPastDue
+                      ? 'bg-error-light text-error'
+                      : 'bg-warning-light text-warning'
               }`}>
-                {payment.status === 'paid' ? 'Pagado' : payment.isPastDue ? 'Vencido' : 'Pendiente'}
+                {payment.status === 'void' ? 'Anulado' : payment.status === 'paid' ? 'Pagado' : payment.isPastDue ? 'Vencido' : 'Pendiente'}
               </span>
             </div>
           </div>
@@ -216,6 +293,177 @@ const PaymentDetailModal = ({ payment, onClose, onNavigate }) => {
               <span className="text-2xl font-black text-text-primary">{formatCurrency(amount)}</span>
             </div>
           </div>
+
+          {/* Info de anulación */}
+          {payment.status === 'void' && (
+            <div className="rounded-2xl border border-border bg-muted/60 p-4 space-y-1">
+              <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">Pago anulado</p>
+              {payment.voidInfo?.reason && (
+                <p className="text-sm font-bold text-text-secondary">Motivo: {payment.voidInfo.reason}</p>
+              )}
+              <p className="text-xs text-text-tertiary">
+                {payment.voidInfo?.by ? `Por ${payment.voidInfo.by}` : 'Por administración'}
+                {payment.voidInfo?.at ? ` · ${formatTxDateTime(payment.voidInfo.at)}` : ''}
+              </p>
+            </div>
+          )}
+
+          {/* Panel de edición (admin) */}
+          {mode === 'edit' && (
+            <div className="border-t border-border pt-4 space-y-3">
+              <p className="text-[10px] font-black text-primary uppercase tracking-widest">Editar pago</p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-bold text-text-secondary space-y-1">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Monto</span>
+                  <input
+                    type="number" min="0" step="1"
+                    value={form.amount}
+                    onChange={(e) => setField('amount', e.target.value)}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="text-xs font-bold text-text-secondary space-y-1">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Método</span>
+                  <select
+                    value={form.method}
+                    onChange={(e) => setField('method', e.target.value)}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="mp">Mercado Pago</option>
+                  </select>
+                </label>
+                <label className="text-xs font-bold text-text-secondary space-y-1">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Fecha</span>
+                  <input
+                    type="date"
+                    value={form.payment_date}
+                    onChange={(e) => setField('payment_date', e.target.value)}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="text-xs font-bold text-text-secondary space-y-1 col-span-2">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Concepto</span>
+                  <input
+                    type="text"
+                    value={form.concept}
+                    onChange={(e) => setField('concept', e.target.value)}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="text-xs font-bold text-text-secondary space-y-1 col-span-2">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Motivo del ajuste (opcional)</span>
+                  <input
+                    type="text"
+                    value={form.reason}
+                    onChange={(e) => setField('reason', e.target.value)}
+                    placeholder="Queda registrado en la auditoría"
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
+              {hasDiscount && Number(form.amount) !== amount && (
+                <p className="text-[11px] font-semibold text-warning">
+                  Editar el monto elimina el descuento y lo deja como importe fijo.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Confirmación de anulación */}
+          {showVoid && (
+            <div className="border-t border-border pt-4 space-y-3">
+              <p className="text-[10px] font-black text-error uppercase tracking-widest">Anular pago</p>
+              <p className="text-xs font-semibold text-text-secondary">
+                El pago queda anulado (soft-delete) y se registra en la auditoría.
+                {payment.status === 'paid' && ' Al anular un pago cobrado, el ciclo de acceso del atleta en el kiosco se recalcula y podría re-bloquearlo.'}
+              </p>
+              <input
+                type="text"
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="Motivo (opcional)"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-error"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Footer acciones (admin) */}
+        <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-2">
+          {mode === 'view' && !showVoid && payment.status === 'void' && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-card border border-border text-text-secondary hover:bg-muted transition-colors"
+            >
+              Cerrar
+            </button>
+          )}
+
+          {mode === 'view' && !showVoid && payment.status !== 'void' && (
+            <>
+              <button
+                onClick={() => setShowVoid(true)}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-error hover:bg-error-light transition-colors mr-auto"
+              >
+                Anular
+              </button>
+              {payment.status === 'paid' && onReceipt && (
+                <button
+                  onClick={() => onReceipt(payment)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-success-light text-success hover:bg-success-light/70 transition-colors"
+                >
+                  <Icon name="Receipt" size={14} /> Comprobante
+                </button>
+              )}
+              <button
+                onClick={() => setMode('edit')}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-card border border-border text-text-secondary hover:bg-muted transition-colors"
+              >
+                Editar
+              </button>
+            </>
+          )}
+
+          {mode === 'edit' && (
+            <>
+              <button
+                disabled={busy}
+                onClick={() => setMode('view')}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-text-secondary hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={busy}
+                onClick={handleSaveEdit}
+                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+              >
+                {busy ? 'Guardando...' : 'Guardar'}
+              </button>
+            </>
+          )}
+
+          {showVoid && (
+            <>
+              <button
+                disabled={busy}
+                onClick={() => { setShowVoid(false); setVoidReason(''); }}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-text-secondary hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={busy}
+                onClick={handleVoid}
+                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-error text-error-foreground hover:bg-error/90 transition-colors disabled:opacity-60"
+              >
+                {busy ? 'Anulando...' : 'Confirmar anulación'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -244,6 +492,10 @@ const PaymentManagement = () => {
   const [allPayments, setAllPayments] = useState([]);
   const [paidMovements, setPaidMovements] = useState([]);
   const [debtors, setDebtors] = useState([]);
+  const [voided, setVoided] = useState([]);
+
+  // Modal comprobante
+  const [receiptPayment, setReceiptPayment] = useState(null);
 
   // KPIs
   const [kpiMonthlyRevenue, setKpiMonthlyRevenue] = useState(0);
@@ -264,53 +516,86 @@ const PaymentManagement = () => {
       const today = startOfDay(now);
       const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const { data: paymentsData, error } = await supabase
-        .from('payments')
-        .select(`
-          id,
-          amount,
-          status,
-          payment_date,
-          method,
-          concept,
-          base_amount,
-          discount_value,
-          discount_type,
-          athletes ( id, profiles ( full_name, avatar_url, email ) )
-        `)
-        .order('payment_date', { ascending: false });
+      const [{ data: paymentsData, error }, billingMap] = await Promise.all([
+        supabase
+          .from('payments')
+          .select(`
+            id,
+            amount,
+            status,
+            payment_date,
+            method,
+            concept,
+            base_amount,
+            discount_value,
+            discount_type,
+            period,
+            athletes ( id, phone, profiles ( full_name, avatar_url, email ) )
+          `)
+          .order('payment_date', { ascending: false }),
+        // Estado de deuda alineado al kiosco (fuente única de "vencido")
+        fetchBillingStatus().catch((e) => {
+          console.error('Error cargando estado de facturación:', e);
+          return new Map();
+        }),
+      ]);
 
       if (error) throw error;
 
+      // Auditoría de los pagos anulados (motivo/quién/cuándo)
+      const voidedIds = (paymentsData || []).filter((p) => p.status === 'void').map((p) => p.id);
+      const auditByPayment = new Map();
+      if (voidedIds.length > 0) {
+        const { data: auditRows } = await supabase
+          .from('payment_audit')
+          .select('payment_id, reason, actor_id, created_at')
+          .eq('action', 'void')
+          .in('payment_id', voidedIds)
+          .order('created_at', { ascending: false });
+
+        const actorIds = [...new Set((auditRows || []).map((a) => a.actor_id).filter(Boolean))];
+        const actorNames = new Map();
+        if (actorIds.length > 0) {
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', actorIds);
+          (profs || []).forEach((pr) => actorNames.set(pr.id, pr.full_name));
+        }
+        // Nos quedamos con la anulación más reciente por pago
+        (auditRows || []).forEach((a) => {
+          if (!auditByPayment.has(a.payment_id)) {
+            auditByPayment.set(a.payment_id, {
+              reason: a.reason,
+              at: a.created_at,
+              by: actorNames.get(a.actor_id) || null,
+            });
+          }
+        });
+      }
+
       const processed = (paymentsData || []).map((p) => {
         const paymentDate = p.payment_date || null;
-        // FIX: parseo local para evitar desfase UTC
-        let dt = null;
-        if (paymentDate) {
-          if (/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
-            const [y, m, d] = paymentDate.split('-').map(Number);
-            dt = new Date(y, m - 1, d);
-          } else {
-            dt = new Date(paymentDate);
-          }
-        }
+        const athleteId = p.athletes?.id || null;
+        const billing = athleteId ? billingMap.get(athleteId) : null;
 
-        const isPastDue = (p.status === 'overdue') || (p.status === 'pending' && dt && dt < today);
-
-        const daysOverdue =
-          isPastDue && dt
-            ? Math.floor((today.getTime() - startOfDay(dt).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
+        // "Vencido" = ciclo del kiosco (último paid + 30d + gracia), NO payment_date.
+        // Solo aplica a cuotas pendientes; un pago 'paid' nunca está vencido.
+        const isPastDue = p.status === 'pending' && billing?.state === 'overdue';
+        const daysOverdue = isPastDue ? (billing?.daysLate || 0) : 0;
+        const voidInfo = p.status === 'void' ? auditByPayment.get(p.id) || {} : null;
 
         return {
           ...p,
           payment_date: paymentDate,
           athleteName: p.athletes?.profiles?.full_name || 'Desconocido',
           athleteId: p.athletes?.id || null,
+          athletePhone: p.athletes?.phone || null,
           athleteImage: p.athletes?.profiles?.avatar_url || null,
           athleteEmail: p.athletes?.profiles?.email || null,
           isPastDue,
           daysOverdue,
+          voidInfo,
         };
       });
 
@@ -324,6 +609,9 @@ const PaymentManagement = () => {
       const due = processed.filter((p) => p.status === 'pending' || p.status === 'overdue');
       due.sort((a, b) => (b.daysOverdue - a.daysOverdue) || (Number(b.amount) - Number(a.amount)));
       setDebtors(due);
+
+      // Anulados (soft-delete)
+      setVoided(processed.filter((p) => p.status === 'void'));
 
       // KPI: ingresos del mes
       const monthlyRevenue = paid.reduce((sum, p) => {
@@ -395,7 +683,8 @@ const PaymentManagement = () => {
 
   const currentRows = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const base = activeTab === 'transactions' ? paidMovements : debtors;
+    const base =
+      activeTab === 'transactions' ? paidMovements : activeTab === 'voided' ? voided : debtors;
     const filtered = !term
       ? base
       : base.filter((r) => {
@@ -404,7 +693,7 @@ const PaymentManagement = () => {
           return a.includes(term) || c.includes(term);
         });
     return filtered;
-  }, [activeTab, paidMovements, debtors, searchTerm]);
+  }, [activeTab, paidMovements, debtors, voided, searchTerm]);
 
   const totalRows = currentRows.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
@@ -488,6 +777,13 @@ const PaymentManagement = () => {
           )}
         </div>
 
+        {/* GRÁFICOS DE INGRESOS (datos reales) */}
+        {!loading && (
+          <div className="shrink-0">
+            <PaymentInsights payments={paidMovements} />
+          </div>
+        )}
+
         {/* CARD PRINCIPAL */}
         <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden flex flex-col lg:flex-1 lg:min-h-0">
           {/* Tabs + Search */}
@@ -517,6 +813,22 @@ const PaymentManagement = () => {
                   {!loading && (
                     <span className="px-2 py-0.5 rounded-full bg-error-light text-error text-[10px] font-black">
                       {debtors.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('voided')}
+                  className={`text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-colors flex items-center gap-2 ${
+                    activeTab === 'voided'
+                      ? 'text-text-primary border-primary'
+                      : 'text-text-tertiary border-transparent hover:text-text-secondary'
+                  }`}
+                >
+                  Anulados
+                  {!loading && voided.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-muted text-text-secondary text-[10px] font-black">
+                      {voided.length}
                     </span>
                   )}
                 </button>
@@ -609,6 +921,17 @@ const PaymentManagement = () => {
                             <span className="text-sm font-semibold text-text-secondary">
                               {mapMethodLabel(row.method)}
                             </span>
+                          ) : activeTab === 'voided' ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="w-fit px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-muted text-text-tertiary line-through">
+                                Anulado
+                              </span>
+                              {row.voidInfo?.reason && (
+                                <span className="text-[11px] font-semibold text-text-tertiary truncate max-w-[180px]" title={row.voidInfo.reason}>
+                                  {row.voidInfo.reason}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex items-center gap-2">
                               <span
@@ -630,7 +953,11 @@ const PaymentManagement = () => {
                         <td className="px-6 py-4 text-right">
                           <span
                             className={`text-sm font-black ${
-                              isPaid ? 'text-success' : 'text-error'
+                              row.status === 'void'
+                                ? 'text-text-tertiary line-through'
+                                : isPaid
+                                  ? 'text-success'
+                                  : 'text-error'
                             }`}
                           >
                             {isPaid ? `+${formatCurrency(amount)}` : `${formatCurrency(amount)}`}
@@ -719,10 +1046,12 @@ const PaymentManagement = () => {
             setIsModalOpen(false);
             setInitialAthlete(null);
           }}
-          onSuccess={() => {
+          onSuccess={(justPaid) => {
             fetchPaymentData();
             setIsModalOpen(false);
             setInitialAthlete(null);
+            // Al cobrar, ofrecer el comprobante de inmediato.
+            if (justPaid) setReceiptPayment(justPaid);
           }}
         />
       )}
@@ -736,6 +1065,41 @@ const PaymentManagement = () => {
             setDetailPayment(null);
             navigate(`/individual-athlete-profile/${athleteId}`);
           }}
+          onEdit={async (id, patch, reason) => {
+            try {
+              await updatePayment(id, patch, reason);
+              toast.success('Pago actualizado.');
+              setDetailPayment(null);
+              await fetchPaymentData();
+            } catch (err) {
+              console.error('Error editando pago:', err);
+              toast.error('No se pudo editar el pago: ' + (err?.message || 'error'));
+            }
+          }}
+          onVoid={async (id, reason) => {
+            try {
+              await voidPayment(id, reason);
+              toast.success('Pago anulado.');
+              setDetailPayment(null);
+              await fetchPaymentData();
+            } catch (err) {
+              console.error('Error anulando pago:', err);
+              toast.error('No se pudo anular el pago: ' + (err?.message || 'error'));
+            }
+          }}
+          onReceipt={(p) => {
+            setDetailPayment(null);
+            setReceiptPayment(p);
+          }}
+        />
+      )}
+
+      {/* Modal: Comprobante */}
+      {receiptPayment && (
+        <PaymentReceipt
+          payment={receiptPayment}
+          athletePhone={receiptPayment.athletePhone}
+          onClose={() => setReceiptPayment(null)}
         />
       )}
     </>

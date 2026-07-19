@@ -412,24 +412,42 @@ const AddPaymentModal = ({ onClose, onSuccess, initialAthlete = null }) => {
         discount_type: showDiscount ? discountType : null,
       };
 
+      let receiptRow = null;
       if (selectedDebtIds.length > 0) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("payments")
           .update(payload)
-          .in("id", selectedDebtIds);
+          .in("id", selectedDebtIds)
+          .select("*, athletes ( phone, profiles ( full_name ) )");
 
         if (error) throw error;
+        // Comprobante solo si se saldó una única deuda (evita ambigüedad con varias).
+        if (data && data.length === 1) receiptRow = data[0];
       } else {
-        const { error } = await supabase.from("payments").insert({
-          ...payload,
-          athlete_id: effectiveAthlete.id,
-          concept: formData.concept,
-        });
+        const { data, error } = await supabase
+          .from("payments")
+          .insert({
+            ...payload,
+            athlete_id: effectiveAthlete.id,
+            concept: formData.concept,
+          })
+          .select("*, athletes ( phone, profiles ( full_name ) )")
+          .single();
 
         if (error) throw error;
+        receiptRow = data;
       }
 
-      onSuccess();
+      const receiptPayment = receiptRow
+        ? {
+            ...receiptRow,
+            athleteName:
+              receiptRow.athletes?.profiles?.full_name || effectiveAthlete?.name || "Atleta",
+            athletePhone: receiptRow.athletes?.phone || null,
+          }
+        : null;
+
+      onSuccess(receiptPayment);
       onClose();
     } catch (error) {
       console.error(error);
