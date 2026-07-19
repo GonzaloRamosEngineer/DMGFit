@@ -3,6 +3,39 @@
 _Doc autocontenido. Arrancar con: "Retomemos DMGFit, vamos con pagos — leé `docs/tarea-pagos.md`"._
 _Escrito 2026-07-18, con estado del código verificado a esa fecha._
 
+## ✅ ESTADO: RESUELTO (2026-07-19)
+
+Todo el alcance "DENTRO" quedó implementado y **la migración `0026_payments_integrity.sql`
+está aplicada a prod** (probada en tx con ROLLBACK antes del COMMIT). Trabajo en rama
+`feat/pagos-confiables`, mergeado a `main`.
+
+**Decisiones tomadas** (las 4 del final de este doc): A) vencido **derivado**, alineado al
+ciclo del kiosco (último `paid` + 30d + gracia), **sin pg_cron**, `status` acotado a
+`('pending','paid','void')`. B) idempotencia por columna `period` + unique parcial. C)
+soft-delete `status='void'` + tabla `payment_audit`. D) borrados los 8 componentes muertos.
+
+**Hecho:**
+- Integridad DB: `CHECK (amount>=0)`, `CHECK status IN (...)`, `period` + unique parcial.
+- RPCs admin-only (SECURITY DEFINER): `generate_monthly_invoices` (idempotente, fechas
+  locales), `update_payment`/`void_payment` (con auditoría), `athlete_debt_state`/
+  `admin_billing_status` (vencido alineado al kiosco). **No se tocó `kiosk_check_in`.**
+- Front: `services/payments.js` a RPC; "vencido" derivado del kiosco; **solapa Anulados**
+  (con auditoría motivo/quién/cuándo); **editar/anular** desde el detalle.
+- **Comprobante no-fiscal** (marca VC Fit) con **Imprimir/PDF** y **Enviar por WhatsApp**
+  (`wa.me`), disponible en el detalle del pago y **automáticamente al cobrar**.
+- **Gráficos reales** (recharts): ingresos últimos 6 meses + distribución por método.
+- Manejo del estado `void` en TODOS los consumidores de `payments` (portal atleta oculta
+  anulados; historial admin los muestra como "Anulado"; dashboard y gestión los excluyen).
+
+**Verificado con datos reales:** el "vencido" de Pagos (`admin_billing_status` → `overdue`)
+coincide con el kiosco (`kiosk_check_in` → `PAYMENT_BLOCKED`) para el mismo atleta.
+
+**Fase 2 (pendiente, fuera de alcance):** recordatorios automáticos a deudores (email/
+WhatsApp API), factura fiscal AFIP/ARCA, `pg_cron` nocturno (opcional). Nota: quedó un
+pago de prueba en el atleta "Atleta Prueba" a propósito, como evidencia/demo del "vencido".
+
+---
+
 ## Objetivo
 
 Que **Pagos** deje de ser sólo un registro y pase a ser **fuente de verdad**:
