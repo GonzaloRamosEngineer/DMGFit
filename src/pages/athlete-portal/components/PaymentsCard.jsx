@@ -48,19 +48,23 @@ const usePaymentLogic = (payments) => {
   return useMemo(() => {
     if (!payments) return { stats: { total: 0, pendingCount: 0, pendingAmount: 0 }, history: [], nextDue: null };
 
+    // Los pagos anulados (void) no se le muestran al atleta: es una corrección
+    // administrativa, no parte de su historial financiero.
+    const list = payments.filter(p => p.status !== 'void');
+
     // 1. Estadísticas
-    const totalPaid = payments
+    const totalPaid = list
       .filter(p => p.status === 'paid')
       .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
-    const pendingItems = payments.filter(p => p.status === 'pending' || p.status === 'overdue');
+    const pendingItems = list.filter(p => p.status === 'pending' || p.status === 'overdue');
     const pendingAmount = pendingItems.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
     // 2. Próximo vencimiento (El pendiente más antiguo)
     const nextDue = pendingItems.sort((a, b) => new Date(a.date) - new Date(b.date))[0];
 
     // 3. Historial (Ordenado por fecha descendente)
-    const history = [...payments].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const history = [...list].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return {
       stats: {

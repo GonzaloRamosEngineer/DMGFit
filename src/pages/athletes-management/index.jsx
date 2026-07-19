@@ -110,7 +110,8 @@ const AthletesManagement = () => {
           supabase
             .from("payments")
             .select("athlete_id, status, date, payment_date")
-            .in("athlete_id", athleteIds),
+            .in("athlete_id", athleteIds)
+            .neq("status", "void"),
         ]);
 
         const enrichedAthletes = athletesData.map((athlete) => {

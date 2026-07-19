@@ -25,6 +25,7 @@ const PaymentHistory = ({ payments, loading = false }) => {
       case 'paid': return 'text-success bg-success/10';
       case 'pending': return 'text-warning bg-warning/10';
       case 'overdue': return 'text-error bg-error/10';
+      case 'void': return 'text-text-tertiary bg-muted';
       default: return 'text-muted-foreground bg-muted/10';
     }
   };
@@ -34,12 +35,13 @@ const PaymentHistory = ({ payments, loading = false }) => {
       case 'paid': return 'CheckCircle';
       case 'pending': return 'Clock';
       case 'overdue': return 'AlertCircle';
+      case 'void': return 'Ban';
       default: return 'Circle';
     }
   };
 
   const getStatusLabel = (status) => {
-    const labels = { paid: 'Pagado', pending: 'Pendiente', overdue: 'Vencido' };
+    const labels = { paid: 'Pagado', pending: 'Pendiente', overdue: 'Vencido', void: 'Anulado' };
     return labels[status] || 'Desconocido';
   };
 

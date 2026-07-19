@@ -58,7 +58,7 @@ const MainDashboard = () => {
       ] = await Promise.all([
         supabase.from('athletes').select('*', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('athletes').select('*', { count: 'exact', head: true }),
-        supabase.from('payments').select('id, amount, status, payment_date, athletes ( profiles ( full_name ) )').neq('status', 'paid'),
+        supabase.from('payments').select('id, amount, status, payment_date, athletes ( profiles ( full_name ) )').eq('status', 'pending'),
         supabase
           .from('access_logs')
           .select('id, check_in_time, access_granted, reason_code, rejection_reason, athletes ( profiles ( full_name ) ), coaches ( profiles ( full_name ) )')
