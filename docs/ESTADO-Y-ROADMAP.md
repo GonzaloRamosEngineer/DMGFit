@@ -79,10 +79,15 @@ ciudad, contacto de emergencia y condiciones médicas.
 - El DNI se actualiza **en sincronía** en `profiles` (kiosco/login) y `athletes` (legacy),
   con validación de unicidad (mismo criterio que el alta + índice `uq_profiles_dni_normalized`).
 - Si no hay email real, se conserva el interno `{DNI}@vcfit.internal` alineado al DNI nuevo.
-- **Limitación conocida** (igual que en profes): si el atleta ya tenía login activado y se
-  le cambia el DNI, el kiosco toma el nuevo de inmediato pero el login a la app sigue
-  siendo con el DNI anterior (el email de auth no se toca — requeriría service_role /
-  edge function). El modal lo advierte al editar el DNI.
+- **Sync del login al cambiar DNI**: Edge Function `sync-athlete-login` (service_role,
+  solo admin, idempotente). Si el atleta tiene login interno (`{DNI}@vcfit.internal`),
+  re-apunta el email de auth al DNI nuevo; si la clave seguía siendo el DNI viejo
+  (se verifica con un sign-in efímero), la resetea al DNI nuevo — **no pisa claves
+  personalizadas**. Cuentas con email real no se tocan (su login no depende del DNI).
+  Si la sync falla, los datos igual quedan guardados y el modal avisa con un warning.
+  Deploy: `supabase functions deploy sync-athlete-login` (requiere cuenta con acceso
+  a la org de "Fitness DMG"). Los profes siguen con la limitación vieja (su edición
+  no sincroniza auth); si molesta, se generaliza esta misma función.
 
 ### 3) Endurecimiento / continuidad 🟠🟡
 - **Sin `0000_baseline.sql`**: el esquema troncal sólo vive en `schema_snapshot.sql`

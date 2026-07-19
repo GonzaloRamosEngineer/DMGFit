@@ -104,11 +104,11 @@ export const createFullAthlete = async (athleteData) => {
  * El DNI vive en profiles (kiosco/login lo buscan ahí) Y en athletes (legacy),
  * así que se actualizan las dos tablas en sincronía. RLS: solo admin puede
  * actualizar profiles/athletes de terceros ("admin full access").
- * Nota: si el atleta ya tenía login activado, su usuario de auth sigue siendo
- * {DNI viejo}@vcfit.internal → entra a la app con el DNI anterior (el kiosco
- * sí toma el nuevo de inmediato).
+ * Si cambia el DNI y el atleta tiene login interno ({DNI}@vcfit.internal),
+ * se sincroniza el email de auth vía Edge Function sync-athlete-login
+ * (service_role server-side). El kiosco toma el nuevo DNI de inmediato.
  */
-export const updateAthletePersonalData = async ({ athleteId, profileId, data }) => {
+export const updateAthletePersonalData = async ({ athleteId, profileId, previousDni, data }) => {
   try {
     const fullName = (data.fullName || '').trim();
     const dniDigits = (data.dni || '').trim().replace(/\D/g, '');
@@ -166,6 +166,29 @@ export const updateAthletePersonalData = async ({ athleteId, profileId, data }) 
       })
       .eq('id', athleteId);
     if (athleteError) throw athleteError;
+
+    // DNI cambiado → sincronizar el login interno de auth (si lo tiene).
+    // Si la sync falla, los datos YA quedaron guardados: se devuelve warning, no error.
+    const prevDigits = (previousDni || '').replace(/\D/g, '');
+    if (prevDigits && prevDigits !== dniDigits) {
+      try {
+        const { data: syncData, error: syncError } = await supabase.functions.invoke(
+          'sync-athlete-login',
+          { body: { athlete_id: athleteId } }
+        );
+        if (syncError) throw syncError;
+        if (syncData?.error) throw new Error(syncData.error);
+        return { success: true, loginSync: syncData };
+      } catch (syncErr) {
+        console.error('⚠️ Datos guardados, pero falló la sync del login:', syncErr);
+        return {
+          success: true,
+          loginSyncWarning:
+            'Los datos se guardaron, pero no se pudo sincronizar el login: ' +
+            'si el atleta tenía acceso a la app, sigue entrando con su DNI anterior.',
+        };
+      }
+    }
 
     return { success: true };
   } catch (error) {

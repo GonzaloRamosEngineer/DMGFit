@@ -71,6 +71,7 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
     const result = await updateAthletePersonalData({
       athleteId: athlete.id,
       profileId: athlete.profile_id,
+      previousDni: originalDni,
       data: { ...formData, email: finalEmail },
     });
 
@@ -81,7 +82,17 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
       return;
     }
 
-    toast.success('Datos personales actualizados.');
+    if (result.loginSyncWarning) {
+      toast.error(result.loginSyncWarning);
+    } else if (result.loginSync?.synced) {
+      toast.success(
+        result.loginSync.passwordReset
+          ? 'Datos actualizados. Login sincronizado: usuario y clave = DNI nuevo.'
+          : 'Datos actualizados. Login sincronizado al DNI nuevo (clave sin cambios).'
+      );
+    } else {
+      toast.success('Datos personales actualizados.');
+    }
     onSuccess?.();
     onClose();
   };
@@ -192,8 +203,10 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
               <div className="mt-4 text-[11px] text-warning bg-warning-light border border-warning/20 rounded-lg px-3 py-2 flex items-start gap-2">
                 <Icon name="AlertTriangle" size={14} className="mt-0.5 shrink-0" />
                 <span>
-                  Estás cambiando el DNI. El kiosco tomará el nuevo DNI de inmediato, pero si
-                  el atleta ya tenía acceso a la app, seguirá ingresando con su DNI anterior.
+                  Estás cambiando el DNI. El kiosco tomará el nuevo DNI de inmediato y, si el
+                  atleta entra a la app con su DNI, el login se sincroniza automáticamente
+                  (si su clave era el DNI anterior, pasa a ser el nuevo; las claves
+                  personalizadas no se tocan).
                 </span>
               </div>
             )}
