@@ -13,6 +13,7 @@ import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
+import { hoyLocal } from "../../utils/formatters";
 import AddAthleteModal from "./components/AddAthleteModal";
 import EnableAccountModal from "../../components/EnableAccountModal";
 import AddPaymentModal from "../payment-management/components/AddPaymentModal";
@@ -40,8 +41,8 @@ const AthletesManagement = () => {
   const [metricsSummary, setMetricsSummary] = useState({
     totalAthletes: 0,
     activeThisMonth: 0,
-    avgPerformance: 0,
-    retentionRate: 0,
+    newThisMonth: 0,
+    upToDateCount: 0,
   });
 
   const [segmentation, setSegmentation] = useState({
@@ -261,14 +262,17 @@ const AthletesManagement = () => {
           setAthletes(enrichedAthletes);
           setSegmentation(seg);
           setRecentActivities(topRecentActivities);
+          // "YYYY-MM" del mes actual en hora local (join_date es fecha sin hora).
+          const currentMonthPrefix = hoyLocal().slice(0, 7);
           setMetricsSummary({
             totalAthletes: enrichedAthletes.length,
             activeThisMonth: enrichedAthletes.filter((a) => a.isActive).length,
-            avgPerformance: Math.round(
-              enrichedAthletes.reduce((sum, a) => sum + a.performanceScore, 0) /
-                (enrichedAthletes.length || 1),
-            ),
-            retentionRate: 95,
+            newThisMonth: athletesData.filter(
+              (a) => a.join_date && String(a.join_date).slice(0, 7) === currentMonthPrefix,
+            ).length,
+            upToDateCount: enrichedAthletes.filter(
+              (a) => a.paymentStatus === "paid",
+            ).length,
           });
           setIsLoading(false);
         }
