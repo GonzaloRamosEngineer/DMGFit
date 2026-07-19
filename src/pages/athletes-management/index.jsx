@@ -1,4 +1,3 @@
-// C:\Projects\DMG Fitness\src\pages\athletes-management\index.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { Helmet } from "react-helmet";
 import BreadcrumbTrail from "../../components/ui/BreadcrumbTrail";

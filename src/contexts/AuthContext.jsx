@@ -1,4 +1,3 @@
-// C:\Projects\DMG Fitness\src\contexts\AuthContext.jsx
 
 import React, {
   createContext,

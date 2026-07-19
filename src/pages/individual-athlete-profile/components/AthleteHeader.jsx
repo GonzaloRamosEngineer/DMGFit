@@ -1,4 +1,3 @@
-// C:\Projects\DMG Fitness\src\pages\individual-athlete-profile\components\AthleteHeader.jsx
 import React, { useState } from 'react';
 import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
