@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Icon from '../../../components/AppIcon';
 import { useToast } from '../../../hooks/useToast';
-import { updateAthletePersonalData } from '../../../services/athletes';
+import { useConfirm } from '../../../components/ui/ConfirmProvider';
+import { updateAthletePersonalData, activateAthleteLogin } from '../../../services/athletes';
 
 const INTERNAL_DOMAINS = ['@dmg.internal', '@vcfit.internal'];
 
@@ -10,6 +11,7 @@ const isInternalEmail = (email = '') =>
 
 const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -90,6 +92,24 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
           ? 'Datos actualizados. Login sincronizado: usuario y clave = DNI nuevo.'
           : 'Datos actualizados. Login sincronizado al DNI nuevo (clave sin cambios).'
       );
+    } else if (result.loginSync?.code === 'real_email') {
+      toast.success('Datos actualizados. Este atleta entra con su email; el DNI no afecta su login.');
+    } else if (result.loginSync?.code === 'no_login') {
+      toast.success('Datos personales actualizados.');
+      const activar = await confirm({
+        title: 'Atleta sin acceso a la app',
+        message: `${formData.fullName} todavía no puede entrar a la app. ¿Querés activarle el acceso por DNI? Va a ingresar con usuario y clave = ${dniDigits}. (Para acceso con email, usá "Habilitar Acceso" en el perfil.)`,
+        confirmLabel: 'Activar acceso',
+      });
+      if (activar) {
+        try {
+          await activateAthleteLogin(athlete.id);
+          toast.success(`Acceso activado: usuario y clave = ${dniDigits}.`);
+        } catch (err) {
+          console.error('Error activando acceso:', err);
+          toast.error('No se pudo activar el acceso: ' + (err.message || 'Error desconocido'));
+        }
+      }
     } else {
       toast.success('Datos personales actualizados.');
     }

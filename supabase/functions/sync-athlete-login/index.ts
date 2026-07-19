@@ -57,19 +57,19 @@ Deno.serve(async (req) => {
     // 3) ¿Tiene login? Si su perfil no es un usuario de auth, no hay nada que sincronizar.
     const { data: authUser } = await admin.auth.admin.getUserById(ath.profile_id).catch(() => ({ data: null }));
     if (!authUser?.user) {
-      return json({ ok: true, synced: false, reason: "Sin login activado." });
+      return json({ ok: true, synced: false, code: "no_login", reason: "Sin login activado." });
     }
 
     const currentEmail = String(authUser.user.email || "").toLowerCase();
 
     // 4) Cuentas con email real: el DNI no es su identidad de login → no se tocan.
     if (!INTERNAL_DOMAINS.some((d) => currentEmail.endsWith(d))) {
-      return json({ ok: true, synced: false, reason: "Login con email real; no depende del DNI." });
+      return json({ ok: true, synced: false, code: "real_email", reason: "Login con email real; no depende del DNI." });
     }
 
     // 5) ¿Ya está alineado?
     if (currentEmail === targetEmail) {
-      return json({ ok: true, synced: false, already: true, reason: "El login ya usa este DNI." });
+      return json({ ok: true, synced: false, code: "already", reason: "El login ya usa este DNI." });
     }
 
     // 6) ¿La clave seguía siendo el DNI anterior? (esquema "usuario y clave = DNI")
