@@ -11,8 +11,13 @@ import { EmptyState } from '../../components/ui/EmptyState';
 // Modal
 import AddPaymentModal from './components/AddPaymentModal';
 
-// Servicio de Generación de Cuotas
-import { generateMonthlyInvoices } from '../../services/payments';
+// Servicio de pagos
+import {
+  generateMonthlyInvoices,
+  fetchBillingStatus,
+  updatePayment,
+  voidPayment,
+} from '../../services/payments';
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat('es-AR', {
@@ -98,12 +103,80 @@ const KpiCard = ({ title, value, variant = 'neutral' }) => {
 };
 
 // --- MODAL DETALLE DE PAGO ---
-const PaymentDetailModal = ({ payment, onClose, onNavigate }) => {
+const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid }) => {
+  const [mode, setMode] = useState('view'); // 'view' | 'edit'
+  const [busy, setBusy] = useState(false);
+  const [showVoid, setShowVoid] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+
+  const [form, setForm] = useState({
+    amount: '',
+    method: 'efectivo',
+    concept: '',
+    payment_date: '',
+    reason: '',
+  });
+
+  useEffect(() => {
+    if (payment) {
+      setMode('view');
+      setShowVoid(false);
+      setVoidReason('');
+      setForm({
+        amount: String(payment.amount ?? ''),
+        method: payment.method || 'efectivo',
+        concept: payment.concept || '',
+        payment_date: payment.payment_date || '',
+        reason: '',
+      });
+    }
+  }, [payment]);
+
   if (!payment) return null;
 
   const amount = Number(payment.amount || 0);
   const baseAmount = Number(payment.base_amount || amount);
   const hasDiscount = payment.discount_value && Number(payment.discount_value) > 0;
+
+  const setField = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
+
+  const handleSaveEdit = async () => {
+    const patch = {};
+    const newAmount = Number(form.amount);
+    if (Number.isFinite(newAmount) && newAmount >= 0 && newAmount !== amount) {
+      // Editar el monto lo aplana: pasa a ser un importe corregido sin descuento.
+      patch.amount = newAmount;
+      patch.base_amount = newAmount;
+      patch.discount_value = 0;
+      patch.discount_type = null;
+    }
+    if (form.method !== (payment.method || 'efectivo')) patch.method = form.method;
+    if (form.concept !== (payment.concept || '')) patch.concept = form.concept;
+    if (form.payment_date && form.payment_date !== payment.payment_date) {
+      patch.payment_date = form.payment_date;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      setMode('view');
+      return;
+    }
+
+    try {
+      setBusy(true);
+      await onEdit(payment.id, patch, form.reason?.trim() || null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVoid = async () => {
+    try {
+      setBusy(true);
+      await onVoid(payment.id, voidReason?.trim() || null);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div
@@ -216,6 +289,146 @@ const PaymentDetailModal = ({ payment, onClose, onNavigate }) => {
               <span className="text-2xl font-black text-text-primary">{formatCurrency(amount)}</span>
             </div>
           </div>
+
+          {/* Panel de edición (admin) */}
+          {mode === 'edit' && (
+            <div className="border-t border-border pt-4 space-y-3">
+              <p className="text-[10px] font-black text-primary uppercase tracking-widest">Editar pago</p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-bold text-text-secondary space-y-1">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Monto</span>
+                  <input
+                    type="number" min="0" step="1"
+                    value={form.amount}
+                    onChange={(e) => setField('amount', e.target.value)}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="text-xs font-bold text-text-secondary space-y-1">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Método</span>
+                  <select
+                    value={form.method}
+                    onChange={(e) => setField('method', e.target.value)}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  >
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta</option>
+                    <option value="transferencia">Transferencia</option>
+                    <option value="mp">Mercado Pago</option>
+                  </select>
+                </label>
+                <label className="text-xs font-bold text-text-secondary space-y-1">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Fecha</span>
+                  <input
+                    type="date"
+                    value={form.payment_date}
+                    onChange={(e) => setField('payment_date', e.target.value)}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="text-xs font-bold text-text-secondary space-y-1 col-span-2">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Concepto</span>
+                  <input
+                    type="text"
+                    value={form.concept}
+                    onChange={(e) => setField('concept', e.target.value)}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  />
+                </label>
+                <label className="text-xs font-bold text-text-secondary space-y-1 col-span-2">
+                  <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Motivo del ajuste (opcional)</span>
+                  <input
+                    type="text"
+                    value={form.reason}
+                    onChange={(e) => setField('reason', e.target.value)}
+                    placeholder="Queda registrado en la auditoría"
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-primary"
+                  />
+                </label>
+              </div>
+              {hasDiscount && Number(form.amount) !== amount && (
+                <p className="text-[11px] font-semibold text-warning">
+                  Editar el monto elimina el descuento y lo deja como importe fijo.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Confirmación de anulación */}
+          {showVoid && (
+            <div className="border-t border-border pt-4 space-y-3">
+              <p className="text-[10px] font-black text-error uppercase tracking-widest">Anular pago</p>
+              <p className="text-xs font-semibold text-text-secondary">
+                El pago queda anulado (soft-delete) y se registra en la auditoría.
+                {payment.status === 'paid' && ' Al anular un pago cobrado, el ciclo de acceso del atleta en el kiosco se recalcula y podría re-bloquearlo.'}
+              </p>
+              <input
+                type="text"
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="Motivo (opcional)"
+                className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm font-bold outline-none focus:border-error"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Footer acciones (admin) */}
+        <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-2">
+          {mode === 'view' && !showVoid && (
+            <>
+              <button
+                onClick={() => setShowVoid(true)}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-error hover:bg-error-light transition-colors"
+              >
+                Anular
+              </button>
+              <button
+                onClick={() => setMode('edit')}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-card border border-border text-text-secondary hover:bg-muted transition-colors"
+              >
+                Editar
+              </button>
+            </>
+          )}
+
+          {mode === 'edit' && (
+            <>
+              <button
+                disabled={busy}
+                onClick={() => setMode('view')}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-text-secondary hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={busy}
+                onClick={handleSaveEdit}
+                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+              >
+                {busy ? 'Guardando...' : 'Guardar'}
+              </button>
+            </>
+          )}
+
+          {showVoid && (
+            <>
+              <button
+                disabled={busy}
+                onClick={() => { setShowVoid(false); setVoidReason(''); }}
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-text-secondary hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={busy}
+                onClick={handleVoid}
+                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-error text-error-foreground hover:bg-error/90 transition-colors disabled:opacity-60"
+              >
+                {busy ? 'Anulando...' : 'Confirmar anulación'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -264,43 +477,42 @@ const PaymentManagement = () => {
       const today = startOfDay(now);
       const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const { data: paymentsData, error } = await supabase
-        .from('payments')
-        .select(`
-          id,
-          amount,
-          status,
-          payment_date,
-          method,
-          concept,
-          base_amount,
-          discount_value,
-          discount_type,
-          athletes ( id, profiles ( full_name, avatar_url, email ) )
-        `)
-        .order('payment_date', { ascending: false });
+      const [{ data: paymentsData, error }, billingMap] = await Promise.all([
+        supabase
+          .from('payments')
+          .select(`
+            id,
+            amount,
+            status,
+            payment_date,
+            method,
+            concept,
+            base_amount,
+            discount_value,
+            discount_type,
+            period,
+            athletes ( id, profiles ( full_name, avatar_url, email ) )
+          `)
+          .neq('status', 'void')
+          .order('payment_date', { ascending: false }),
+        // Estado de deuda alineado al kiosco (fuente única de "vencido")
+        fetchBillingStatus().catch((e) => {
+          console.error('Error cargando estado de facturación:', e);
+          return new Map();
+        }),
+      ]);
 
       if (error) throw error;
 
       const processed = (paymentsData || []).map((p) => {
         const paymentDate = p.payment_date || null;
-        // FIX: parseo local para evitar desfase UTC
-        let dt = null;
-        if (paymentDate) {
-          if (/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
-            const [y, m, d] = paymentDate.split('-').map(Number);
-            dt = new Date(y, m - 1, d);
-          } else {
-            dt = new Date(paymentDate);
-          }
-        }
+        const athleteId = p.athletes?.id || null;
+        const billing = athleteId ? billingMap.get(athleteId) : null;
 
-        const isPastDue = (p.status === 'overdue') || (p.status === 'pending' && dt && dt < today);
-
-        const daysOverdue =
-          isPastDue && dt
-            ? Math.floor((today.getTime() - startOfDay(dt).getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
+        // "Vencido" = ciclo del kiosco (último paid + 30d + gracia), NO payment_date.
+        // Solo aplica a cuotas pendientes; un pago 'paid' nunca está vencido.
+        const isPastDue = p.status === 'pending' && billing?.state === 'overdue';
+        const daysOverdue = isPastDue ? (billing?.daysLate || 0) : 0;
 
         return {
           ...p,
@@ -735,6 +947,28 @@ const PaymentManagement = () => {
           onNavigate={(athleteId) => {
             setDetailPayment(null);
             navigate(`/individual-athlete-profile/${athleteId}`);
+          }}
+          onEdit={async (id, patch, reason) => {
+            try {
+              await updatePayment(id, patch, reason);
+              toast.success('Pago actualizado.');
+              setDetailPayment(null);
+              await fetchPaymentData();
+            } catch (err) {
+              console.error('Error editando pago:', err);
+              toast.error('No se pudo editar el pago: ' + (err?.message || 'error'));
+            }
+          }}
+          onVoid={async (id, reason) => {
+            try {
+              await voidPayment(id, reason);
+              toast.success('Pago anulado.');
+              setDetailPayment(null);
+              await fetchPaymentData();
+            } catch (err) {
+              console.error('Error anulando pago:', err);
+              toast.error('No se pudo anular el pago: ' + (err?.message || 'error'));
+            }
           }}
         />
       )}
