@@ -11,7 +11,7 @@ const ExerciseLibrary = () => (
     <div className="mx-auto max-w-[1500px] px-5 pb-16 pt-2 md:px-8">
       <ExerciseBrowser
         title="Biblioteca de ejercicios"
-        subtitle="Catálogo con animación e instrucciones paso a paso para armar rutinas, asignar sesiones y enseñar la técnica."
+        subtitle="Animaciones e instrucciones paso a paso para armar rutinas y enseñar la técnica."
       />
     </div>
   </>

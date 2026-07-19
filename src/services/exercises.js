@@ -7,9 +7,13 @@ export const fetchExercises = async ({
   category = 'all',
   limit = 500,
 } = {}) => {
+  // Solo ejercicios con imagen representativa: los que no tienen media se ocultan
+  // de la biblioteca y del armador de rutinas (mismo servicio).
   let query = supabase
     .from('exercises')
     .select('*')
+    .not('image_url', 'is', null)
+    .neq('image_url', '')
     .order('name', { ascending: true })
     .limit(limit);
 
