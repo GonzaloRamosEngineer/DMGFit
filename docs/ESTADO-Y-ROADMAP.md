@@ -165,7 +165,7 @@ lo decorativo/muerto y se **enchufó el informe PDF por atleta** (que era lo ún
 > **Marca = "VC Fit"** (el nombre de este cliente). La solución es multi-cliente: para cada
 > gimnasio se re-brandea. No unificar a otro nombre.
 
-### 5) Higiene técnica 🟡 — EN PROGRESO (2026-07-19, rama `chore/higiene-tecnica`)
+### 5) Higiene técnica 🟢 — RESUELTO (2026-07-19, ramas `chore/higiene-tecnica` + `chore/tests-vitest`)
 - **Deps muertas eliminadas** ✅: `axios`, `redux`, `@reduxjs/toolkit`, `d3`,
   `react-router-hash-link`, `react-hook-form` y las 3 `@testing-library/*` huérfanas
   (0 imports reales, verificado en `src` y `scripts`). Se conservan `html2canvas` (dep
@@ -175,9 +175,15 @@ lo decorativo/muerto y se **enchufó el informe PDF por atleta** (que era lo ún
   sidebar). El chunk monolítico de **~4.28MB pasó a ~1.4MB** de entrada; recharts (~375kB),
   `html2canvas` (200kB) y `jspdf` (150kB) ahora cargan **on-demand**. Sin warning de chunk >2MB.
 - **Comentarios de path viejos** (`// C:\Projects\DMG Fitness\...`, 5 archivos) eliminados.
-- **Pendiente**: **cero tests** (no hay runner). Las RPCs críticas viven en Postgres (difícil
-  de unit-testear desde JS sin DB); lo realista es arrancar con `vitest` + tests unitarios de
-  la lógica pura (formatters de fecha/moneda, armado de datos del PDF, normalización de planes).
+- **Tests** ✅ (rama `chore/tests-vitest`): montado **`vitest`** (env `node`, sin DOM), scripts
+  `test`/`test:run`, `vitest.config.mjs` con **TZ fija America/Argentina** (deterministas) y env
+  dummy de Supabase. **15 tests en verde** sobre lógica pura: `formatters` (incluye
+  **regresión del bug de timezone** — `formatearFecha` no corre el día, `hoyLocal` da día local
+  y no UTC pasadas las 21hs), `cn` (twMerge) y `getExerciseFacets`. Base para sumar más.
+  Nota: las RPCs críticas viven en Postgres → para testearlas de verdad hace falta una DB
+  (fuera del alcance de estos unit tests).
+- Se limpió el bloque `rocketCritical` de `package.json` (referenciaba `redux`/`@reduxjs/toolkit`
+  ya eliminados).
 - **Decisión de negocio (no técnica)**: licencia de media de ejercicios (Gym Visual) si se
   revende como SaaS.
 
@@ -210,4 +216,4 @@ lo decorativo/muerto y se **enchufó el informe PDF por atleta** (que era lo ún
 2. ~~**Editar datos personales del atleta**~~ ✅ hecho (2026-07-19) — cierra el requisito 3.
 3. ~~**Baseline + tracking de migraciones**~~ ✅ hecho (2026-07-19) — `0000_baseline.sql` + `migration repair` en prod.
 4. ~~**Limpieza de demo**~~ ✅ hecho (2026-07-19) — rama `chore/demo-cleanup-y-informe-pdf` + informe PDF enchufado.
-5. **Higiene**: sacar deps muertas (`axios`, `redux`+`@reduxjs/toolkit`, `d3`), code-splitting, tests mínimos sobre RPCs críticas.
+5. ~~**Higiene**: deps muertas + code-splitting + tests~~ ✅ hecho (2026-07-19) — vitest con 15 tests en verde, chunk ~4.28MB→~1.4MB.
