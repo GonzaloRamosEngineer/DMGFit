@@ -3,8 +3,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 // Misma paleta de dato que PerformanceChart (consistencia del sistema).
 const THEME = {
-  primary: '#2563EB',
-  grid: '#F8FAFC',
+  primary: '#0066FF',
+  grid: '#F1F5F9',
   text: '#94A3B8',
   accent: '#0F172A',
 };

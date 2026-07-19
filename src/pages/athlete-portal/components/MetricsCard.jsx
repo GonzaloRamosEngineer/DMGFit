@@ -13,8 +13,8 @@ const getMetricTheme = (name) => {
   if (n.includes('sprint') || n.includes('correr') || n.includes('vo2')) {
     return { type: 'cardio', color: '#10B981', bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100', stroke: '#10B981' };
   }
-  // Default: Strength
-  return { type: 'strength', color: '#3B82F6', bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', stroke: '#3B82F6' };
+  // Default: Strength — azul primary de marca (mismo azul que los charts del portal)
+  return { type: 'strength', color: '#0066FF', bg: 'bg-info-light', text: 'text-primary', border: 'border-info-light', stroke: '#0066FF' };
 };
 
 const formatDate = (dateStr) => {
@@ -104,12 +104,12 @@ const MetricTile = ({ data }) => {
 
       {/* Main Stats */}
       <div className="relative z-10 mb-8">
-        <h4 className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1 truncate">
+        <h4 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.18em] mb-1 truncate">
           {data.name}
         </h4>
         <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-black text-text-primary tracking-tighter">
-            {data.current}
+          <span className="text-2xl md:text-3xl font-black text-text-primary tracking-tight tabular-nums">
+            {Number(data.current).toLocaleString('es-AR')}
           </span>
           <span className="text-xs font-bold text-text-tertiary uppercase">
             {data.unit}
@@ -196,8 +196,8 @@ const MetricsCard = ({ metrics = [] }) => {
       <div>
         <div className="flex items-center gap-2 mb-4 px-2">
            <Icon name="Grid" size={16} className="text-text-tertiary" />
-           <h3 className="text-xs font-black text-text-tertiary uppercase tracking-[0.2em]">
-              Resumen de Métricas
+           <h3 className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.18em]">
+              Resumen de métricas
            </h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -211,12 +211,12 @@ const MetricsCard = ({ metrics = [] }) => {
       <div className="bg-card rounded-3xl p-6 md:p-8 border border-border shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)]">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-             <div className="p-2 bg-slate-900 rounded-lg text-white">
+             <div className="p-2 bg-info-light rounded-xl text-primary">
                 <Icon name="List" size={16} />
              </div>
              <div>
-                <h3 className="text-sm font-black text-text-primary uppercase tracking-wide">Historial Reciente</h3>
-                <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-[0.2em]">Últimos Registros</p>
+                <p className="text-[10px] font-black text-text-tertiary uppercase tracking-[0.18em]">Mediciones · Historial</p>
+                <h3 className="text-lg font-black text-text-primary tracking-tight">Historial reciente</h3>
              </div>
           </div>
         </div>
@@ -230,7 +230,7 @@ const MetricsCard = ({ metrics = [] }) => {
         {/* Footer Fade for List */}
         <div className="mt-4 pt-4 border-t border-border text-center">
            <button className="text-[10px] font-black text-primary uppercase tracking-widest hover:text-primary/80 transition-colors">
-              Ver base de datos completa
+              Ver historial completo
            </button>
         </div>
       </div>

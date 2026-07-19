@@ -123,7 +123,7 @@ const ExerciseProgressCard = ({ athleteId }) => {
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
               Fuerza · desde tus entrenamientos
             </p>
-            <h3 className="truncate text-lg font-black text-text-primary">Progreso por ejercicio</h3>
+            <h3 className="truncate text-lg md:text-xl font-black text-text-primary tracking-tight">Progreso por ejercicio</h3>
           </div>
           <button
             type="button"
