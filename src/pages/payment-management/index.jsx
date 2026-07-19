@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 
 // Modal
 import AddPaymentModal from './components/AddPaymentModal';
+import PaymentReceipt from './components/PaymentReceipt';
 
 // Servicio de pagos
 import {
@@ -103,7 +104,7 @@ const KpiCard = ({ title, value, variant = 'neutral' }) => {
 };
 
 // --- MODAL DETALLE DE PAGO ---
-const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid }) => {
+const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid, onReceipt }) => {
   const [mode, setMode] = useState('view'); // 'view' | 'edit'
   const [busy, setBusy] = useState(false);
   const [showVoid, setShowVoid] = useState(false);
@@ -248,13 +249,15 @@ const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid }) =>
             <div className="bg-muted rounded-xl p-3">
               <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest mb-1">Estado</p>
               <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                payment.status === 'paid'
-                  ? 'bg-success-light text-success'
-                  : payment.isPastDue
-                    ? 'bg-error-light text-error'
-                    : 'bg-warning-light text-warning'
+                payment.status === 'void'
+                  ? 'bg-muted text-text-tertiary line-through'
+                  : payment.status === 'paid'
+                    ? 'bg-success-light text-success'
+                    : payment.isPastDue
+                      ? 'bg-error-light text-error'
+                      : 'bg-warning-light text-warning'
               }`}>
-                {payment.status === 'paid' ? 'Pagado' : payment.isPastDue ? 'Vencido' : 'Pendiente'}
+                {payment.status === 'void' ? 'Anulado' : payment.status === 'paid' ? 'Pagado' : payment.isPastDue ? 'Vencido' : 'Pendiente'}
               </span>
             </div>
           </div>
@@ -289,6 +292,20 @@ const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid }) =>
               <span className="text-2xl font-black text-text-primary">{formatCurrency(amount)}</span>
             </div>
           </div>
+
+          {/* Info de anulación */}
+          {payment.status === 'void' && (
+            <div className="rounded-2xl border border-border bg-muted/60 p-4 space-y-1">
+              <p className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">Pago anulado</p>
+              {payment.voidInfo?.reason && (
+                <p className="text-sm font-bold text-text-secondary">Motivo: {payment.voidInfo.reason}</p>
+              )}
+              <p className="text-xs text-text-tertiary">
+                {payment.voidInfo?.by ? `Por ${payment.voidInfo.by}` : 'Por administración'}
+                {payment.voidInfo?.at ? ` · ${formatTxDateTime(payment.voidInfo.at)}` : ''}
+              </p>
+            </div>
+          )}
 
           {/* Panel de edición (admin) */}
           {mode === 'edit' && (
@@ -375,14 +392,31 @@ const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid }) =>
 
         {/* Footer acciones (admin) */}
         <div className="px-6 py-4 border-t border-border bg-muted/50 flex items-center justify-end gap-2">
-          {mode === 'view' && !showVoid && (
+          {mode === 'view' && !showVoid && payment.status === 'void' && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-card border border-border text-text-secondary hover:bg-muted transition-colors"
+            >
+              Cerrar
+            </button>
+          )}
+
+          {mode === 'view' && !showVoid && payment.status !== 'void' && (
             <>
               <button
                 onClick={() => setShowVoid(true)}
-                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-error hover:bg-error-light transition-colors"
+                className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-error hover:bg-error-light transition-colors mr-auto"
               >
                 Anular
               </button>
+              {payment.status === 'paid' && onReceipt && (
+                <button
+                  onClick={() => onReceipt(payment)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-success-light text-success hover:bg-success-light/70 transition-colors"
+                >
+                  <Icon name="Receipt" size={14} /> Comprobante
+                </button>
+              )}
               <button
                 onClick={() => setMode('edit')}
                 className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-card border border-border text-text-secondary hover:bg-muted transition-colors"
@@ -457,6 +491,10 @@ const PaymentManagement = () => {
   const [allPayments, setAllPayments] = useState([]);
   const [paidMovements, setPaidMovements] = useState([]);
   const [debtors, setDebtors] = useState([]);
+  const [voided, setVoided] = useState([]);
+
+  // Modal comprobante
+  const [receiptPayment, setReceiptPayment] = useState(null);
 
   // KPIs
   const [kpiMonthlyRevenue, setKpiMonthlyRevenue] = useState(0);
@@ -491,9 +529,8 @@ const PaymentManagement = () => {
             discount_value,
             discount_type,
             period,
-            athletes ( id, profiles ( full_name, avatar_url, email ) )
+            athletes ( id, phone, profiles ( full_name, avatar_url, email ) )
           `)
-          .neq('status', 'void')
           .order('payment_date', { ascending: false }),
         // Estado de deuda alineado al kiosco (fuente única de "vencido")
         fetchBillingStatus().catch((e) => {
@@ -504,6 +541,38 @@ const PaymentManagement = () => {
 
       if (error) throw error;
 
+      // Auditoría de los pagos anulados (motivo/quién/cuándo)
+      const voidedIds = (paymentsData || []).filter((p) => p.status === 'void').map((p) => p.id);
+      const auditByPayment = new Map();
+      if (voidedIds.length > 0) {
+        const { data: auditRows } = await supabase
+          .from('payment_audit')
+          .select('payment_id, reason, actor_id, created_at')
+          .eq('action', 'void')
+          .in('payment_id', voidedIds)
+          .order('created_at', { ascending: false });
+
+        const actorIds = [...new Set((auditRows || []).map((a) => a.actor_id).filter(Boolean))];
+        const actorNames = new Map();
+        if (actorIds.length > 0) {
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', actorIds);
+          (profs || []).forEach((pr) => actorNames.set(pr.id, pr.full_name));
+        }
+        // Nos quedamos con la anulación más reciente por pago
+        (auditRows || []).forEach((a) => {
+          if (!auditByPayment.has(a.payment_id)) {
+            auditByPayment.set(a.payment_id, {
+              reason: a.reason,
+              at: a.created_at,
+              by: actorNames.get(a.actor_id) || null,
+            });
+          }
+        });
+      }
+
       const processed = (paymentsData || []).map((p) => {
         const paymentDate = p.payment_date || null;
         const athleteId = p.athletes?.id || null;
@@ -513,16 +582,19 @@ const PaymentManagement = () => {
         // Solo aplica a cuotas pendientes; un pago 'paid' nunca está vencido.
         const isPastDue = p.status === 'pending' && billing?.state === 'overdue';
         const daysOverdue = isPastDue ? (billing?.daysLate || 0) : 0;
+        const voidInfo = p.status === 'void' ? auditByPayment.get(p.id) || {} : null;
 
         return {
           ...p,
           payment_date: paymentDate,
           athleteName: p.athletes?.profiles?.full_name || 'Desconocido',
           athleteId: p.athletes?.id || null,
+          athletePhone: p.athletes?.phone || null,
           athleteImage: p.athletes?.profiles?.avatar_url || null,
           athleteEmail: p.athletes?.profiles?.email || null,
           isPastDue,
           daysOverdue,
+          voidInfo,
         };
       });
 
@@ -536,6 +608,9 @@ const PaymentManagement = () => {
       const due = processed.filter((p) => p.status === 'pending' || p.status === 'overdue');
       due.sort((a, b) => (b.daysOverdue - a.daysOverdue) || (Number(b.amount) - Number(a.amount)));
       setDebtors(due);
+
+      // Anulados (soft-delete)
+      setVoided(processed.filter((p) => p.status === 'void'));
 
       // KPI: ingresos del mes
       const monthlyRevenue = paid.reduce((sum, p) => {
@@ -607,7 +682,8 @@ const PaymentManagement = () => {
 
   const currentRows = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const base = activeTab === 'transactions' ? paidMovements : debtors;
+    const base =
+      activeTab === 'transactions' ? paidMovements : activeTab === 'voided' ? voided : debtors;
     const filtered = !term
       ? base
       : base.filter((r) => {
@@ -616,7 +692,7 @@ const PaymentManagement = () => {
           return a.includes(term) || c.includes(term);
         });
     return filtered;
-  }, [activeTab, paidMovements, debtors, searchTerm]);
+  }, [activeTab, paidMovements, debtors, voided, searchTerm]);
 
   const totalRows = currentRows.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
@@ -732,6 +808,22 @@ const PaymentManagement = () => {
                     </span>
                   )}
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('voided')}
+                  className={`text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-colors flex items-center gap-2 ${
+                    activeTab === 'voided'
+                      ? 'text-text-primary border-primary'
+                      : 'text-text-tertiary border-transparent hover:text-text-secondary'
+                  }`}
+                >
+                  Anulados
+                  {!loading && voided.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-muted text-text-secondary text-[10px] font-black">
+                      {voided.length}
+                    </span>
+                  )}
+                </button>
               </div>
 
               <div className="relative w-full lg:w-[420px]">
@@ -821,6 +913,17 @@ const PaymentManagement = () => {
                             <span className="text-sm font-semibold text-text-secondary">
                               {mapMethodLabel(row.method)}
                             </span>
+                          ) : activeTab === 'voided' ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="w-fit px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-muted text-text-tertiary line-through">
+                                Anulado
+                              </span>
+                              {row.voidInfo?.reason && (
+                                <span className="text-[11px] font-semibold text-text-tertiary truncate max-w-[180px]" title={row.voidInfo.reason}>
+                                  {row.voidInfo.reason}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex items-center gap-2">
                               <span
@@ -842,7 +945,11 @@ const PaymentManagement = () => {
                         <td className="px-6 py-4 text-right">
                           <span
                             className={`text-sm font-black ${
-                              isPaid ? 'text-success' : 'text-error'
+                              row.status === 'void'
+                                ? 'text-text-tertiary line-through'
+                                : isPaid
+                                  ? 'text-success'
+                                  : 'text-error'
                             }`}
                           >
                             {isPaid ? `+${formatCurrency(amount)}` : `${formatCurrency(amount)}`}
@@ -970,6 +1077,19 @@ const PaymentManagement = () => {
               toast.error('No se pudo anular el pago: ' + (err?.message || 'error'));
             }
           }}
+          onReceipt={(p) => {
+            setDetailPayment(null);
+            setReceiptPayment(p);
+          }}
+        />
+      )}
+
+      {/* Modal: Comprobante */}
+      {receiptPayment && (
+        <PaymentReceipt
+          payment={receiptPayment}
+          athletePhone={receiptPayment.athletePhone}
+          onClose={() => setReceiptPayment(null)}
         />
       )}
     </>
