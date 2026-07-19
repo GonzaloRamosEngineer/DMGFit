@@ -7,8 +7,6 @@
       "@dhiwise/component-tagger",
       "react",
       "react-dom",
-      "@reduxjs/toolkit",
-      "redux",
       "react-router-dom"
     ],
     "devDependencies": [
@@ -53,6 +51,8 @@
     "start": "vite",
     "build": "vite build --sourcemap",
     "serve": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
     "seed:exercises": "node scripts/seed-exercises.mjs",
     "seed:exercises:dry": "node scripts/seed-exercises.mjs --dry-run",
     "seed:exercises:sql": "node scripts/seed-exercises.mjs --sql"
@@ -85,6 +85,7 @@
     "postcss": "^8.5.6",
     "tailwindcss": "3.4.6",
     "vite": "5.0.0",
-    "vite-tsconfig-paths": "3.6.0"
+    "vite-tsconfig-paths": "3.6.0",
+    "vitest": "^4.1.10"
   }
 }
