@@ -1,7 +1,12 @@
 # Mapa de la base de datos — DMGFit
 
 > Relevado en vivo (PostgreSQL 17.6, proyecto `plbycllbuwfrkknlbhno`). Fuente de verdad para ajustes quirúrgicos.
-> Estado: 33 tablas, 2 vistas, ~26 funciones de usuario.
+> Estado: 35 tablas (el inventario de abajo relevó 33; +`coach_athlete_follows` [0025] y +`payment_audit` [0026]), 2 vistas, ~26 funciones de usuario.
+>
+> **Migraciones (2026-07-19):** el esquema completo está versionado en `supabase/migrations/0000_baseline.sql`
+> (reconstruye la base desde cero, verificado con `supabase db reset`). Las `0001–0026` quedaron en
+> `supabase/_archive_migrations/`. El tracking vive en `supabase_migrations.schema_migrations` (baseline `0000` registrado).
+> Ver detalle en [`ESTADO-Y-ROADMAP.md`](./ESTADO-Y-ROADMAP.md) sección "Endurecimiento / continuidad".
 
 ## 1. Inventario de tablas (filas reales + RLS)
 

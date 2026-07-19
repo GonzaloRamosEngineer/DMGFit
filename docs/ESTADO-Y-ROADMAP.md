@@ -115,11 +115,31 @@ ciudad, contacto de emergencia y condiciones médicas.
   a la org de "Fitness DMG"). Los profes siguen con la limitación vieja (su edición
   no sincroniza auth); si molesta, se generaliza esta misma función.
 
-### 3) Endurecimiento / continuidad 🟠🟡
-- **Sin `0000_baseline.sql`**: el esquema troncal sólo vive en `schema_snapshot.sql`
-  (dump). No se puede reconstruir la base desde cero de forma versionada.
-- **Migraciones sin tracking**: no existe `supabase_migrations.schema_migrations`;
-  se aplican a mano (riesgo de drift). Van hasta la **0026**.
+### 3) Endurecimiento / continuidad 🟢 — RESUELTO (2026-07-19)
+Diagnóstico confirmado con evidencia: las migraciones `0001–0026` **no** reconstruían
+la base (asumían ~25 tablas troncales creadas a mano que sólo vivían en
+`schema_snapshot.sql` → `supabase db reset` fallaba en la 0001), y
+`supabase_migrations.schema_migrations` **no existía** en prod (todo aplicado a mano).
+
+- **`supabase/migrations/0000_baseline.sql`**: foto consolidada y versionada del esquema
+  `public` de producción (`supabase db dump`) — **35 tablas, 224 funciones, 86 policies,
+  8 triggers públicos** — **+ el trigger `on_auth_user_created` sobre `auth.users`**
+  (que el dump de `public` no captura; los triggers de `storage.*` son internos de
+  Supabase y se omiten a propósito). **Verificado**: `supabase db reset` reconstruye una
+  base local **idéntica a prod** (conteos 1:1). Reemplaza al viejo `schema_snapshot.sql`
+  (eliminado).
+- **`0001–0026` archivadas** en `supabase/_archive_migrations/` (historial preservado,
+  fuera de la cadena activa). Se crearon además `supabase/config.toml` y `.gitignore`
+  del CLI (no existían).
+- **Tracking registrado en prod**: `supabase migration repair --status applied 0000`
+  creó `supabase_migrations.schema_migrations` e insertó el baseline. `migration list`
+  muestra **Local 0000 = Remote 0000** → `supabase db push` queda confiable, sin drift.
+- **Lo que habilita** (ver también el mapa de acceso a la DB): clonar el sistema para un
+  gimnasio nuevo (`db push` sobre un proyecto vacío = esquema listo, sin datos),
+  reconstrucción de esquema ante desastre (los **datos** siguen dependiendo de backups),
+  y mover la base a otra cuenta/proyecto. **Nota de producto**: el catálogo de ejercicios
+  (era la 0020, ahora archivada) NO viene en el baseline → una instancia nueva arranca con
+  `exercises` vacía; si se quiere precargado hay que armar un `seed.sql`.
 
 ### 4) Limpieza de demo 🟡
 - `performance-analytics`: mezcla `mockPeers` con datos reales. **Ya no es alcanzable
@@ -139,6 +159,6 @@ ciudad, contacto de emergencia y condiciones médicas.
 
 1. ~~**Pagos confiables**~~ ✅ hecho (2026-07-19) — ver `tarea-pagos.md`.
 2. ~~**Editar datos personales del atleta**~~ ✅ hecho (2026-07-19) — cierra el requisito 3.
-3. **Baseline + tracking de migraciones** (continuidad) — **próximo**.
+3. ~~**Baseline + tracking de migraciones**~~ ✅ hecho (2026-07-19) — `0000_baseline.sql` + `migration repair` en prod.
 4. **Limpieza de demo** (pdf-export, performance-analytics, BulkActionsBar).
 5. **Higiene**: sacar deps muertas, code-splitting, tests mínimos sobre RPCs críticas.
