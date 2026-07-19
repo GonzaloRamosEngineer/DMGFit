@@ -114,7 +114,7 @@ const ExerciseBrowser = ({ title = 'Ejercicios', subtitle }) => {
         ) : null}
         {!loading && !error ? (
           <p className="mt-1 text-xs font-bold uppercase tracking-widest text-text-tertiary">
-            {all.length} ejercicios · {muscleGroups.length} grupos musculares
+            {all.length} ejercicios con guía visual
           </p>
         ) : null}
       </div>

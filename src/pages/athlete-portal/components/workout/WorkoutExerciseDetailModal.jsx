@@ -3,7 +3,7 @@ import Modal from '../../../../components/ui/Modal';
 import Icon from '../../../../components/AppIcon';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../../../components/ui/Tabs';
 import ExerciseThumb from '../../../exercise-library/components/ExerciseThumb';
-import { MEDIA_ATTRIBUTION } from '../../../exercise-library/components/constants';
+import MediaCredit from '../../../exercise-library/components/MediaCredit';
 import { fetchExerciseHistory } from '../../../../services/workouts';
 import { formatearFecha } from '../../../../utils/formatters';
 import ExerciseTrendChart from './ExerciseTrendChart';
@@ -76,8 +76,9 @@ const WorkoutExerciseDetailModal = ({ exercise, athleteId, open, onClose }) => {
 
         <TabsContent value="resumen">
           <div className="space-y-4">
-            <div className="mx-auto aspect-square w-full max-w-[320px] overflow-hidden rounded-2xl border border-border bg-white">
+            <div className="relative mx-auto aspect-square w-full max-w-[220px] overflow-hidden rounded-2xl border border-border bg-white">
               <ExerciseThumb exercise={exercise} size="lg" play />
+              {exercise.image_url ? <MediaCredit className="absolute bottom-1.5 right-1.5" /> : null}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {exercise.equipment ? (
@@ -107,11 +108,6 @@ const WorkoutExerciseDetailModal = ({ exercise, athleteId, open, onClose }) => {
                 </div>
                 <ExerciseTrendChart points={trendPoints} unit="kg" height={140} gradientId="detailTrend" />
               </div>
-            ) : null}
-            {exercise.image_url ? (
-              <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                {MEDIA_ATTRIBUTION}
-              </p>
             ) : null}
           </div>
         </TabsContent>

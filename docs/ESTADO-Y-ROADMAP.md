@@ -165,11 +165,42 @@ lo decorativo/muerto y se **enchufó el informe PDF por atleta** (que era lo ún
 > **Marca = "VC Fit"** (el nombre de este cliente). La solución es multi-cliente: para cada
 > gimnasio se re-brandea. No unificar a otro nombre.
 
-### 5) Higiene técnica 🟡
-- Deps muertas: `axios`, `redux`+`@reduxjs/toolkit`, `d3` (0 imports). `framer-motion` SÍ se usa.
-- **Cero tests** (no hay runner; quedan `@testing-library/*` huérfanas).
-- Bundle monolítico ~4MB sin code-splitting.
-- Licencia de media de ejercicios (Gym Visual) — decisión de negocio si se revende como SaaS.
+### 5) Higiene técnica 🟡 — EN PROGRESO (2026-07-19, rama `chore/higiene-tecnica`)
+- **Deps muertas eliminadas** ✅: `axios`, `redux`, `@reduxjs/toolkit`, `d3`,
+  `react-router-hash-link`, `react-hook-form` y las 3 `@testing-library/*` huérfanas
+  (0 imports reales, verificado en `src` y `scripts`). Se conservan `html2canvas` (dep
+  transitiva de `jspdf`), `@dhiwise/component-tagger` (plugin de `vite.config`) y `dotenv`.
+- **Code-splitting** ✅: rutas convertidas a `React.lazy` + `Suspense` (login eager para
+  primer paint; `Suspense` alrededor del `Outlet` en `AppLayout` para no parpadear el
+  sidebar). El chunk monolítico de **~4.28MB pasó a ~1.4MB** de entrada; recharts (~375kB),
+  `html2canvas` (200kB) y `jspdf` (150kB) ahora cargan **on-demand**. Sin warning de chunk >2MB.
+- **Comentarios de path viejos** (`// C:\Projects\DMG Fitness\...`, 5 archivos) eliminados.
+- **Pendiente**: **cero tests** (no hay runner). Las RPCs críticas viven en Postgres (difícil
+  de unit-testear desde JS sin DB); lo realista es arrancar con `vitest` + tests unitarios de
+  la lógica pura (formatters de fecha/moneda, armado de datos del PDF, normalización de planes).
+- **Decisión de negocio (no técnica)**: licencia de media de ejercicios (Gym Visual) si se
+  revende como SaaS.
+
+### 6) Biblioteca de ejercicios — pulido (2026-07-19, rama `chore/higiene-tecnica`)
+- **Solo ejercicios con imagen** ✅: `fetchExercises` filtra `image_url IS NOT NULL` → la
+  biblioteca **y** el armador de rutinas (mismo servicio) pasan de ~631 a **255** ejercicios
+  visibles (los ~376 sin media quedan en la base, no se borran → reversible).
+- **Crédito de Gym Visual discreto** ✅: se reemplazó la línea de texto bajo cada media por un
+  **"?" en la esquina** (`MediaCredit.jsx`) que muestra la atribución al pasar/tocar. **Cumple
+  el requisito de licencia (crédito accesible)** sin ensuciar la UI. **NO quitar el crédito por
+  completo** mientras se use media de Gym Visual (incumpliría la licencia; documentado en
+  `constants.js`).
+- **Pixelado mitigado** ✅: la media original es **180×180 px**; los modales la agrandaban 2-4x
+  (peor a pantalla completa en mobile). Se topó el display a `max-w-[220px]` centrado → menos
+  upscale, se ve mejor. **Límite real**: en pantallas retina (2-3x) un origen de 180px no puede
+  verse 100% nítido a tamaño grande — el fix definitivo es media en alta resolución.
+- **Header** reformulado: subtítulo "Animaciones e instrucciones paso a paso…" + conteo
+  "N ejercicios con guía visual" (se quitó la cuenta de grupos musculares).
+- **ROADMAP — media libre**: nuestro catálogo = dataset `hasaneyldrm/exercises-dataset`
+  (media de Gym Visual, atribución obligatoria). Alternativa **dominio público** (sin
+  atribución): **Free Exercise DB** (`yuhonas/free-exercise-db`, 800+ ejercicios) — pero son
+  **fotos estáticas, no GIFs animados**, y habría que re-mapear los ejercicios. Evaluar si
+  vale el cambio antes de revender como SaaS.
 
 ---
 

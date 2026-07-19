@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import NavigationSidebar from './components/ui/NavigationSidebar';
+
+const OutletLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh] w-full">
+    <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+  </div>
+);
 
 const AppLayout = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -29,7 +35,9 @@ const AppLayout = () => {
 
       <main className="flex-1 min-w-0 overflow-x-hidden pt-20 lg:pt-0">
         <div className="min-h-screen bg-background px-0 sm:px-1 lg:px-2 pb-6 md:pb-8 pt-0 lg:pt-8">
-          <Outlet />
+          <Suspense fallback={<OutletLoader />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>

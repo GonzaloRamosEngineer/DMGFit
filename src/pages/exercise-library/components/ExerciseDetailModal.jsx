@@ -3,7 +3,8 @@ import Modal from '../../../components/ui/Modal';
 import Badge from '../../../components/ui/Badge';
 import Icon from '../../../components/AppIcon';
 import ExerciseThumb from './ExerciseThumb';
-import { CATEGORY_LABELS, TRACKING_LABELS, MEDIA_ATTRIBUTION } from './constants';
+import MediaCredit from './MediaCredit';
+import { CATEGORY_LABELS, TRACKING_LABELS } from './constants';
 
 const InfoPill = ({ icon, label, value }) => (
   <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2">
@@ -32,14 +33,10 @@ const ExerciseDetailModal = ({ exercise, open, onClose }) => {
     <Modal open={open} onClose={onClose} title={exercise.name} subtitle={`${muscle} · ${category}`} size="xl">
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr]">
         <div className="space-y-3">
-          <div className="aspect-square w-full overflow-hidden rounded-2xl border border-border bg-white">
+          <div className="relative mx-auto aspect-square w-full max-w-[220px] overflow-hidden rounded-2xl border border-border bg-white">
             <ExerciseThumb exercise={exercise} size="lg" play />
+            {hasMedia ? <MediaCredit className="absolute bottom-1.5 right-1.5" /> : null}
           </div>
-          {hasMedia ? (
-            <p className="text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-              {MEDIA_ATTRIBUTION}
-            </p>
-          ) : null}
         </div>
 
         <div className="space-y-5">

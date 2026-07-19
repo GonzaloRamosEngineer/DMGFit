@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import {
   BrowserRouter,
   Routes as RouterRoutes,
@@ -9,32 +9,40 @@ import ScrollToTop from "./components/ScrollToTop";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AppLayout from "./AppLayout";
-import NotFound from "pages/NotFound";
+// Login eager: es el punto de entrada, queremos primer paint inmediato.
 import LoginRoleSelection from "./pages/login-role-selection";
-import IndividualAthleteProfile from "./pages/individual-athlete-profile";
-import MainDashboard from "./pages/main-dashboard";
-import AthletesManagement from "./pages/athletes-management";
-import PaymentManagement from "./pages/payment-management";
-import PlanManagement from "./pages/plan-management";
-import ProfessorDashboard from "./pages/professor-dashboard";
-import AthletePortal from "./pages/athlete-portal";
-import CoachesManagement from "./pages/coaches-management";
-import AccessControl from "./pages/access-control";
-import AccessHistory from "./pages/access-history";
-import CoachAttendance from "./pages/coach-attendance";
-import ClassSchedule from "./pages/class-schedule";
-import ExerciseLibrary from "./pages/exercise-library";
-import Unauthorized from "./pages/Unauthorized";
 
-// Rutas de Auth
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import UpdatePassword from "./pages/auth/UpdatePassword";
+// Resto de páginas con code-splitting (un chunk por página, carga on-demand).
+const NotFound = lazy(() => import("pages/NotFound"));
+const IndividualAthleteProfile = lazy(() => import("./pages/individual-athlete-profile"));
+const MainDashboard = lazy(() => import("./pages/main-dashboard"));
+const AthletesManagement = lazy(() => import("./pages/athletes-management"));
+const PaymentManagement = lazy(() => import("./pages/payment-management"));
+const PlanManagement = lazy(() => import("./pages/plan-management"));
+const ProfessorDashboard = lazy(() => import("./pages/professor-dashboard"));
+const AthletePortal = lazy(() => import("./pages/athlete-portal"));
+const CoachesManagement = lazy(() => import("./pages/coaches-management"));
+const AccessControl = lazy(() => import("./pages/access-control"));
+const AccessHistory = lazy(() => import("./pages/access-history"));
+const CoachAttendance = lazy(() => import("./pages/coach-attendance"));
+const ClassSchedule = lazy(() => import("./pages/class-schedule"));
+const ExerciseLibrary = lazy(() => import("./pages/exercise-library"));
+const Unauthorized = lazy(() => import("./pages/Unauthorized"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const UpdatePassword = lazy(() => import("./pages/auth/UpdatePassword"));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh] w-full">
+    <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+  </div>
+);
 
 const Routes = () => {
   return (
     <BrowserRouter>
       <ErrorBoundary>
         <ScrollToTop />
+        <Suspense fallback={<PageLoader />}>
         <RouterRoutes>
           
           {/* --- Rutas Públicas --- */}
@@ -179,6 +187,7 @@ const Routes = () => {
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
         </RouterRoutes>
+        </Suspense>
       </ErrorBoundary>
     </BrowserRouter>
   );

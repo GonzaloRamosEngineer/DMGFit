@@ -1,4 +1,3 @@
-// C:\Projects\DMG Fitness\src\pages\individual-athlete-profile\components\PaymentHistory.jsx
 import React from 'react';
 import Icon from '../../../components/AppIcon';
 import { formatearFecha } from '../../../utils/formatters';

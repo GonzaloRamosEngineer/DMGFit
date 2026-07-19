@@ -1,4 +1,3 @@
-// C:\Projects\DMG Fitness\src\pages\payment-management\components\AddPaymentModal.jsx
 
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../../lib/supabaseClient";
