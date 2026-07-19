@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import Image from '../../../components/AppImage';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
-import QuickActionMenu from '../../../components/ui/QuickActionMenu';
 import { formatearFecha } from '../../../utils/formatters';
 import { useConfirm } from '../../../components/ui/ConfirmProvider';
 import { useToast } from '../../../hooks/useToast';
@@ -23,8 +22,6 @@ const formatCurrency = (amount) => {
 const AthleteHeader = ({
   athlete,
   onScheduleSession,
-  onSendMessage,
-  onPaymentReminder,
   onExport,
   loading = false,
   onEnableAccess,
@@ -52,13 +49,6 @@ const AthleteHeader = ({
     athlete?.plan_tier_price !== null &&
     athlete?.plan_tier_price !== undefined &&
     athlete?.plan_tier_price !== '';
-
-  const quickActions = [
-    { id: 'schedule', label: 'Programar Sesión', icon: 'Calendar', action: 'schedule' },
-    { id: 'message', label: 'Enviar Mensaje', icon: 'MessageSquare', action: 'message' },
-    { id: 'payment', label: 'Recordatorio de Pago', icon: 'Bell', action: 'payment' },
-    { id: 'export', label: 'Exportar Informe PDF', icon: 'Download', action: 'export' }
-  ];
 
   const handleToggleAthleteStatus = async () => {
     const isActive = athlete.status === 'active';
@@ -229,14 +219,27 @@ const AthleteHeader = ({
               </Button>
             )}
 
-            {canManage && (
+            {canManage && onScheduleSession && (
               <Button
                 variant="outline"
                 size="sm"
                 iconName="Calendar"
                 onClick={onScheduleSession}
+                title="Asignar o modificar los turnos semanales del atleta"
               >
-                Agendar
+                Turnos
+              </Button>
+            )}
+
+            {canManage && onExport && (
+              <Button
+                variant="outline"
+                size="sm"
+                iconName="Download"
+                onClick={() => onExport(athlete)}
+                title="Descargar informe del atleta en PDF"
+              >
+                Exportar PDF
               </Button>
             )}
 
@@ -251,14 +254,6 @@ const AthleteHeader = ({
                 className="text-muted-foreground"
               />
             </button>
-
-            {canManage && (
-              <QuickActionMenu
-                entityId={athlete.id}
-                entityType="athlete"
-                availableActions={quickActions}
-              />
-            )}
           </div>
         </div>
       </div>

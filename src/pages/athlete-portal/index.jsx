@@ -208,7 +208,7 @@ const AthletePortal = () => {
 
   return (
     <>
-      <Helmet><title>Portal del Atleta | DMG Fitness</title></Helmet>
+      <Helmet><title>Portal del Atleta | VC Fit</title></Helmet>
       
       <div className="min-h-screen bg-background pb-20">
         <div className="max-w-[1600px] mx-auto p-6 pt-1 md:p-10 md:pt-2 lg:pt-10 space-y-8">

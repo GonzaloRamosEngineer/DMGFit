@@ -259,7 +259,7 @@ const MainDashboard = () => {
   return (
     <>
       <Helmet>
-        <title>Dashboard Operativo - DMG Fitness</title>
+        <title>Dashboard Operativo - VC Fit</title>
       </Helmet>
 
       <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">

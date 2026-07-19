@@ -141,11 +141,29 @@ la base (asumían ~25 tablas troncales creadas a mano que sólo vivían en
   (era la 0020, ahora archivada) NO viene en el baseline → una instancia nueva arranca con
   `exercises` vacía; si se quiere precargado hay que armar un `seed.sql`.
 
-### 4) Limpieza de demo 🟡
-- `performance-analytics`: mezcla `mockPeers` con datos reales. **Ya no es alcanzable
-  desde el panel del profesor** (se quitó el botón "Analytics"), pero la ruta admin sigue.
-- `pdf-export-center`: datos hardcodeados ("Carlos Rodríguez", "487 atletas").
-- `BulkActionsBar` (acciones masivas de atletas): decorativa (sólo limpia selección).
+### 4) Limpieza de demo 🟢 — RESUELTO (2026-07-19)
+Rama `chore/demo-cleanup-y-informe-pdf` (build verde, −1633 líneas netas). Se eliminó todo
+lo decorativo/muerto y se **enchufó el informe PDF por atleta** (que era lo único con valor):
+- **Informe PDF del atleta** ✅: `utils/pdfExport.js` reescrito a un único `generateAthletePDF`
+  limpio (marca **VC Fit** — el nombre de este cliente — azul `#0066FF`) con **datos reales**
+  (identidad, membresía, estado de cuota, asistencia, saldo de accesos por kiosco, últimos
+  pagos — sin secciones inventadas de rendimiento/salud). Conectado a un **botón real
+  "Exportar PDF"** en el header del perfil (antes el menú de 3 puntos era `console.log`). Se
+  borraron los generadores huérfanos `generatePaymentReportPDF`/`generateDashboardSummaryPDF`.
+- **Menú de 3 puntos del perfil** (muerto: `console.log`) → eliminado; "Agendar" renombrado a
+  **"Turnos"** (asigna/modifica turnos semanales) + botón "Exportar PDF".
+- **3 puntos del directorio** (Editar/Mensaje, muertos y redundantes) → eliminados; queda el
+  cobro rápido "$" (real) y un chevron "Ver perfil".
+- **`BulkActionsBar`** (solo limpiaba selección) → eliminada junto con los checkboxes de
+  selección que la alimentaban.
+- **Páginas demo huérfanas** `pdf-export-center` (hardcode "Carlos Rodríguez") y
+  `performance-analytics` (`mockPeers`) → **eliminadas** (rutas, imports, breadcrumb).
+  También se borró el componente `QuickActionMenu` (ya sin usos).
+- **Botón "Exportar" decorativo del portal del atleta** (Progreso · "Evolución de tus
+  métricas", en `PerformanceChart.jsx`, sin `onClick`) → eliminado.
+
+> **Marca = "VC Fit"** (el nombre de este cliente). La solución es multi-cliente: para cada
+> gimnasio se re-brandea. No unificar a otro nombre.
 
 ### 5) Higiene técnica 🟡
 - Deps muertas: `axios`, `redux`+`@reduxjs/toolkit`, `d3` (0 imports). `framer-motion` SÍ se usa.
@@ -160,5 +178,5 @@ la base (asumían ~25 tablas troncales creadas a mano que sólo vivían en
 1. ~~**Pagos confiables**~~ ✅ hecho (2026-07-19) — ver `tarea-pagos.md`.
 2. ~~**Editar datos personales del atleta**~~ ✅ hecho (2026-07-19) — cierra el requisito 3.
 3. ~~**Baseline + tracking de migraciones**~~ ✅ hecho (2026-07-19) — `0000_baseline.sql` + `migration repair` en prod.
-4. **Limpieza de demo** (pdf-export, performance-analytics, BulkActionsBar).
-5. **Higiene**: sacar deps muertas, code-splitting, tests mínimos sobre RPCs críticas.
+4. ~~**Limpieza de demo**~~ ✅ hecho (2026-07-19) — rama `chore/demo-cleanup-y-informe-pdf` + informe PDF enchufado.
+5. **Higiene**: sacar deps muertas (`axios`, `redux`+`@reduxjs/toolkit`, `d3`), code-splitting, tests mínimos sobre RPCs críticas.

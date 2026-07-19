@@ -236,7 +236,7 @@ const ProfessorDashboard = () => {
 
   return (
     <>
-      <Helmet><title>Panel del Entrenador | DMG Fitness</title></Helmet>
+      <Helmet><title>Panel del Entrenador | VC Fit</title></Helmet>
 
       <div className="flex flex-col lg:h-[calc(100vh-4rem)]">
         {/* HEADER compacto (una fila) */}

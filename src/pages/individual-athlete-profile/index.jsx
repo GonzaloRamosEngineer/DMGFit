@@ -984,13 +984,11 @@ const IndividualAthleteProfile = () => {
 
   const handleExportPDF = async () => {
     if (!profileData.athlete) return;
-    await generateAthletePDF(
-      profileData.athlete,
-      profileData.metrics,
-      profileData.attendance,
-      profileData.payments,
-      profileData.notes
-    );
+    await generateAthletePDF(profileData.athlete, {
+      payments: profileData.payments,
+      attendance: profileData.attendance,
+      kioskRemaining: profileData.kioskRemaining,
+    });
   };
 
   return (
