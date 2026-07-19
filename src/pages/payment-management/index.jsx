@@ -11,6 +11,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 // Modal
 import AddPaymentModal from './components/AddPaymentModal';
 import PaymentReceipt from './components/PaymentReceipt';
+import PaymentInsights from './components/PaymentInsights';
 
 // Servicio de pagos
 import {
@@ -776,6 +777,13 @@ const PaymentManagement = () => {
           )}
         </div>
 
+        {/* GRÁFICOS DE INGRESOS (datos reales) */}
+        {!loading && (
+          <div className="shrink-0">
+            <PaymentInsights payments={paidMovements} />
+          </div>
+        )}
+
         {/* CARD PRINCIPAL */}
         <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden flex flex-col lg:flex-1 lg:min-h-0">
           {/* Tabs + Search */}
@@ -1038,10 +1046,12 @@ const PaymentManagement = () => {
             setIsModalOpen(false);
             setInitialAthlete(null);
           }}
-          onSuccess={() => {
+          onSuccess={(justPaid) => {
             fetchPaymentData();
             setIsModalOpen(false);
             setInitialAthlete(null);
+            // Al cobrar, ofrecer el comprobante de inmediato.
+            if (justPaid) setReceiptPayment(justPaid);
           }}
         />
       )}
