@@ -17,6 +17,7 @@ import { useToast } from "../../hooks/useToast";
 
 // Profile Components
 import AthleteHeader from "./components/AthleteHeader";
+import EditAthleteModal from "./components/EditAthleteModal";
 import MetricCard from "./components/MetricCard";
 import PerformanceChart from "./components/PerformanceChart";
 import AttendanceCalendar from "./components/AttendanceCalendar";
@@ -524,6 +525,7 @@ const IndividualAthleteProfile = () => {
 
   const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
   const [enableTarget, setEnableTarget] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const [availablePlans, setAvailablePlans] = useState([]);
   const [availablePlanOptions, setAvailablePlanOptions] = useState([]);
@@ -566,6 +568,13 @@ const IndividualAthleteProfile = () => {
             status,
             membership_type,
             phone,
+            birth_date,
+            gender,
+            address,
+            city,
+            emergency_contact_name,
+            emergency_contact_phone,
+            medical_conditions,
             plan_id,
             plan_option,
             profile_id,
@@ -1014,6 +1023,7 @@ const IndividualAthleteProfile = () => {
             canEnable={isAdmin}
             onEnableAccess={handleEnableAccess}
             canManage={isAdmin}
+            onEditData={isAdmin ? () => setIsEditModalOpen(true) : undefined}
           />
 
           <StructuralMembershipCard
@@ -1174,6 +1184,14 @@ const IndividualAthleteProfile = () => {
             loading={loadingScheduleModal || savingSchedule}
             onClose={handleCloseScheduleModal}
             onSave={handleSaveSchedule}
+          />
+        )}
+
+        {isEditModalOpen && profileData.athlete && (
+          <EditAthleteModal
+            athlete={profileData.athlete}
+            onClose={() => setIsEditModalOpen(false)}
+            onSuccess={() => setRefreshKey((prev) => prev + 1)}
           />
         )}
 

@@ -30,7 +30,7 @@ del atleta** (requisito 3).
 |---|---|---|---|
 | 1 | Ordenar operación (kiosco) | 🟢 Listo | Sólido, en uso |
 | 2 | Horarios / planificación | 🟢 Listo | — |
-| 3 | Registros de atletas | 🟡 Listo con huecos | Falta **editar datos personales** ya cargados |
+| 3 | Registros de atletas | 🟢 Resuelto | Alta + **edición de datos personales** desde el perfil (2026-07-19) |
 | 4 | Pagos | 🟢 Resuelto | Fuente de verdad (0026 en prod) → `tarea-pagos.md` |
 | 5 | Profesores | 🟢 Resuelto | Login, panel, vista entrenador, asistencia, seguimiento |
 
@@ -72,10 +72,17 @@ en prod: integridad + generación idempotente vía RPC + editar/anular con audit
 WhatsApp + gráficos reales. **Fase 2 pendiente:** recordatorios automáticos a deudores,
 factura fiscal AFIP/ARCA, `pg_cron` opcional.
 
-### 2) Editar datos personales del atleta 🟡 — PRÓXIMO
-Hoy se puede cambiar plan/frecuencia/horarios y dar de baja, pero **nombre/DNI/tel/
-email/dirección no tienen form de edición**. (Nota: la pantalla de **profes** sí quedó
-con DNI/teléfono editables; el de **atletas** no.)
+### 2) Editar datos personales del atleta 🟢 — RESUELTO (2026-07-19)
+Modal "Editar Datos" en el perfil del atleta (botón en el panel de detalles del header,
+solo admin): nombre, DNI, email de contacto, teléfono, nacimiento, género, dirección,
+ciudad, contacto de emergencia y condiciones médicas.
+- El DNI se actualiza **en sincronía** en `profiles` (kiosco/login) y `athletes` (legacy),
+  con validación de unicidad (mismo criterio que el alta + índice `uq_profiles_dni_normalized`).
+- Si no hay email real, se conserva el interno `{DNI}@vcfit.internal` alineado al DNI nuevo.
+- **Limitación conocida** (igual que en profes): si el atleta ya tenía login activado y se
+  le cambia el DNI, el kiosco toma el nuevo de inmediato pero el login a la app sigue
+  siendo con el DNI anterior (el email de auth no se toca — requeriría service_role /
+  edge function). El modal lo advierte al editar el DNI.
 
 ### 3) Endurecimiento / continuidad 🟠🟡
 - **Sin `0000_baseline.sql`**: el esquema troncal sólo vive en `schema_snapshot.sql`
@@ -100,7 +107,7 @@ con DNI/teléfono editables; el de **atletas** no.)
 ## Orden sugerido hacia "Fase 2 cerrada"
 
 1. ~~**Pagos confiables**~~ ✅ hecho (2026-07-19) — ver `tarea-pagos.md`.
-2. **Editar datos personales del atleta** (chico, cierra el requisito 3) — **próximo**.
-3. **Baseline + tracking de migraciones** (continuidad).
+2. ~~**Editar datos personales del atleta**~~ ✅ hecho (2026-07-19) — cierra el requisito 3.
+3. **Baseline + tracking de migraciones** (continuidad) — **próximo**.
 4. **Limpieza de demo** (pdf-export, performance-analytics, BulkActionsBar).
 5. **Higiene**: sacar deps muertas, code-splitting, tests mínimos sobre RPCs críticas.

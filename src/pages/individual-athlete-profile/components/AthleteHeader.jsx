@@ -30,6 +30,7 @@ const AthleteHeader = ({
   onEnableAccess,
   canEnable = false,
   canManage = false,
+  onEditData,
 }) => {
   const [processingStatus, setProcessingStatus] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -306,7 +307,17 @@ const AthleteHeader = ({
           </div>
 
           {canManage && (
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-2">
+              {onEditData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  iconName="Edit"
+                  onClick={() => onEditData(athlete)}
+                >
+                  Editar Datos
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

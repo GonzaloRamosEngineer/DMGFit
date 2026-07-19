@@ -99,6 +99,90 @@ export const createFullAthlete = async (athleteData) => {
   }
 };
 
+/**
+ * Edición de datos personales por el admin (nombre/DNI/email/teléfono/dirección…).
+ * El DNI vive en profiles (kiosco/login lo buscan ahí) Y en athletes (legacy),
+ * así que se actualizan las dos tablas en sincronía. RLS: solo admin puede
+ * actualizar profiles/athletes de terceros ("admin full access").
+ * Nota: si el atleta ya tenía login activado, su usuario de auth sigue siendo
+ * {DNI viejo}@vcfit.internal → entra a la app con el DNI anterior (el kiosco
+ * sí toma el nuevo de inmediato).
+ */
+export const updateAthletePersonalData = async ({ athleteId, profileId, data }) => {
+  try {
+    const fullName = (data.fullName || '').trim();
+    const dniDigits = (data.dni || '').trim().replace(/\D/g, '');
+    const email = (data.email || '').trim() || null;
+    const phone = (data.phone || '').trim() || null;
+
+    if (!fullName) return { success: false, error: 'El nombre es obligatorio.' };
+    if (!dniDigits) return { success: false, error: 'El DNI es obligatorio.' };
+
+    // Unicidad de DNI contra otros atletas (mismo criterio que el alta)
+    const { data: dniClash, error: dniErr } = await supabase
+      .from('athletes')
+      .select('id')
+      .eq('dni', dniDigits)
+      .neq('id', athleteId)
+      .maybeSingle();
+    if (dniErr) throw dniErr;
+    if (dniClash) return { success: false, error: 'Ese DNI ya pertenece a otro atleta.' };
+
+    // Unicidad de email de contacto (si es real, no interno)
+    if (email && !email.includes('.internal')) {
+      const { data: emailClash, error: emailErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .neq('id', profileId)
+        .maybeSingle();
+      if (emailErr) throw emailErr;
+      if (emailClash) return { success: false, error: 'Ese email ya está registrado en el sistema.' };
+    }
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        full_name: fullName,
+        email,
+        dni: dniDigits,
+        phone,
+      })
+      .eq('id', profileId);
+    if (profileError) throw profileError;
+
+    const { error: athleteError } = await supabase
+      .from('athletes')
+      .update({
+        dni: dniDigits,
+        phone,
+        birth_date: data.birthDate || null,
+        gender: data.gender && data.gender !== 'select' ? data.gender : null,
+        address: (data.address || '').trim() || null,
+        city: (data.city || '').trim() || null,
+        emergency_contact_name: (data.emergencyName || '').trim() || null,
+        emergency_contact_phone: (data.emergencyPhone || '').trim() || null,
+        medical_conditions: (data.medicalConditions || '').trim() || null,
+      })
+      .eq('id', athleteId);
+    if (athleteError) throw athleteError;
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error en updateAthletePersonalData:', error);
+    if (error?.code === '23505') {
+      return { success: false, error: 'Ese DNI ya está registrado en el sistema.' };
+    }
+    const isPolicyError =
+      error?.code === '42501' ||
+      String(error?.message || '').toLowerCase().includes('row-level security');
+    if (isPolicyError) {
+      return { success: false, error: 'No tienes permisos para editar datos de atletas.' };
+    }
+    return { success: false, error: error.message || 'No se pudieron guardar los cambios.' };
+  }
+};
+
 export const deactivateAthlete = async (athleteId) => {
   const today = hoyLocal();
 
