@@ -26,15 +26,6 @@ const BreadcrumbTrail = ({ currentPath = '', entityData = {} }) => {
       });
     }
 
-    if (pathSegments?.includes('performance-analytics')) {
-      breadcrumbs?.push({
-        label: 'Rendimiento',
-        path: '/performance-analytics',
-        icon: 'TrendingUp',
-        isCurrent: !entityData?.athleteName
-      });
-    }
-
     if (pathSegments?.includes('payment-management')) {
       breadcrumbs?.push({
         label: 'Pagos',

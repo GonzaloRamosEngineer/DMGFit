@@ -7,7 +7,6 @@ import SearchAndFilters from "./components/SearchAndFilters";
 import AthleteCard from "./components/AthleteCard";
 import AthleteSegmentation from "./components/AthleteSegmentation";
 import RecentActivity from "./components/RecentActivity";
-import BulkActionsBar from "./components/BulkActionsBar";
 import Icon from "../../components/AppIcon";
 import { Card } from "../../components/ui/Card";
 import { EmptyState } from "../../components/ui/EmptyState";
@@ -20,7 +19,6 @@ import AddPaymentModal from "../payment-management/components/AddPaymentModal";
 
 const AthletesManagement = () => {
   const { currentUser } = useAuth();
-  const [selectedAthletes, setSelectedAthletes] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({ status: "active" });
   const [sortConfig, setSortConfig] = useState({
@@ -328,11 +326,6 @@ const AthletesManagement = () => {
     setLastRefresh(new Date());
   };
 
-  const handleSelectAll = () => {
-    if (selectedAthletes.length === filteredAthletes.length) setSelectedAthletes([]);
-    else setSelectedAthletes(filteredAthletes.map((a) => a.id));
-  };
-
   const renderSortIcon = (key) => {
     if (sortConfig.key !== key)
       return <Icon name="ArrowUpDown" size={12} className="opacity-30" />;
@@ -422,19 +415,7 @@ const AthletesManagement = () => {
 
               <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                 <div className="w-full">
-                  <div className="grid grid-cols-[32px_minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
-                    <div className="flex justify-center">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedAthletes.length > 0 &&
-                          selectedAthletes.length === filteredAthletes.length
-                        }
-                        onChange={handleSelectAll}
-                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
-                      />
-                    </div>
-
+                  <div className="grid grid-cols-[minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
                     <button
                       onClick={() => handleSort("name")}
                       className="flex items-center gap-1.5 hover:text-text-primary transition-colors text-left group"
@@ -475,13 +456,7 @@ const AthletesManagement = () => {
                           key={athlete.id}
                           athlete={athlete}
                           layout="table"
-                          isSelected={selectedAthletes.includes(athlete.id)}
                           canEnable={currentUser?.role === "admin"}
-                          onSelect={(id) =>
-                            setSelectedAthletes((prev) =>
-                              prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-                            )
-                          }
                           onQuickPay={(target) => {
                             setPayTarget(target);
                             setIsPayModalOpen(true);
@@ -571,11 +546,6 @@ const AthletesManagement = () => {
         />
       )}
 
-      <BulkActionsBar
-        selectedCount={selectedAthletes.length}
-        onAction={() => setSelectedAthletes([])}
-        onClearSelection={() => setSelectedAthletes([])}
-      />
     </>
   );
 };

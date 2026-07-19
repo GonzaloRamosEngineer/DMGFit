@@ -14,12 +14,10 @@ import LoginRoleSelection from "./pages/login-role-selection";
 import IndividualAthleteProfile from "./pages/individual-athlete-profile";
 import MainDashboard from "./pages/main-dashboard";
 import AthletesManagement from "./pages/athletes-management";
-import PerformanceAnalytics from "./pages/performance-analytics";
 import PaymentManagement from "./pages/payment-management";
 import PlanManagement from "./pages/plan-management";
 import ProfessorDashboard from "./pages/professor-dashboard";
 import AthletePortal from "./pages/athlete-portal";
-import PDFExportCenter from "./pages/pdf-export-center";
 import CoachesManagement from "./pages/coaches-management";
 import AccessControl from "./pages/access-control";
 import AccessHistory from "./pages/access-history";
@@ -129,26 +127,10 @@ const Routes = () => {
               }
             />
             <Route
-              path="/performance-analytics"
-              element={
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <PerformanceAnalytics />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/individual-athlete-profile/:id"
               element={
                 <ProtectedRoute allowedRoles={["admin", "profesor"]}>
                   <IndividualAthleteProfile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/pdf-export-center"
-              element={
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <PDFExportCenter />
                 </ProtectedRoute>
               }
             />
