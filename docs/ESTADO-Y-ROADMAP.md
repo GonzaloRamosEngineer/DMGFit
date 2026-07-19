@@ -63,6 +63,32 @@ está. Si se quiere asistencia de alumnos real, hay que modelarla sobre el kiosc
 
 ---
 
+## Consistencia UI/UX — pasada integral (2026-07-19, mergeado a main)
+
+Merge `feat/kpi-cards-unificadas` (d97be63), 3 commits lógicos. Motivación: la
+administradora real no es técnica → cero jerga, cero datos inventados, una sola
+línea visual. Verificado con Playwright (login real del atleta de prueba + previews).
+
+1. **KPIs unificados**: nuevo `ui/StatCard` (+ `ui/InfoTip`, burbuja "?" con
+   explicación en castellano llano por métrica) reemplaza los 4 estilos de cards
+   de Dashboard/Atletas/Planes/Caja. Se eliminaron datos falsos de Atletas
+   (retención 95% hardcodeada, sparklines/chips decorativos) → métricas reales
+   ("Nuevos este mes", "Al día con la cuota"). Dashboard: "Sesiones Hoy" (siempre
+   0) → "Profesores hoy" (fichajes reales del kiosco); "Accesos hoy" cuenta solo
+   atletas. Adiós "Basado en access_logs".
+2. **Fin de las superficies navy "tech"**: header de PlanCard, MyPlanCard (sin
+   "ID: MBR-…"), card Disciplina, AthleteRadar, LevelCard de Logros y el gradiente
+   negro del hero de fuerza pasaron a la línea clara con tokens. **Dedup**: la
+   membresía completa vive solo en Cuenta; Inicio usa `MembershipSummaryCard`
+   compacto con link a Cuenta.
+3. **Sección Progreso alineada**: gramática única de headers (kicker + título,
+   ícono `bg-info-light`), chip activo azul primary (se fueron los negros),
+   azul de dato `#0066FF` (marca) en los 3 charts, copy des-techificado
+   ("Performance Analytics/Inteligencia Biométrica" → "Evolución de tus métricas",
+   "Volatilidad" → "Variación", sin "Datos Verificados").
+
+---
+
 ## Frentes abiertos (prioridad)
 
 ### 1) Pagos confiables 🟢 — RESUELTO (2026-07-19)
@@ -93,7 +119,7 @@ ciudad, contacto de emergencia y condiciones médicas.
 - **Sin `0000_baseline.sql`**: el esquema troncal sólo vive en `schema_snapshot.sql`
   (dump). No se puede reconstruir la base desde cero de forma versionada.
 - **Migraciones sin tracking**: no existe `supabase_migrations.schema_migrations`;
-  se aplican a mano (riesgo de drift). Van hasta la **0025**.
+  se aplican a mano (riesgo de drift). Van hasta la **0026**.
 
 ### 4) Limpieza de demo 🟡
 - `performance-analytics`: mezcla `mockPeers` con datos reales. **Ya no es alcanzable
