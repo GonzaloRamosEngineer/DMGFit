@@ -7,7 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Badge } from '../../components/ui/Badge';
-import Button from '../../components/ui/Button';
+import DateRangeFilter from '../../components/ui/DateRangeFilter';
 
 const AccessHistory = () => {
   const [allLogs, setAllLogs] = useState([]);
@@ -35,7 +35,7 @@ const AccessHistory = () => {
 
   const [selectedDate, setSelectedDate] = useState(getTodayString());
 
-  const fetchLogs = async ({ silent = false } = {}) => {
+  const fetchLogs = async ({ silent = false, range = dateRange } = {}) => {
     if (!silent) setLoading(true);
     try {
       const { data, error } = await supabase
@@ -51,8 +51,8 @@ const AccessHistory = () => {
             profiles (full_name, email)
           )
         `)
-        .gte('check_in_time', `${dateRange.start}T00:00:00`)
-        .lte('check_in_time', `${dateRange.end}T23:59:59`)
+        .gte('check_in_time', `${range.start}T00:00:00`)
+        .lte('check_in_time', `${range.end}T23:59:59`)
         .order('check_in_time', { ascending: false });
 
       if (error) throw error;
@@ -158,7 +158,7 @@ const AccessHistory = () => {
       <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
 
         {/* ── HEADER compacto (fila simple, sin caja) ── */}
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 shrink-0">
+        <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4 shrink-0">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">
               Historial de Accesos
@@ -168,44 +168,16 @@ const AccessHistory = () => {
             </p>
           </div>
 
-          {/* Controles de Filtro de Fecha */}
-          <div className="flex flex-wrap items-center gap-2 bg-muted border border-border p-1.5 rounded-2xl w-full xl:w-auto">
-            <div className="flex items-center pl-3 pr-1 text-primary">
-              <Icon name="Calendar" size={18} />
-            </div>
-
-            <div className="flex flex-col px-2">
-              <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest leading-none">Desde</span>
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="bg-transparent text-sm font-black text-text-secondary focus:outline-none cursor-pointer"
-              />
-            </div>
-
-            <div className="w-px h-8 bg-border mx-1" />
-
-            <div className="flex flex-col px-2">
-              <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest leading-none">Hasta</span>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="bg-transparent text-sm font-black text-text-secondary focus:outline-none cursor-pointer"
-              />
-            </div>
-
-            <Button
-              onClick={fetchLogs}
-              disabled={loading}
-              loading={loading}
-              iconName="Search"
-              className="h-11 px-5 ml-auto xl:ml-2 rounded-xl text-xs uppercase tracking-wider shadow-md"
-            >
-              Buscar
-            </Button>
-          </div>
+          {/* Controles de Filtro de Fecha (componente compartido) */}
+          <DateRangeFilter
+            start={dateRange.start}
+            end={dateRange.end}
+            onStartChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+            onEndChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+            onRangeSelect={(r) => { setDateRange(r); fetchLogs({ range: r }); }}
+            onSearch={() => fetchLogs()}
+            loading={loading}
+          />
         </div>
 
         {/* --- GRID MASTER-DETAIL --- */}

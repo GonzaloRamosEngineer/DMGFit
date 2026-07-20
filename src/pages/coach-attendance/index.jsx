@@ -5,6 +5,7 @@ import Icon from '../../components/AppIcon';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
+import DateRangeFilter, { FilterSegment } from '../../components/ui/DateRangeFilter';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -104,32 +105,33 @@ const CoachAttendance = () => {
 
       <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
           {/* Header compacto (fila simple, sin caja) */}
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 shrink-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
               <p className="text-sm text-text-secondary font-medium mt-0.5">Qué días y horarios estuvo presente cada profesor (registrado en el kiosco).</p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <div>
-                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block mb-1">Desde</label>
-                <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
-                  className="px-3 py-2 bg-muted border border-border rounded-xl text-sm font-medium" />
-              </div>
-              <div>
-                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block mb-1">Hasta</label>
-                <input type="date" value={end} onChange={(e) => setEnd(e.target.value)}
-                  className="px-3 py-2 bg-muted border border-border rounded-xl text-sm font-medium" />
-              </div>
-              <div>
-                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block mb-1">Profesor</label>
-                <select value={coachFilter} onChange={(e) => setCoachFilter(e.target.value)}
-                  className="px-3 py-2 bg-muted border border-border rounded-xl text-sm font-medium">
-                  <option value="all">Todos</option>
-                  {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-            </div>
+            <DateRangeFilter
+              start={start}
+              end={end}
+              onStartChange={(e) => setStart(e.target.value)}
+              onEndChange={(e) => setEnd(e.target.value)}
+              onRangeSelect={(r) => { setStart(r.start); setEnd(r.end); }}
+            >
+              <FilterSegment label="Profesor" className="min-w-[120px]">
+                <span className="relative flex items-center">
+                  <select
+                    value={coachFilter}
+                    onChange={(e) => setCoachFilter(e.target.value)}
+                    className="w-full cursor-pointer appearance-none border-0 bg-transparent bg-none p-0 pr-5 text-sm font-black text-text-primary outline-none focus:ring-0"
+                  >
+                    <option value="all">Todos</option>
+                    {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <Icon name="ChevronDown" size={13} className="pointer-events-none absolute right-0 text-text-tertiary" />
+                </span>
+              </FilterSegment>
+            </DateRangeFilter>
           </div>
 
           <Card padding="none" className="flex flex-col lg:flex-1 lg:min-h-0 overflow-hidden">
