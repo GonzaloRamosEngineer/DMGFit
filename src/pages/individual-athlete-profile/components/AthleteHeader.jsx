@@ -111,7 +111,8 @@ const AthleteHeader = ({
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden mb-4 shadow-sm">
       <div className="p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-4 min-w-0 sm:flex-1">
           <div className="relative flex-shrink-0">
             <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-primary/10 bg-muted/20">
               {athlete.photo || athlete.profileImage ? (
@@ -204,8 +205,9 @@ const AthleteHeader = ({
               )}
             </div>
           </div>
+          </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 sm:justify-end">
             {isOffline && canEnable && (
               <Button
                 variant="default"
