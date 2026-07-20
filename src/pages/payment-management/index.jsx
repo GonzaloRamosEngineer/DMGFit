@@ -8,6 +8,7 @@ import Icon from '../../components/AppIcon';
 import { useToast } from '../../hooks/useToast';
 import { EmptyState } from '../../components/ui/EmptyState';
 import StatCard from '../../components/ui/StatCard';
+import DateRangeFilter from '../../components/ui/DateRangeFilter';
 
 // Modal
 import AddPaymentModal from './components/AddPaymentModal';
@@ -459,6 +460,8 @@ const PaymentManagement = () => {
   // UI state
   const [activeTab, setActiveTab] = useState('transactions'); // 'transactions' | 'debtors'
   const [searchTerm, setSearchTerm] = useState('');
+  // Rango de fechas para filtrar movimientos (vacío = sin filtro, muestra todo)
+  const [txDateRange, setTxDateRange] = useState({ start: '', end: '' });
 
   // Modal registro
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -664,15 +667,24 @@ const PaymentManagement = () => {
     const term = searchTerm.trim().toLowerCase();
     const base =
       activeTab === 'transactions' ? paidMovements : activeTab === 'voided' ? voided : debtors;
-    const filtered = !term
+    const bySearch = !term
       ? base
       : base.filter((r) => {
           const a = String(r.athleteName || '').toLowerCase();
           const c = String(r.concept || '').toLowerCase();
           return a.includes(term) || c.includes(term);
         });
-    return filtered;
-  }, [activeTab, paidMovements, debtors, voided, searchTerm]);
+    // Filtro por rango de fechas (compara solo la parte YYYY-MM-DD)
+    const { start: from, end: to } = txDateRange;
+    if (!from && !to) return bySearch;
+    return bySearch.filter((r) => {
+      const d = String(r.payment_date || '').slice(0, 10);
+      if (!d) return false;
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  }, [activeTab, paidMovements, debtors, voided, searchTerm, txDateRange]);
 
   const totalRows = currentRows.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
@@ -683,7 +695,7 @@ const PaymentManagement = () => {
 
   useEffect(() => {
     resetPagination();
-  }, [activeTab, searchTerm]);
+  }, [activeTab, searchTerm, txDateRange]);
 
   return (
     <>
@@ -771,65 +783,77 @@ const PaymentManagement = () => {
         <div className="bg-card rounded-3xl border border-border shadow-sm overflow-hidden flex flex-col lg:flex-1 lg:min-h-0">
           {/* Tabs + Search */}
           <div className="px-6 py-4 border-b border-border shrink-0">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex items-center gap-6">
-                <button
-                  onClick={() => setActiveTab('transactions')}
-                  className={`text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-colors ${
-                    activeTab === 'transactions'
-                      ? 'text-text-primary border-primary'
-                      : 'text-text-tertiary border-transparent hover:text-text-secondary'
-                  }`}
-                >
-                  Últimos movimientos
-                </button>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex items-center gap-5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    onClick={() => setActiveTab('transactions')}
+                    className={`shrink-0 whitespace-nowrap text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-colors ${
+                      activeTab === 'transactions'
+                        ? 'text-text-primary border-primary'
+                        : 'text-text-tertiary border-transparent hover:text-text-secondary'
+                    }`}
+                  >
+                    Movimientos
+                  </button>
 
-                <button
-                  onClick={() => setActiveTab('debtors')}
-                  className={`text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-colors flex items-center gap-2 ${
-                    activeTab === 'debtors'
-                      ? 'text-text-primary border-primary'
-                      : 'text-text-tertiary border-transparent hover:text-text-secondary'
-                  }`}
-                >
-                  Deudores (alertas)
-                  {!loading && (
-                    <span className="px-2 py-0.5 rounded-full bg-error-light text-error text-[10px] font-black">
-                      {debtors.length}
-                    </span>
-                  )}
-                </button>
+                  <button
+                    onClick={() => setActiveTab('debtors')}
+                    className={`shrink-0 whitespace-nowrap text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-colors flex items-center gap-2 ${
+                      activeTab === 'debtors'
+                        ? 'text-text-primary border-primary'
+                        : 'text-text-tertiary border-transparent hover:text-text-secondary'
+                    }`}
+                  >
+                    Deudores
+                    {!loading && (
+                      <span className="px-2 py-0.5 rounded-full bg-error-light text-error text-[10px] font-black">
+                        {debtors.length}
+                      </span>
+                    )}
+                  </button>
 
-                <button
-                  onClick={() => setActiveTab('voided')}
-                  className={`text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-colors flex items-center gap-2 ${
-                    activeTab === 'voided'
-                      ? 'text-text-primary border-primary'
-                      : 'text-text-tertiary border-transparent hover:text-text-secondary'
-                  }`}
-                >
-                  Anulados
-                  {!loading && voided.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-muted text-text-secondary text-[10px] font-black">
-                      {voided.length}
-                    </span>
-                  )}
-                </button>
+                  <button
+                    onClick={() => setActiveTab('voided')}
+                    className={`shrink-0 whitespace-nowrap text-xs font-black uppercase tracking-widest pb-2 border-b-2 transition-colors flex items-center gap-2 ${
+                      activeTab === 'voided'
+                        ? 'text-text-primary border-primary'
+                        : 'text-text-tertiary border-transparent hover:text-text-secondary'
+                    }`}
+                  >
+                    Anulados
+                    {!loading && voided.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-muted text-text-secondary text-[10px] font-black">
+                        {voided.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                <div className="relative w-full lg:w-[420px]">
+                  <Icon
+                    name="Search"
+                    size={16}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary"
+                  />
+                  <input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar atleta por nombre..."
+                    className="w-full pl-11 pr-4 py-3 bg-muted border border-border rounded-xl text-sm font-semibold text-text-secondary outline-none focus:border-primary focus:bg-card transition-colors"
+                  />
+                </div>
               </div>
 
-              <div className="relative w-full lg:w-[420px]">
-                <Icon
-                  name="Search"
-                  size={16}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary"
-                />
-                <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar atleta por nombre..."
-                  className="w-full pl-11 pr-4 py-3 bg-muted border border-border rounded-xl text-sm font-semibold text-text-secondary outline-none focus:border-primary focus:bg-card transition-colors"
-                />
-              </div>
+              {/* Filtro por fecha del movimiento (en vivo, "Todo" = sin filtro) */}
+              <DateRangeFilter
+                start={txDateRange.start}
+                end={txDateRange.end}
+                onStartChange={(e) => setTxDateRange((prev) => ({ ...prev, start: e.target.value }))}
+                onEndChange={(e) => setTxDateRange((prev) => ({ ...prev, end: e.target.value }))}
+                onRangeSelect={setTxDateRange}
+                allowClear
+              />
             </div>
           </div>
 
@@ -838,13 +862,15 @@ const PaymentManagement = () => {
             <table className="w-full text-left border-collapse">
               <thead className="bg-muted text-[10px] font-black text-text-tertiary uppercase tracking-widest sticky top-0 z-card">
                 <tr>
-                  <th className="px-6 py-4 w-[140px]">Fecha</th>
-                  <th className="px-6 py-4">Atleta</th>
-                  <th className="px-6 py-4">Concepto</th>
-                  <th className="px-6 py-4 w-[160px]">Método</th>
-                  <th className="px-6 py-4 text-right w-[160px]">Monto</th>
+                  <th className="px-6 py-3 w-[130px] whitespace-nowrap">Fecha</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Atleta</th>
+                  <th className="px-6 py-3">Concepto</th>
+                  <th className="px-6 py-3 w-[150px] whitespace-nowrap">
+                    {activeTab === 'transactions' ? 'Método' : 'Estado'}
+                  </th>
+                  <th className="px-6 py-3 text-right w-[150px] whitespace-nowrap">Monto</th>
                   {activeTab === 'debtors' && (
-                    <th className="px-6 py-4 text-right w-[120px]">Acción</th>
+                    <th className="px-6 py-3 text-right w-[120px] whitespace-nowrap">Acción</th>
                   )}
                 </tr>
               </thead>
@@ -853,13 +879,13 @@ const PaymentManagement = () => {
                 {loading ? (
                   [1, 2, 3, 4].map((i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-4"><div className="h-3 bg-muted rounded w-24" /></td>
-                      <td className="px-6 py-4"><div className="h-3 bg-muted rounded w-40" /></td>
-                      <td className="px-6 py-4"><div className="h-3 bg-muted rounded w-56" /></td>
-                      <td className="px-6 py-4"><div className="h-3 bg-muted rounded w-24" /></td>
-                      <td className="px-6 py-4 text-right"><div className="h-3 bg-muted rounded w-24 ml-auto" /></td>
+                      <td className="px-6 py-3"><div className="h-3 bg-muted rounded w-24" /></td>
+                      <td className="px-6 py-3"><div className="h-3 bg-muted rounded w-40" /></td>
+                      <td className="px-6 py-3"><div className="h-3 bg-muted rounded w-56" /></td>
+                      <td className="px-6 py-3"><div className="h-3 bg-muted rounded w-24" /></td>
+                      <td className="px-6 py-3 text-right"><div className="h-3 bg-muted rounded w-24 ml-auto" /></td>
                       {activeTab === 'debtors' && (
-                        <td className="px-6 py-4 text-right"><div className="h-8 bg-muted rounded w-20 ml-auto" /></td>
+                        <td className="px-6 py-3 text-right"><div className="h-8 bg-muted rounded w-20 ml-auto" /></td>
                       )}
                     </tr>
                   ))
@@ -885,21 +911,24 @@ const PaymentManagement = () => {
                         className="hover:bg-muted/70 transition-colors cursor-pointer"
                         onClick={() => setDetailPayment(row)}
                       >
-                        <td className="px-6 py-4 text-sm font-semibold text-text-secondary">
+                        <td className="px-6 py-3 text-sm font-semibold text-text-secondary whitespace-nowrap align-middle">
                           {formatTxDateTime(row.payment_date)}
                         </td>
 
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-3 align-middle whitespace-nowrap">
                           <p className="text-sm font-black text-text-primary">{row.athleteName}</p>
                         </td>
 
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-info-light text-primary border border-primary/15 text-xs font-bold">
-                            {row.concept || 'Pago registrado'}
+                        <td className="px-6 py-3 align-middle">
+                          <span
+                            className="inline-flex max-w-[260px] items-center px-2.5 py-1 rounded-lg bg-info-light text-primary border border-primary/15 text-xs font-bold"
+                            title={row.concept || 'Pago registrado'}
+                          >
+                            <span className="truncate">{row.concept || 'Pago registrado'}</span>
                           </span>
                         </td>
 
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-3 align-middle">
                           {activeTab === 'transactions' ? (
                             <span className="text-sm font-semibold text-text-secondary">
                               {mapMethodLabel(row.method)}
@@ -933,7 +962,7 @@ const PaymentManagement = () => {
                           )}
                         </td>
 
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-3 text-right align-middle whitespace-nowrap">
                           <span
                             className={`text-sm font-black ${
                               row.status === 'void'
@@ -948,7 +977,7 @@ const PaymentManagement = () => {
                         </td>
 
                         {activeTab === 'debtors' && (
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-6 py-3 text-right align-middle">
                             <button
                               type="button"
                               onClick={(e) => {

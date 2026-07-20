@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell,
@@ -46,7 +46,7 @@ const parseLocal = (s) => {
 };
 
 const ChartCard = ({ title, icon, children, empty }) => (
-  <div className="bg-card rounded-2xl border border-border shadow-sm p-4 flex flex-col">
+  <div className="bg-muted/40 rounded-2xl border border-border p-4 flex flex-col">
     <div className="flex items-center gap-2 mb-2">
       <Icon name={icon} size={14} className="text-text-tertiary" />
       <h3 className="text-[10px] font-black text-text-tertiary uppercase tracking-widest">{title}</h3>
@@ -62,6 +62,7 @@ const ChartCard = ({ title, icon, children, empty }) => (
 );
 
 const PaymentInsights = ({ payments = [] }) => {
+  const [open, setOpen] = useState(false);
   const paid = useMemo(() => payments.filter((p) => p.status === 'paid'), [payments]);
 
   // Ingresos por mes (últimos 6 meses, incluyendo el actual)
@@ -104,7 +105,32 @@ const PaymentInsights = ({ payments = [] }) => {
   const methodTotal = byMethod.reduce((s, m) => s + m.value, 0);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5">
+    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/40"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="shrink-0 rounded-xl bg-info-light p-2 text-primary">
+            <Icon name="BarChart3" size={16} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-black tracking-tight text-text-primary">Gráficos de ingresos</span>
+            <span className="block text-[11px] font-semibold text-text-tertiary">Últimos 6 meses · por método de pago</span>
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="hidden text-[11px] font-black uppercase tracking-widest text-text-tertiary sm:inline">
+            {open ? 'Ocultar' : 'Ver'}
+          </span>
+          <Icon name="ChevronDown" size={18} className={`text-text-tertiary transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        </span>
+      </button>
+
+      {open && (
+        <div className="grid grid-cols-1 gap-4 border-t border-border p-4 md:grid-cols-2 lg:gap-5">
       <ChartCard title="Ingresos últimos 6 meses" icon="BarChart3" empty={!hasRevenue}>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={byMonth} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
@@ -155,6 +181,8 @@ const PaymentInsights = ({ payments = [] }) => {
           </div>
         </div>
       </ChartCard>
+        </div>
+      )}
     </div>
   );
 };
