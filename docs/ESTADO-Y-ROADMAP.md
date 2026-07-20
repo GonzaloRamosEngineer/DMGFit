@@ -217,3 +217,51 @@ lo decorativo/muerto y se **enchufó el informe PDF por atleta** (que era lo ún
 3. ~~**Baseline + tracking de migraciones**~~ ✅ hecho (2026-07-19) — `0000_baseline.sql` + `migration repair` en prod.
 4. ~~**Limpieza de demo**~~ ✅ hecho (2026-07-19) — rama `chore/demo-cleanup-y-informe-pdf` + informe PDF enchufado.
 5. ~~**Higiene**: deps muertas + code-splitting + tests~~ ✅ hecho (2026-07-19) — vitest con 15 tests en verde, chunk ~4.28MB→~1.4MB.
+
+---
+
+## Pulido UI/UX — ronda responsive + filtros (2026-07-19, tarde)
+
+Ronda de emprolijado guiada por revisión visual en dispositivo real (mobile + desktop).
+Pusheada a `main` en **4 commits lógicos** (`c218e7c..dc66543`), deploy Vercel disparado.
+
+### Componente compartido nuevo — `DateRangeFilter` (fuente de verdad)
+- **`src/components/ui/DateRangeFilter.jsx`** es ahora **el** filtro por rango de fechas de
+  la app. Antes cada pantalla tenía su propia versión ("parecían hechas por personas
+  distintas"). **Reutilizarlo siempre; no reinventar.**
+- Anatomía: card con campos `Desde → Hasta` + chips de rango rápido (Hoy / 7 / 30 / 90 días,
+  con opción `allowClear` que agrega chip **"Todo"** = sin filtro) + botón **Buscar** opcional.
+  Si se pasa `onSearch` hay búsqueda manual; si no, se asume **filtrado en vivo**. Controles
+  extra (ej. select de Profesor) se inyectan como `children` con el export `FilterSegment`.
+- **Gotcha `@tailwindcss/forms`**: el plugin le mete a todo `input`/`select` un chrome base
+  (borde, padding y, en selects, **flecha propia como `background-image`** → el "doble
+  chevron"). `appearance-none` solo no alcanza. Anular con
+  `appearance-none border-0 p-0 bg-none bg-transparent focus:ring-0` (ya resuelto dentro del
+  componente).
+- Usado en: **Historial de Accesos** (presets buscan al instante), **Asistencia de
+  Profesores** (en vivo + Profesor integrado) y **Pagos** (nuevo, en vivo sobre la tabla).
+
+### Portal del atleta
+- **KPIs (`StatsOverview`)** migradas del StatCard local al **`StatCard` compartido** del admin.
+  Labels de una línea + unidad como sufijo sin partirse en mobile; fix de tendencia para
+  métricas inversas (peso/grasa/sprint: bajar es mejora).
+- **`MetricsCard` dividido** en `MetricsSummary` + `MetricsHistory` (tiles compactas 2-col en
+  mobile con sparkline nítido). Sección **Mi Progreso reordenada** (Resumen → Evolución →
+  Registro → Historial) y **cabeceras unificadas** (chip + kicker + título) en todas las cards.
+- **`MyDataCard`** (Mis Datos): header `flex-wrap` → "Contraseña"/"Editar" no se cortan en
+  ningún ancho.
+
+### Perfil admin del atleta
+- **`BreadcrumbTrail` arreglado**: soporta la prop `items` (la usaban 3 páginas y estaba rota
+  → renderizaba `null`; por eso "no se podía volver" al directorio). El primer item enlazable
+  lleva flecha de "volver". Revive los breadcrumbs de `individual-athlete-profile`,
+  `class-schedule` y `athlete-portal`.
+- **`AthleteHeader`** responsive: en mobile los botones (Turnos / Exportar PDF) ya no se
+  enciman con el nombre/plan.
+
+### Pagos (`payment-management`)
+- **`PaymentInsights`** = barra **colapsable** (los dos gráficos ocultos por defecto).
+- **Tabla** más compacta (`py-3`), concepto en 1 línea con truncado (`title` para ver
+  completo), header de 4ª columna dinámico (Método / Estado según pestaña), tabs en 1 línea.
+- **Filtro por fecha** nuevo sobre la tabla (en vivo, con "Todo"); filtra movimientos,
+  deudores y anulados.
