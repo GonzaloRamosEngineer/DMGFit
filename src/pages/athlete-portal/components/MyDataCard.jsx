@@ -84,18 +84,18 @@ const MyDataCard = () => {
 
   return (
     <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-info-light text-primary flex items-center justify-center">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-info-light text-primary flex items-center justify-center shrink-0">
             <Icon name="UserCog" size={20} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-base font-black text-text-primary tracking-tight leading-none">Mis Datos</h3>
             <p className="text-[11px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Datos personales</p>
           </div>
         </div>
         {!loading && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto shrink-0">
             <Button variant="ghost" size="sm" iconName="KeyRound" onClick={() => setPwOpen(true)}>Contraseña</Button>
             <Button variant="outline" size="sm" iconName="Pencil" onClick={openModal}>Editar</Button>
           </div>

@@ -303,21 +303,25 @@ export default function MetricEntryForm({ athleteId, onSuccess, selectedExercise
         : "bg-card rounded-3xl p-6 md:p-8 border border-border shadow-[0_20px_50px_-20px_rgba(0,0,0,0.08)]"
     )}>
 
-      {/* Header */}
-      <div className={cx("relative", compact ? "mb-4" : "mb-6")}>
-        {selectedExercise && (
-          <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-black text-primary">
-            <Icon name="Dumbbell" size={14} />
-            <span className="truncate">{selectedExercise.name}</span>
-          </div>
-        )}
-        <h3 className={cx("font-black text-text-primary flex items-center gap-3", compact ? "text-lg" : "text-xl")}>
-          <div className={cx("bg-info-light rounded-xl text-primary", compact ? "p-2" : "p-2.5")}>
-            <Icon name="Plus" size={compact ? 18 : 20} strokeWidth={3} />
-          </div>
-          Registrar progreso
-        </h3>
-      </div>
+      {/* Header — embebido en una card que ya tiene título, no lo repetimos */}
+      {(selectedExercise || !embedded) && (
+        <div className={cx("relative", compact ? "mb-4" : "mb-6")}>
+          {selectedExercise && (
+            <div className={cx("inline-flex max-w-full items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-black text-primary", !embedded && "mb-3")}>
+              <Icon name="Dumbbell" size={14} />
+              <span className="truncate">{selectedExercise.name}</span>
+            </div>
+          )}
+          {!embedded && (
+            <h3 className={cx("font-black text-text-primary flex items-center gap-3", compact ? "text-lg" : "text-xl")}>
+              <div className={cx("bg-info-light rounded-xl text-primary", compact ? "p-2" : "p-2.5")}>
+                <Icon name="Plus" size={compact ? 18 : 20} strokeWidth={3} />
+              </div>
+              Registrar progreso
+            </h3>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} ref={formRef} className={cx("flex flex-col relative z-10", compact ? "gap-4" : "gap-6")}>
         

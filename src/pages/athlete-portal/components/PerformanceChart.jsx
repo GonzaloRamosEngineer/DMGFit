@@ -220,7 +220,7 @@ const PerformanceChart = ({ metrics = [], compact = false }) => {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-3">
            <div className="p-2 bg-info-light rounded-xl text-primary">
-              <Icon name="Activity" size={20} />
+              <Icon name="Activity" size={18} />
            </div>
            <div>
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">

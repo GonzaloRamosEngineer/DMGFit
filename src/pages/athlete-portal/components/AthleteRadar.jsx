@@ -99,18 +99,18 @@ const AthleteRadar = ({ metrics, compact = false }) => {
     <div className={`bg-card rounded-3xl ${compact ? 'p-5 min-h-[270px]' : 'p-8 min-h-[400px]'} shadow-sm text-text-primary relative overflow-hidden flex flex-col border border-border`}>
       {/* Header */}
       <div className={`relative z-10 flex justify-between items-start ${compact ? 'mb-3' : 'mb-6'}`}>
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-             <div className={`${compact ? 'p-1.5' : 'p-2'} bg-info-light rounded-lg`}>
-                <Icon name="Crosshair" className="text-primary" size={compact ? 16 : 20} />
-             </div>
-             <h3 className={`${compact ? 'text-base' : 'text-xl'} font-black text-text-primary tracking-tight`}>
-               Perfil Atlético
-             </h3>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-info-light rounded-xl text-primary">
+            <Icon name="Crosshair" size={18} />
           </div>
-          <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-[0.18em] pl-1">
-            Tus métricas en un vistazo
-          </p>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
+              Mediciones · Perfil
+            </p>
+            <h3 className={`${compact ? 'text-lg' : 'text-xl'} font-black text-text-primary tracking-tight`}>
+              Perfil Atlético
+            </h3>
+          </div>
         </div>
 
         {/* Score Badge */}

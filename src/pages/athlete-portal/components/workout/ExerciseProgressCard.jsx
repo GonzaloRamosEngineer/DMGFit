@@ -118,19 +118,24 @@ const ExerciseProgressCard = ({ athleteId }) => {
   return (
     <div className="overflow-hidden rounded-3xl border border-border bg-card">
       <div className="flex flex-col gap-3 border-b border-border px-5 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
-              Fuerza · desde tus entrenamientos
-            </p>
-            <h3 className="truncate text-lg md:text-xl font-black text-text-primary tracking-tight">Progreso por ejercicio</h3>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="shrink-0 rounded-xl bg-info-light p-2 text-primary">
+              <Icon name="Dumbbell" size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
+                Fuerza · Entrenamientos
+              </p>
+              <h3 className="text-lg font-black text-text-primary tracking-tight">Progreso por ejercicio</h3>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className="flex max-w-[45%] shrink-0 items-center gap-2 rounded-full border border-border bg-muted px-3.5 py-2 text-xs font-black text-text-primary transition-colors hover:border-primary/30"
+            className="ml-auto flex max-w-full shrink-0 items-center gap-2 rounded-full border border-border bg-muted px-3.5 py-2 text-xs font-black text-text-primary transition-colors hover:border-primary/30"
           >
-            <span className="truncate">{group?.exercise.name ?? 'Elegir'}</span>
+            <span className="max-w-[52vw] truncate sm:max-w-[240px]">{group?.exercise.name ?? 'Elegir'}</span>
             <Icon name="ChevronDown" size={14} className="shrink-0 text-text-tertiary" />
           </button>
         </div>

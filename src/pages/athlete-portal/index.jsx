@@ -26,7 +26,7 @@ import { fetchKioskRemaining } from '../../services/kiosk';
 import StatsOverview from './components/StatsOverview';      // HUD Superior
 import AchievementsHub from './components/AchievementsHub';  // Gamificación
 import PerformanceChart from './components/PerformanceChart';// Gráfico Lineal Principal
-import MetricsCard from './components/MetricsCard';          // Grid de Métricas Vivas
+import { MetricsSummary, MetricsHistory } from './components/MetricsCard'; // Resumen + historial de mediciones
 import AthleteRadar from './components/AthleteRadar';        // Perfil Radar
 import MetricEntryForm from './components/MetricEntryForm';  // Mediciones y tests
 import ExerciseProgressCard from './components/workout/ExerciseProgressCard'; // Progreso por ejercicio (workouts)
@@ -297,7 +297,12 @@ const AthletePortal = () => {
             <section>
               <SectionTitle label="Mi progreso" />
               <div className="space-y-5">
-                {/* Fuerza: derivada de los entrenamientos registrados en Entrenar */}
+                {/* 1. ¿Cómo voy? — resumen compacto de todas las métricas */}
+                {metrics.length > 0 && (
+                  <MetricsSummary metrics={metrics} />
+                )}
+
+                {/* 2. ¿Cómo evolucioné? — fuerza derivada de los entrenamientos */}
                 <ExerciseProgressCard athleteId={calculatedAthleteId} />
 
                 {/* Mediciones y tests: métricas corporales / evaluaciones (metrics) */}
@@ -306,18 +311,24 @@ const AthletePortal = () => {
                   <AthleteRadar metrics={metrics} compact />
                 </div>
 
+                {/* 3. Cargá tu próximo registro */}
                 <div className="rounded-3xl border border-border bg-card shadow-[0_24px_70px_-34px_rgba(15,23,42,0.22)] overflow-hidden">
                   <div className="flex flex-col gap-3 border-b border-border px-5 py-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
-                        Mediciones y tests
-                      </p>
-                      <h3 className="text-xl font-black text-text-primary">
-                        Cargá tu peso, medidas o evaluaciones
-                      </h3>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-info-light rounded-xl text-primary">
+                        <Icon name="ClipboardList" size={18} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-text-tertiary">
+                          Mediciones · Registro
+                        </p>
+                        <h3 className="text-lg font-black text-text-primary tracking-tight">
+                          Cargá tus mediciones
+                        </h3>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-xs font-black uppercase tracking-wider text-text-secondary">
-                      <Icon name="Ruler" size={15} className="text-primary" />
+                    <div className="flex items-center gap-2 self-start rounded-2xl bg-muted px-3 py-2 text-xs font-black uppercase tracking-wider text-text-secondary md:self-auto">
+                      <Icon name="Ruler" size={15} className="shrink-0 text-primary" />
                       Los ejercicios se registran en Entrenar
                     </div>
                   </div>
@@ -332,8 +343,9 @@ const AthletePortal = () => {
                   </div>
                 </div>
 
+                {/* 4. Historial de registros recientes */}
                 {metrics.length > 0 && (
-                  <MetricsCard metrics={metrics} />
+                  <MetricsHistory metrics={metrics} />
                 )}
               </div>
             </section>
