@@ -109,38 +109,39 @@ const AthleteHeader = ({
   if (!athlete) return null;
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden mb-4 shadow-sm">
-      <div className="p-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-4 min-w-0 sm:flex-1">
-          <div className="relative flex-shrink-0">
-            <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-primary/10 bg-muted/20">
-              {athlete.photo || athlete.profileImage ? (
-                <Image
-                  src={athlete.photo || athlete.profileImage}
-                  alt={athlete.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Icon name="User" size={24} className="text-muted-foreground/40" />
-                </div>
-              )}
+    <div className="bg-card border border-border rounded-2xl overflow-hidden mb-4 shadow-sm">
+      <div className="p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          {/* Identidad */}
+          <div className="flex items-start gap-4 min-w-0">
+            <div className="relative flex-shrink-0">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-border bg-muted/30">
+                {athlete.photo || athlete.profileImage ? (
+                  <Image
+                    src={athlete.photo || athlete.profileImage}
+                    alt={athlete.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Icon name="User" size={26} className="text-muted-foreground/40" />
+                  </div>
+                )}
+              </div>
+              <div
+                className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-[3px] border-card ${
+                  athlete.status === 'active' ? 'bg-success' : 'bg-muted-foreground/40'
+                }`}
+              ></div>
             </div>
-            <div
-              className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-card ${
-                athlete.status === 'active' ? 'bg-success' : 'bg-muted'
-              }`}
-            ></div>
-          </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h1 className="text-xl font-heading font-bold text-foreground truncate">
+            <div className="min-w-0">
+              <h1 className="text-xl font-heading font-bold text-foreground leading-tight truncate">
                 {athlete.name}
               </h1>
 
-              <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+              {/* Meta: membresía · estado · offline */}
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
                 <span
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase ${
                     isPremium
@@ -152,6 +153,15 @@ const AthleteHeader = ({
                   {isPremium ? 'Premium' : 'Estándar'}
                 </span>
 
+                <span className={`inline-flex items-center gap-1.5 text-muted-foreground ${athlete.status === 'active' ? '' : 'opacity-60'}`}>
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      athlete.status === 'active' ? 'bg-success' : 'bg-muted-foreground/40'
+                    }`}
+                  ></span>
+                  {athlete.status === 'active' ? 'Activo' : 'Inactivo'}
+                </span>
+
                 {isOffline && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase bg-warning/10 text-warning">
                     <Icon name="CloudOff" size={12} />
@@ -160,54 +170,10 @@ const AthleteHeader = ({
                 )}
               </div>
             </div>
-
-            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-2">
-              <div className={`flex items-center gap-1 ${athlete.status === 'active' ? '' : 'opacity-50'}`}>
-                <div
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    athlete.status === 'active' ? 'bg-success' : 'bg-muted'
-                  }`}
-                ></div>
-                <span className="capitalize">
-                  {athlete.status === 'active' ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
-
-              {athlete.planName && (
-                <div className="flex items-center gap-1">
-                  <Icon name="CreditCard" size={14} />
-                  <span className="font-medium">{athlete.planName}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Chips de resumen (válido que estén acá; el detalle vive abajo en Membresía) */}
-            <div className="flex flex-wrap gap-2">
-              {athlete.planOption && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold">
-                  <Icon name="Tag" size={12} />
-                  {athlete.planOption}
-                </span>
-              )}
-
-              {hasVisitsPerWeek && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-info-light text-info text-xs font-bold">
-                  <Icon name="Repeat" size={12} />
-                  {athlete.visits_per_week}x / semana
-                </span>
-              )}
-
-              {hasTierPrice && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-success-light text-success text-xs font-bold">
-                  <Icon name="Wallet" size={12} />
-                  {formatCurrency(athlete.plan_tier_price)}
-                </span>
-              )}
-            </div>
-          </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 sm:justify-end">
+          {/* Acciones */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-end">
             {isOffline && canEnable && (
               <Button
                 variant="default"
@@ -246,15 +212,45 @@ const AthleteHeader = ({
 
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               title={showDetails ? 'Ocultar detalles' : 'Ver detalles'}
             >
-              <Icon
-                name={showDetails ? 'ChevronUp' : 'ChevronDown'}
-                size={20}
-                className="text-muted-foreground"
-              />
+              <Icon name={showDetails ? 'ChevronUp' : 'ChevronDown'} size={18} />
             </button>
+          </div>
+        </div>
+
+        {/* Tira de stats: Plan · Frecuencia · Cuota */}
+        <div className="mt-4 grid grid-cols-3 rounded-xl border border-border bg-muted/30 divide-x divide-border overflow-hidden">
+          <div className="px-3 py-2.5 min-w-0">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Icon name="CreditCard" size={12} />
+              <p className="text-[10px] font-bold uppercase tracking-widest truncate">Plan</p>
+            </div>
+            <p className="mt-1 text-sm font-black text-foreground truncate">{athlete.planName || '—'}</p>
+            {athlete.planOption && (
+              <p className="text-[11px] font-medium text-muted-foreground truncate">{athlete.planOption}</p>
+            )}
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Icon name="Repeat" size={12} />
+              <p className="text-[10px] font-bold uppercase tracking-widest truncate">Frec.</p>
+            </div>
+            <p className="mt-1 text-sm font-black text-foreground truncate">
+              {hasVisitsPerWeek ? `${athlete.visits_per_week}x / sem` : '—'}
+            </p>
+          </div>
+
+          <div className="px-3 py-2.5 min-w-0">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Icon name="Wallet" size={12} />
+              <p className="text-[10px] font-bold uppercase tracking-widest truncate">Cuota</p>
+            </div>
+            <p className="mt-1 text-sm font-black text-foreground truncate">
+              {hasTierPrice ? formatCurrency(athlete.plan_tier_price) : '—'}
+            </p>
           </div>
         </div>
       </div>

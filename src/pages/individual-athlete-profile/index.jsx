@@ -296,19 +296,23 @@ const StructuralMembershipCard = ({
     });
 
   return (
-    <div className="bg-card border border-border rounded-xl mb-4">
+    <div className="bg-card border border-border rounded-2xl mb-4 shadow-sm overflow-hidden">
       {/* RESUMEN SIEMPRE VISIBLE */}
-      <div className="p-4">
+      <div className="p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <Icon name="CalendarDays" size={18} className="text-primary shrink-0" />
-            <h3 className="text-sm font-black text-text-primary">
-              Membresía y horarios
-            </h3>
-            <span className="text-xs text-text-secondary whitespace-nowrap">
-              · {scheduleChips.length}{" "}
-              {scheduleChips.length === 1 ? "turno" : "turnos"}
-            </span>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-info-light text-primary flex items-center justify-center shrink-0">
+              <Icon name="CalendarDays" size={20} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-black text-text-primary leading-tight">
+                Membresía y horarios
+              </h3>
+              <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-0.5">
+                {scheduleChips.length}{" "}
+                {scheduleChips.length === 1 ? "turno" : "turnos"} semanales
+              </p>
+            </div>
           </div>
 
           {canManageMembership && (
@@ -316,7 +320,7 @@ const StructuralMembershipCard = ({
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-text-secondary hover:bg-muted transition-colors shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-bold text-text-secondary hover:bg-muted hover:text-text-primary transition-colors shrink-0"
             >
               {open ? "Cerrar" : "Gestionar"}
               <Icon name={open ? "ChevronUp" : "ChevronDown"} size={16} />
@@ -324,27 +328,27 @@ const StructuralMembershipCard = ({
           )}
         </div>
 
-        <div className="mt-3">
+        <div className="mt-4">
           {scheduleChips.length === 0 ? (
-            <p className="text-xs text-text-secondary">
+            <div className="flex items-center gap-2 text-xs font-medium text-text-secondary bg-muted/40 border border-dashed border-border rounded-xl px-3 py-3">
+              <Icon name="CalendarOff" size={16} className="text-text-tertiary" />
               Sin turnos asignados.
-            </p>
+            </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {scheduleChips.map((schedule) => (
-                <span
+                <div
                   key={schedule.id}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-info-light text-info border border-info/20 text-xs font-bold"
+                  className="flex flex-col items-start px-3 py-2 rounded-xl border border-border bg-muted/40 min-w-[96px]"
                 >
-                  <span className="uppercase tracking-wide">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">
                     {DAYS[Number(schedule.day_of_week)]?.slice(0, 3) || "—"}
                   </span>
-                  <span className="opacity-50">·</span>
-                  <span>
+                  <span className="text-sm font-bold text-text-primary tabular-nums">
                     {String(schedule.start_time).slice(0, 5)}–
                     {String(schedule.end_time).slice(0, 5)}
                   </span>
-                </span>
+                </div>
               ))}
             </div>
           )}

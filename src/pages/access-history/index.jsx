@@ -149,6 +149,44 @@ const AccessHistory = () => {
     return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
+  // --- Renderers compartidos entre vista tabla y tarjeta ---
+  const logTime = (log) =>
+    new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const typeBadge = (log) => (
+    <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${log.actorType === 'Profesor' ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-info-light text-primary border border-primary/20'}`}>
+      {log.actorType}
+    </span>
+  );
+
+  const statusBadge = (log) => (
+    log.access_granted ? (
+      <Badge variant="success" size="sm" iconName="Check" className="rounded-lg tracking-widest">Ok</Badge>
+    ) : (
+      <Badge variant="error" size="sm" iconName="X" className="rounded-lg tracking-widest">Error</Badge>
+    )
+  );
+
+  const logDetalle = (log) => (
+    <div className="text-xs font-bold text-text-tertiary space-y-1">
+      <p className="truncate italic" title={log.rejection_reason || '-'}>
+        {log.rejection_reason || '-'}
+      </p>
+      <p className="truncate" title={`Código: ${log.reason_code || '—'}`}>
+        Código: {log.reason_code || '—'}
+      </p>
+      <p className="truncate" title={kioskReasonMessages[log.reason_code] || '—'}>
+        Motivo: {kioskReasonMessages[log.reason_code] || '—'}
+      </p>
+      <p className="truncate" title={`Slot: ${log.weekly_schedule_id || '—'}`}>
+        Slot: {log.weekly_schedule_id || '—'}
+      </p>
+      <p>
+        Saldo: {typeof log.remaining_sessions === 'number' ? log.remaining_sessions : '—'}
+      </p>
+    </div>
+  );
+
   return (
     <>
       <Helmet>
@@ -299,68 +337,68 @@ const AccessHistory = () => {
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 w-full overflow-auto custom-scrollbar">
-                <div className="min-w-[500px]">
-                  <div className="grid grid-cols-[80px_minmax(150px,2fr)_100px_minmax(150px,1.5fr)] gap-4 px-8 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
-                    <div>Hora</div>
-                    <div>Persona</div>
-                    <div>Estado</div>
-                    <div>Detalle</div>
+              <div className="@container flex-1 min-h-0 w-full overflow-auto custom-scrollbar">
+                {loading && displayLogs.length === 0 ? (
+                  <div className="p-20 text-center">
+                    <Icon name="Loader" size={32} className="animate-spin text-primary mx-auto" />
                   </div>
-
-                  <div className="flex flex-col divide-y divide-border pb-4">
-                    {loading && displayLogs.length === 0 ? (
-                      <div className="p-20 text-center">
-                        <Icon name="Loader" size={32} className="animate-spin text-primary mx-auto" />
+                ) : displayLogs.length === 0 ? (
+                  <EmptyState
+                    iconName="Info"
+                    title="Sin registros"
+                    description="Selecciona otro día en el panel izquierdo."
+                    className="py-20"
+                  />
+                ) : (
+                  <>
+                    {/* ===== Vista TABLA (contenedor ancho) ===== */}
+                    <div className="hidden @2xl:block min-w-[520px]">
+                      <div className="grid grid-cols-[76px_minmax(140px,2fr)_92px_minmax(150px,1.5fr)] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
+                        <div>Hora</div>
+                        <div>Persona</div>
+                        <div>Estado</div>
+                        <div>Detalle</div>
                       </div>
-                    ) : displayLogs.length === 0 ? (
-                      <EmptyState
-                        iconName="Info"
-                        title="Sin registros"
-                        description="Selecciona otro día en el panel izquierdo."
-                        className="py-20"
-                      />
-                    ) : (
-                      displayLogs.map(log => (
-                        <div key={log.id} className="grid grid-cols-[80px_minmax(150px,2fr)_100px_minmax(150px,1.5fr)] gap-4 px-8 py-4 items-center hover:bg-muted/80 transition-colors">
-                          <div className="font-bold text-text-secondary text-sm">
-                            {new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+                      <div className="flex flex-col divide-y divide-border pb-4">
+                        {displayLogs.map(log => (
+                          <div key={log.id} className="grid grid-cols-[76px_minmax(140px,2fr)_92px_minmax(150px,1.5fr)] gap-3 px-5 py-4 items-center hover:bg-muted/80 transition-colors">
+                            <div className="font-bold text-text-secondary text-sm">{logTime(log)}</div>
+                            <div className="font-black text-text-primary text-sm min-w-0">
+                              <p className="truncate">{log.actorName || 'Desconocido'}</p>
+                              <span className="mt-1 inline-flex">{typeBadge(log)}</span>
+                            </div>
+                            <div>{statusBadge(log)}</div>
+                            {logDetalle(log)}
                           </div>
-                          <div className="font-black text-text-primary text-sm min-w-0">
-                            <p className="truncate">{log.actorName || 'Desconocido'}</p>
-                            <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${log.actorType === 'Profesor' ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-info-light text-primary border border-primary/20'}`}>
-                              {log.actorType}
-                            </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* ===== Vista TARJETA (contenedor angosto) ===== */}
+                    <div className="@2xl:hidden flex flex-col divide-y divide-border pb-4">
+                      {displayLogs.map(log => (
+                        <div key={log.id} className="p-4 hover:bg-muted/80 transition-colors">
+                          {/* Fila 1: hora + persona + estado */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-black text-text-secondary text-sm shrink-0">{logTime(log)}</span>
+                                <span className="font-black text-text-primary text-sm truncate">{log.actorName || 'Desconocido'}</span>
+                              </div>
+                              <span className="mt-1 inline-flex">{typeBadge(log)}</span>
+                            </div>
+                            <div className="shrink-0">{statusBadge(log)}</div>
                           </div>
-                          <div>
-                            {log.access_granted ? (
-                              <Badge variant="success" size="sm" iconName="Check" className="rounded-lg tracking-widest">Ok</Badge>
-                            ) : (
-                              <Badge variant="error" size="sm" iconName="X" className="rounded-lg tracking-widest">Error</Badge>
-                            )}
-                          </div>
-                          <div className="text-xs font-bold text-text-tertiary space-y-1">
-                            <p className="truncate italic" title={log.rejection_reason || '-'}>
-                              {log.rejection_reason || '-'}
-                            </p>
-                            <p className="truncate" title={`Código: ${log.reason_code || '—'}`}>
-                              Código: {log.reason_code || '—'}
-                            </p>
-                            <p className="truncate" title={kioskReasonMessages[log.reason_code] || '—'}>
-                              Motivo: {kioskReasonMessages[log.reason_code] || '—'}
-                            </p>
-                            <p className="truncate" title={`Slot: ${log.weekly_schedule_id || '—'}`}>
-                              Slot: {log.weekly_schedule_id || '—'}
-                            </p>
-                            <p>
-                              Saldo: {typeof log.remaining_sessions === 'number' ? log.remaining_sessions : '—'}
-                            </p>
+                          {/* Fila 2: detalle */}
+                          <div className="mt-3 border-t border-border pt-3">
+                            {logDetalle(log)}
                           </div>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </Card>
           </div>

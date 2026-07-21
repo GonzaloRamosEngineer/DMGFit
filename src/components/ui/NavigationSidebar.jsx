@@ -198,7 +198,7 @@ const NavigationSidebar = ({
       <aside
         className={`
           fixed top-0 left-0 h-full bg-card border-r border-border
-          transition-all duration-300 ease-in-out z-30
+          transition-all duration-300 ease-in-out z-nav
           flex flex-col
           ${isCollapsed ? "w-20" : "w-60"}
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
@@ -410,7 +410,7 @@ const NavigationSidebar = ({
       {/* Overlay Mobile */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-20 lg:hidden"
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
           onClick={closeMobileMenu}
           aria-hidden="true"
         />

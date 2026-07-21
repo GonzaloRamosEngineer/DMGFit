@@ -412,9 +412,10 @@ const AthletesManagement = () => {
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
+              <div className="@container flex-1 min-h-0 overflow-auto custom-scrollbar">
                 <div className="w-full">
-                  <div className="grid grid-cols-[minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
+                  {/* Encabezados: solo en vista tabla (contenedor ancho). En angosto se usan tarjetas. */}
+                  <div className="hidden @2xl:grid grid-cols-[minmax(150px,3fr)_minmax(110px,1.5fr)_minmax(100px,1.5fr)_90px_72px] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
                     <button
                       onClick={() => handleSort("name")}
                       className="flex items-center gap-1.5 hover:text-text-primary transition-colors text-left group"
