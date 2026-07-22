@@ -26,6 +26,7 @@ import CoachNotes from "./components/CoachNotes";
 import UpcomingSessions from "./components/UpcomingSessions";
 import ModifyAthleteScheduleModal from "./components/ModifyAthleteScheduleModal";
 import HealthMetrics from "./components/HealthMetrics";
+import EmergencyHealthCard from "./components/EmergencyHealthCard";
 import { generateAthletePDF } from "../../utils/pdfExport";
 import EnableAccountModal from "../../components/EnableAccountModal";
 
@@ -1157,7 +1158,10 @@ const IndividualAthleteProfile = () => {
             )}
 
             {activeTab === "health" && (
-              <HealthMetrics metrics={profileData.latestMetrics} loading={loading} />
+              <div className="space-y-6">
+                <EmergencyHealthCard athlete={profileData.athlete} loading={loading} />
+                <HealthMetrics metrics={profileData.latestMetrics} loading={loading} />
+              </div>
             )}
 
             {activeTab === "notes" && (
