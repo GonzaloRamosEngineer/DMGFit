@@ -69,7 +69,9 @@ const AccessControl = () => {
       });
 
       if (!result.allowed) {
-        setStatus('denied');
+        // NOTICE = aviso neutro (DNI no encontrado, etc.): no muestra el rojo
+        // de "acceso denegado". DENIED sigue siendo el rojo (cuenta inactiva / sin saldo).
+        setStatus(normalizedUiStatus === 'NOTICE' ? 'notice' : 'denied');
         setMessage(result.message || reasonMessage);
         setTimeout(resetToIdle, 6000);
         return;
@@ -167,7 +169,9 @@ const AccessControl = () => {
       ? 'bg-gradient-to-br from-warning-light via-stone-50 to-stone-50'
       : status === 'denied'
         ? 'bg-gradient-to-br from-error-light via-stone-50 to-stone-50'
-        : 'bg-stone-50';
+        : status === 'notice'
+          ? 'bg-gradient-to-br from-info-light via-stone-50 to-stone-50'
+          : 'bg-stone-50';
 
   const glowClass = status === 'success'
     ? 'bg-success/20'
@@ -175,7 +179,9 @@ const AccessControl = () => {
       ? 'bg-warning/25'
       : status === 'denied'
         ? 'bg-error/20'
-        : 'bg-primary/15';
+        : status === 'notice'
+          ? 'bg-primary/15'
+          : 'bg-primary/15';
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-colors duration-500 ${bgClass}`}>
@@ -324,6 +330,41 @@ const AccessControl = () => {
                     <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-primary"></div>Dirígete a recepción para resolver el problema</li>
                     <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-primary"></div>Verifica que hayas ingresado tu DNI o teléfono correctamente</li>
                     <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-primary"></div>Consulta el estado de tu membresía</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {status === 'notice' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="bg-white/85 backdrop-blur-2xl border-2 border-primary/30 rounded-[2.5rem] p-8 sm:p-12 shadow-[0_20px_60px_rgba(0,0,0,0.15)]"
+          >
+            <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 text-primary">
+              <CountdownRing />
+              <div className="w-full h-full bg-gradient-to-br from-primary/15 to-primary/5 rounded-full flex items-center justify-center border-4 border-primary/30">
+                <Icon name="Info" size={60} className="text-primary" />
+              </div>
+            </div>
+
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-foreground mb-6 text-center">NO TE ENCONTRAMOS</h2>
+
+            <div className="bg-info-light border border-primary/20 rounded-2xl p-6 mb-6">
+              <p className="text-xl sm:text-2xl text-foreground font-bold text-center">{message}</p>
+            </div>
+
+            <div className="bg-muted/40 rounded-2xl p-6 border border-border">
+              <div className="flex items-start gap-3">
+                <Icon name="Info" size={24} color="var(--color-primary)" className="flex-shrink-0 mt-1" />
+                <div>
+                  <p className="font-bold text-foreground mb-2">¿Qué puedes hacer?</p>
+                  <ul className="space-y-2 text-muted-foreground text-sm">
+                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-primary"></div>Verifica que hayas ingresado bien tu DNI o teléfono</li>
+                    <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-primary"></div>Acércate a recepción para registrarte</li>
                   </ul>
                 </div>
               </div>
