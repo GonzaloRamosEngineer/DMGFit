@@ -185,25 +185,27 @@ const AccessHistory = () => {
     )
   );
 
-  const logDetalle = (log) => (
-    <div className="text-xs font-bold text-text-tertiary space-y-1">
-      <p className="truncate italic" title={log.rejection_reason || '-'}>
-        {log.rejection_reason || '-'}
-      </p>
-      <p className="truncate" title={`Código: ${log.reason_code || '—'}`}>
-        Código: {log.reason_code || '—'}
-      </p>
-      <p className="truncate" title={kioskReasonMessages[log.reason_code] || '—'}>
-        Motivo: {kioskReasonMessages[log.reason_code] || '—'}
-      </p>
-      <p className="truncate" title={`Slot: ${log.weekly_schedule_id || '—'}`}>
-        Slot: {log.weekly_schedule_id || '—'}
-      </p>
-      <p>
-        Saldo: {typeof log.remaining_sessions === 'number' ? log.remaining_sessions : '—'}
-      </p>
-    </div>
-  );
+  const logDetalle = (log) => {
+    // Mensaje humano: el guardado (rejection_reason) o el mapeo amigable del código.
+    const motivo = log.rejection_reason || kioskReasonMessages[log.reason_code] || '—';
+    return (
+      <div className="text-xs text-text-secondary space-y-1.5 min-w-0">
+        <p className="italic leading-snug break-words">{motivo}</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {log.reason_code && (
+            <span className="inline-flex px-2 py-0.5 rounded-md bg-muted text-text-tertiary text-[10px] font-bold tracking-wide">
+              {log.reason_code}
+            </span>
+          )}
+          {typeof log.remaining_sessions === 'number' && (
+            <span className="inline-flex px-2 py-0.5 rounded-md bg-muted text-text-tertiary text-[10px] font-bold tracking-wide">
+              Saldo: {log.remaining_sessions}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -391,8 +393,8 @@ const AccessHistory = () => {
                 ) : (
                   <>
                     {/* ===== Vista TABLA (contenedor ancho) ===== */}
-                    <div className="hidden @2xl:block min-w-[520px]">
-                      <div className="grid grid-cols-[76px_minmax(140px,2fr)_92px_minmax(150px,1.5fr)] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
+                    <div className="hidden @2xl:block min-w-[640px]">
+                      <div className="grid grid-cols-[70px_minmax(130px,1.5fr)_88px_minmax(230px,2.6fr)] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
                         <div>Hora</div>
                         <div>Persona</div>
                         <div>Estado</div>
@@ -401,7 +403,7 @@ const AccessHistory = () => {
 
                       <div className="flex flex-col divide-y divide-border pb-4">
                         {displayLogs.map(log => (
-                          <div key={log.id} className="grid grid-cols-[76px_minmax(140px,2fr)_92px_minmax(150px,1.5fr)] gap-3 px-5 py-4 items-center hover:bg-muted/80 transition-colors">
+                          <div key={log.id} className="grid grid-cols-[70px_minmax(130px,1.5fr)_88px_minmax(230px,2.6fr)] gap-3 px-5 py-4 items-start hover:bg-muted/80 transition-colors">
                             <div className="font-bold text-text-secondary text-sm">{logTime(log)}</div>
                             <div className="font-black text-text-primary text-sm min-w-0">
                               <p className="truncate">{log.actorName || 'Desconocido'}</p>
