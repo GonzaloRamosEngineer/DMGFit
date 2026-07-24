@@ -21,7 +21,10 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
     if (coachToEdit) {
       setFormData({
         fullName: coachToEdit.name || '',
-        email: coachToEdit.email || '',
+        // OJO: coachToEdit.email puede ser el texto de display ('Sin acceso a App')
+        // para profes con email interno. Usamos rawEmail (el email real) para no
+        // persistir el literal y corromper profiles.email.
+        email: coachToEdit.rawEmail ?? coachToEdit.email ?? '',
         dni: coachToEdit.dni || '',
         specialization: coachToEdit.specialization || '',
         phone: coachToEdit.phone || '',
@@ -45,7 +48,9 @@ const CoachFormModal = ({ onClose, onSuccess, coachToEdit = null }) => {
       const phone = (formData.phone || '').trim();
       // Email interno alineado al login por DNI: {DNI}@vcfit.internal
       // (mismo esquema que los atletas → entran con su DNI como usuario y clave).
-      const isInternal = !normalizedEmail || normalizedEmail.includes('.internal');
+      // Cualquier valor que no sea un email válido (ej. 'Sin acceso a App') se
+      // trata como interno y se regenera desde el DNI, nunca se persiste tal cual.
+      const isInternal = !normalizedEmail || !normalizedEmail.includes('@') || normalizedEmail.includes('.internal');
       const finalEmail = isInternal
         ? `${dniDigits}@vcfit.internal`
         : normalizedEmail;

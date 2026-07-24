@@ -4,7 +4,7 @@ import { Helmet } from "react-helmet";
 import { supabase } from "../../lib/supabaseClient";
 import { fetchKioskRemaining } from "../../services/kiosk";
 import { fetchPlanSlots } from "../../services/plans";
-import { reassignAthleteSlots } from "../../services/athletes";
+import { reassignAthleteSlots, activateAthleteLogin } from "../../services/athletes";
 import { hoyLocal, formatearFecha } from "../../utils/formatters";
 
 // Context
@@ -28,7 +28,7 @@ import ModifyAthleteScheduleModal from "./components/ModifyAthleteScheduleModal"
 import HealthMetrics from "./components/HealthMetrics";
 import EmergencyHealthCard from "./components/EmergencyHealthCard";
 import { generateAthletePDF } from "../../utils/pdfExport";
-import EnableAccountModal from "../../components/EnableAccountModal";
+import { useConfirm } from "../../components/ui/ConfirmProvider";
 
 const DAYS = [
   "Domingo",
@@ -523,13 +523,12 @@ const IndividualAthleteProfile = () => {
   const { id: athleteId } = useParams();
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [activeTab, setActiveTab] = useState("summary");
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
-  const [enableTarget, setEnableTarget] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const [availablePlans, setAvailablePlans] = useState([]);
@@ -950,19 +949,25 @@ const IndividualAthleteProfile = () => {
     profileData.kioskRemaining,
   ]);
 
-  const isInternalEmail = (email = "") =>
-    email.includes("@dmg.internal") || email.includes("@vcfit.internal");
-
-  const handleEnableAccess = (target) => {
-    if (!target?.profile_id) return;
-
-    setEnableTarget({
-      profileId: target.profile_id,
-      email: isInternalEmail(target.email) ? "" : target.email,
-      name: target.name,
-      role: "atleta",
+  // Habilitar acceso del atleta por DNI (un clic, sin email). Usuario y clave = DNI.
+  const handleEnableAccess = async (target) => {
+    const ok = await confirm({
+      title: "Habilitar acceso",
+      message: `Se creará el acceso de ${target?.name || "este atleta"} con usuario y clave = su DNI. Podrá cambiar la clave desde su perfil.`,
+      confirmLabel: "Habilitar",
     });
-    setIsEnableModalOpen(true);
+    if (!ok) return;
+    try {
+      const data = await activateAthleteLogin(athleteId);
+      toast.success(
+        data?.already
+          ? "El atleta ya tenía acceso."
+          : `Acceso habilitado (usuario y clave: ${data?.dni || "su DNI"}).`
+      );
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error(err.message || "No se pudo habilitar el acceso.");
+    }
   };
 
   const handleAddNote = async (content) => {
@@ -1200,16 +1205,6 @@ const IndividualAthleteProfile = () => {
             onSuccess={() => setRefreshKey((prev) => prev + 1)}
           />
         )}
-
-        <EnableAccountModal
-          isOpen={isEnableModalOpen}
-          target={enableTarget}
-          onClose={() => {
-            setIsEnableModalOpen(false);
-            setEnableTarget(null);
-          }}
-          onSuccess={() => setRefreshKey((prev) => prev + 1)}
-        />
       </div>
     </>
   );

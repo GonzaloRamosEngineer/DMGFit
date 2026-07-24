@@ -34,6 +34,8 @@ const AccessHistory = () => {
   });
 
   const [selectedDate, setSelectedDate] = useState(getTodayString());
+  // Filtro por estado, controlado desde las cards KPI: 'all' | 'granted' | 'denied'
+  const [accessFilter, setAccessFilter] = useState('all');
 
   const fetchLogs = async ({ silent = false, range = dateRange } = {}) => {
     if (!silent) setLoading(true);
@@ -41,7 +43,7 @@ const AccessHistory = () => {
       const { data, error } = await supabase
         .from('access_logs')
         .select(`
-          id, check_in_time, access_granted, rejection_reason, reason_code, weekly_schedule_id, remaining_sessions,
+          id, check_in_time, access_granted, rejection_reason, reason_code, weekly_schedule_id, remaining_sessions, attempted_identifier,
           athletes (
             id,
             profiles (full_name, email)
@@ -61,8 +63,12 @@ const AccessHistory = () => {
         const athleteProfile = log?.athletes?.profiles;
         const coachProfile = log?.coaches?.profiles;
         const actorType = coachProfile ? 'Profesor' : 'Atleta';
-        const actorName = coachProfile?.full_name || athleteProfile?.full_name || 'Sin nombre';
-        return { ...log, actorType, actorName };
+        const knownName = coachProfile?.full_name || athleteProfile?.full_name || null;
+        // Si no hay persona asociada (DNI inexistente), mostramos el DNI/teléfono tipeado.
+        const attemptedId = log?.attempted_identifier || null;
+        const actorName = knownName || (attemptedId ? `DNI ${attemptedId}` : 'Sin nombre');
+        const isUnknown = !knownName;
+        return { ...log, actorType, actorName, attemptedId, isUnknown };
       });
 
       setAllLogs(normalizedLogs);
@@ -135,8 +141,11 @@ const AccessHistory = () => {
 
   const displayLogs = useMemo(() => {
     const group = groupedLogs.find(g => g.date === selectedDate);
-    return group ? group.logs : [];
-  }, [groupedLogs, selectedDate]);
+    const logs = group ? group.logs : [];
+    if (accessFilter === 'granted') return logs.filter((l) => l.access_granted);
+    if (accessFilter === 'denied') return logs.filter((l) => !l.access_granted);
+    return logs;
+  }, [groupedLogs, selectedDate, accessFilter]);
 
   const selectedDayStats = useMemo(() => {
     const group = groupedLogs.find(g => g.date === selectedDate);
@@ -153,11 +162,20 @@ const AccessHistory = () => {
   const logTime = (log) =>
     new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const typeBadge = (log) => (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${log.actorType === 'Profesor' ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-info-light text-primary border border-primary/20'}`}>
-      {log.actorType}
-    </span>
-  );
+  const typeBadge = (log) => {
+    if (log.isUnknown) {
+      return (
+        <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-muted text-text-tertiary border border-border">
+          Sin registro
+        </span>
+      );
+    }
+    return (
+      <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${log.actorType === 'Profesor' ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-info-light text-primary border border-primary/20'}`}>
+        {log.actorType}
+      </span>
+    );
+  };
 
   const statusBadge = (log) => (
     log.access_granted ? (
@@ -167,25 +185,27 @@ const AccessHistory = () => {
     )
   );
 
-  const logDetalle = (log) => (
-    <div className="text-xs font-bold text-text-tertiary space-y-1">
-      <p className="truncate italic" title={log.rejection_reason || '-'}>
-        {log.rejection_reason || '-'}
-      </p>
-      <p className="truncate" title={`Código: ${log.reason_code || '—'}`}>
-        Código: {log.reason_code || '—'}
-      </p>
-      <p className="truncate" title={kioskReasonMessages[log.reason_code] || '—'}>
-        Motivo: {kioskReasonMessages[log.reason_code] || '—'}
-      </p>
-      <p className="truncate" title={`Slot: ${log.weekly_schedule_id || '—'}`}>
-        Slot: {log.weekly_schedule_id || '—'}
-      </p>
-      <p>
-        Saldo: {typeof log.remaining_sessions === 'number' ? log.remaining_sessions : '—'}
-      </p>
-    </div>
-  );
+  const logDetalle = (log) => {
+    // Mensaje humano: el guardado (rejection_reason) o el mapeo amigable del código.
+    const motivo = log.rejection_reason || kioskReasonMessages[log.reason_code] || '—';
+    return (
+      <div className="text-xs text-text-secondary space-y-1.5 min-w-0">
+        <p className="italic leading-snug break-words">{motivo}</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {log.reason_code && (
+            <span className="inline-flex px-2 py-0.5 rounded-md bg-muted text-text-tertiary text-[10px] font-bold tracking-wide">
+              {log.reason_code}
+            </span>
+          )}
+          {typeof log.remaining_sessions === 'number' && (
+            <span className="inline-flex px-2 py-0.5 rounded-md bg-muted text-text-tertiary text-[10px] font-bold tracking-wide">
+              Saldo: {log.remaining_sessions}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -286,37 +306,58 @@ const AccessHistory = () => {
           {/* COLUMNA DERECHA: Detalle del Día (8/12) */}
           <div className="xl:col-span-8 flex flex-col gap-4 min-w-0 xl:min-h-0">
 
-            {/* KPIs del día */}
+            {/* KPIs del día (clickeables = filtro por estado) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
-              <Card padding="none" className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 bg-info-light text-primary rounded-2xl flex items-center justify-center shadow-inner">
-                  <Icon name="Users" size={24} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-text-primary leading-none">{selectedDayStats.total}</p>
-                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Total Accesos</p>
-                </div>
-              </Card>
+              <button
+                type="button"
+                onClick={() => setAccessFilter('all')}
+                aria-pressed={accessFilter === 'all'}
+                className={`text-left rounded-2xl transition-all ${accessFilter === 'all' ? 'ring-2 ring-primary' : 'hover:shadow-md'}`}
+              >
+                <Card padding="none" className="p-5 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-info-light text-primary rounded-2xl flex items-center justify-center shadow-inner">
+                    <Icon name="Users" size={24} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-text-primary leading-none">{selectedDayStats.total}</p>
+                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Total Accesos</p>
+                  </div>
+                </Card>
+              </button>
 
-              <Card padding="none" className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 bg-success-light text-success rounded-2xl flex items-center justify-center shadow-inner">
-                  <Icon name="Check" size={24} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-text-primary leading-none">{selectedDayStats.granted}</p>
-                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Permitidos</p>
-                </div>
-              </Card>
+              <button
+                type="button"
+                onClick={() => setAccessFilter('granted')}
+                aria-pressed={accessFilter === 'granted'}
+                className={`text-left rounded-2xl transition-all ${accessFilter === 'granted' ? 'ring-2 ring-success' : 'hover:shadow-md'}`}
+              >
+                <Card padding="none" className="p-5 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-success-light text-success rounded-2xl flex items-center justify-center shadow-inner">
+                    <Icon name="Check" size={24} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-text-primary leading-none">{selectedDayStats.granted}</p>
+                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Permitidos</p>
+                  </div>
+                </Card>
+              </button>
 
-              <Card padding="none" className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 bg-error-light text-error rounded-2xl flex items-center justify-center shadow-inner">
-                  <Icon name="X" size={24} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-text-primary leading-none">{selectedDayStats.denied}</p>
-                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Denegados</p>
-                </div>
-              </Card>
+              <button
+                type="button"
+                onClick={() => setAccessFilter('denied')}
+                aria-pressed={accessFilter === 'denied'}
+                className={`text-left rounded-2xl transition-all ${accessFilter === 'denied' ? 'ring-2 ring-error' : 'hover:shadow-md'}`}
+              >
+                <Card padding="none" className="p-5 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-error-light text-error rounded-2xl flex items-center justify-center shadow-inner">
+                    <Icon name="X" size={24} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-text-primary leading-none">{selectedDayStats.denied}</p>
+                    <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-1">Denegados</p>
+                  </div>
+                </Card>
+              </button>
             </div>
 
             {/* Tabla Principal */}
@@ -352,8 +393,8 @@ const AccessHistory = () => {
                 ) : (
                   <>
                     {/* ===== Vista TABLA (contenedor ancho) ===== */}
-                    <div className="hidden @2xl:block min-w-[520px]">
-                      <div className="grid grid-cols-[76px_minmax(140px,2fr)_92px_minmax(150px,1.5fr)] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
+                    <div className="hidden @2xl:block min-w-[640px]">
+                      <div className="grid grid-cols-[70px_minmax(130px,1.5fr)_88px_minmax(230px,2.6fr)] gap-3 px-5 py-3 bg-muted border-b border-border text-[10px] font-black text-text-secondary uppercase tracking-widest items-center sticky top-0 z-card">
                         <div>Hora</div>
                         <div>Persona</div>
                         <div>Estado</div>
@@ -362,7 +403,7 @@ const AccessHistory = () => {
 
                       <div className="flex flex-col divide-y divide-border pb-4">
                         {displayLogs.map(log => (
-                          <div key={log.id} className="grid grid-cols-[76px_minmax(140px,2fr)_92px_minmax(150px,1.5fr)] gap-3 px-5 py-4 items-center hover:bg-muted/80 transition-colors">
+                          <div key={log.id} className="grid grid-cols-[70px_minmax(130px,1.5fr)_88px_minmax(230px,2.6fr)] gap-3 px-5 py-4 items-start hover:bg-muted/80 transition-colors">
                             <div className="font-bold text-text-secondary text-sm">{logTime(log)}</div>
                             <div className="font-black text-text-primary text-sm min-w-0">
                               <p className="truncate">{log.actorName || 'Desconocido'}</p>
