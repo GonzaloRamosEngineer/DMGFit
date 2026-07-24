@@ -3,6 +3,51 @@
 > Arrancar con: "arreglemos que los accesos arranquen desde la inscripción del atleta".
 > Handoff autocontenido (2026-07-24). Contexto y workflow al final.
 
+## ✅ RESUELTO (2026-07-24) — migración `0006_accesos_desde_inscripcion.sql`
+Implementado en la branch `feat/accesos-desde-inscripcion` (sin pushear, sin
+aplicar a prod todavía — falta la password del pooler que provee el usuario).
+
+**Decisiones tomadas con el usuario (superan al plan original del handoff):**
+- **Cadencia: MES CALENDARIO** anclado a `join_date` (aniversario del día de
+  inscripción), NO 30 días fijos. Inscripto el 15 → vence el 15 de cada mes;
+  inscripto el 31 → último día del mes en meses cortos (Postgres clampea con
+  `join_date + make_interval(months => k)`).
+- **Alcance: la ventana ancla accesos Y vencimiento de cuota** (unificado, no
+  separado como proponía el handoff). El caso disparador fue la duda de un socio:
+  "¿pago julio y de nuevo agosto, o esto cubre hasta que se cumpla el mes?".
+  Cris: "el mes corre desde que se inscribió".
+- **Cuota del período vigente**: paga si hay un pago `paid` con fecha ≥ inicio del
+  período actual; si no, desde el aniversario corren los días de gracia y luego
+  queda vencida (se PERMITE con aviso; el único tope duro sigue siendo NO_BALANCE).
+
+**Qué cambió la 0006:**
+- `create_full_athlete_atomic`: primer contador cierra a fin de mes calendario
+  (`join_date + 1 mes - 1 día`) en vez de `join_date + 29`.
+- `kiosk_check_in`: calcula la ventana `[period_start, period_end]` desde
+  `join_date` (mes calendario) y la usa para accesos y para cuota. Auto-sana:
+  si el atleta trae un contador viejo (anclado a pago/hoy) que cubre hoy, lo
+  realinea a la inscripción preservando `consumed_sessions`.
+- `athlete_debt_state` (la usa la RPC `admin_billing_status` del panel de Pagos):
+  mismo modelo aniversario y misma precedencia que el kiosco, para que el
+  "vencido/gracia/pendiente" del panel quede alineado con lo que ve el socio en
+  el kiosco. `expires_at` ahora es el próximo aniversario (no `último pago + 30`).
+- Realineo inicial (una vez, al final de la migración) de los contadores vigentes
+  de atletas activos.
+
+**Validación (Postgres efímero, imagen supabase 17.6.1.134):** la cadena
+`0000…0006` aplica limpia; cadencia correcta en todos los bordes (inscripto 31,
+febrero, bisiesto, aniversario exacto); test funcional: realineo de contador
+viejo preservando consumo, autocreación en ventana de inscripción, overdue
+anclado al aniversario, y rollover en el aniversario. No introduce reason_codes
+nuevos (no toca `kiosk_reason_codes`).
+
+**Pendiente para aplicar a prod:** correr la 0006 por el pooler IPv4 y trackear
+con `supabase migration repair --status applied 0006` (ver "Contexto/workflow"
+al final). 100% backend, sin cambios de frontend.
+
+---
+### Notas históricas del análisis previo (pre-implementación)
+
 ## Objetivo (pedido del cliente)
 La **cantidad de accesos definidos** para el atleta debe **arrancar/renovarse desde el día de su inscripción** (`athletes.join_date`), no desde la fecha del último pago ni desde el día del primer ingreso.
 
