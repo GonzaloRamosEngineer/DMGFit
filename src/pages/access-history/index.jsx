@@ -53,8 +53,11 @@ const AccessHistory = () => {
             profiles (full_name, email)
           )
         `)
-        .gte('check_in_time', `${range.start}T00:00:00`)
-        .lte('check_in_time', `${range.end}T23:59:59`)
+        // Anclamos los límites a hora Argentina (UTC-3). check_in_time es timestamptz
+        // en UTC; sin el offset, "T23:59:59" se interpretaba como UTC y dejaba afuera
+        // los ingresos de la noche (que en UTC caen al día siguiente).
+        .gte('check_in_time', `${range.start}T00:00:00-03:00`)
+        .lte('check_in_time', `${range.end}T23:59:59.999-03:00`)
         .order('check_in_time', { ascending: false });
 
       if (error) throw error;
