@@ -35,7 +35,8 @@ const LoginRoleSelection = () => {
     const redirectPaths = {
       admin: '/main-dashboard',
       profesor: '/professor-dashboard',
-      atleta: '/athlete-portal'
+      atleta: '/athlete-portal',
+      kiosko: '/access-control'
     };
     return redirectPaths[role] || '/athlete-portal';
   };

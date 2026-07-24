@@ -35,6 +35,11 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 
   // 4. Verificación de Rol
   if (allowedRoles.length > 0 && !allowedRoles.includes(currentUser.role)) {
+    // El usuario "kiosko" solo puede ver el kiosco: cualquier otra ruta lo
+    // devuelve ahí (no puede llegar al panel ni tipeando la URL).
+    if (currentUser.role === 'kiosko') {
+      return <Navigate to="/access-control" replace />;
+    }
     return <Navigate to="/unauthorized" replace />;
   }
 

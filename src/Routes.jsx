@@ -56,7 +56,7 @@ const Routes = () => {
           <Route
             path="/access-control"
             element={
-              <ProtectedRoute allowedRoles={["admin"]}>
+              <ProtectedRoute allowedRoles={["admin", "kiosko"]}>
                 <AccessControl />
               </ProtectedRoute>
             }
