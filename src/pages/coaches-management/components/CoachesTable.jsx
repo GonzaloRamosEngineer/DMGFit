@@ -13,12 +13,14 @@ const CoachesTable = ({
   coaches = [],
   loading = false,
   onEdit,
-  onDelete,
   onViewAthletes,
   onEnableAccount,
+  onArchive,
+  onRestore,
+  onHardDelete,
 }) => {
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('active');
 
   const filteredCoaches = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -29,35 +31,80 @@ const CoachesTable = ({
         coach.name?.toLowerCase().includes(term) ||
         coach.specialization?.toLowerCase().includes(term) ||
         coach.bio?.toLowerCase().includes(term) ||
+        coach.dni?.toLowerCase().includes(term) ||
         coach.email?.toLowerCase().includes(term) ||
         coach.phone?.toLowerCase().includes(term);
 
+      // Los archivados solo se ven con el filtro "Archivados".
       const matchesStatus =
-        statusFilter === 'all'
-          ? true
-          : statusFilter === 'active'
-          ? !coach.needsActivation
-          : coach.needsActivation;
+        statusFilter === 'archived'
+          ? coach.archived
+          : coach.archived
+          ? false
+          : statusFilter === 'with'
+          ? coach.hasLogin
+          : statusFilter === 'without'
+          ? !coach.hasLogin
+          : true; // 'active' = todos los no archivados
 
       return matchesSearch && matchesStatus;
     });
   }, [coaches, search, statusFilter]);
 
   const renderStatusBadge = (coach) => {
-    if (coach.needsActivation) {
+    if (coach.archived) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning-light text-warning text-[11px] font-semibold tracking-wide border border-amber-100">
-          <span className="w-1.5 h-1.5 rounded-full bg-warning" />
-          Pendiente
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted text-text-tertiary text-[11px] font-semibold tracking-wide border border-border">
+          <span className="w-1.5 h-1.5 rounded-full bg-text-tertiary" />
+          Archivado
         </span>
       );
     }
-
+    if (!coach.hasLogin) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-warning-light text-warning text-[11px] font-semibold tracking-wide border border-amber-100">
+          <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+          Sin acceso
+        </span>
+      );
+    }
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success-light text-success text-[11px] font-semibold tracking-wide border border-emerald-100">
         <span className="w-1.5 h-1.5 rounded-full bg-success" />
-        Activo
+        Con acceso
       </span>
+    );
+  };
+
+  // Acciones por fila, según estado (activo vs archivado).
+  const renderActions = (coach, { compact = false } = {}) => {
+    const gap = compact ? 'gap-4' : 'gap-3';
+    if (coach.archived) {
+      return (
+        <div className={`flex items-center justify-end ${gap} text-text-tertiary`}>
+          <button type="button" onClick={() => onRestore?.(coach)} className="p-1 hover:text-success transition-colors" title="Restaurar">
+            <Icon name="RotateCcw" size={16} />
+          </button>
+          <button type="button" onClick={() => onHardDelete?.(coach)} className="p-1 hover:text-error transition-colors" title="Eliminar definitivamente">
+            <Icon name="Trash2" size={16} />
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className={`flex items-center justify-end ${gap} text-text-tertiary`}>
+        <button type="button" onClick={() => onEdit?.(coach)} className="p-1 hover:text-text-secondary transition-colors" title="Editar">
+          <Icon name="Pencil" size={16} />
+        </button>
+        {!coach.hasLogin && (
+          <button type="button" onClick={() => onEnableAccount?.(coach)} className="p-1 hover:text-primary transition-colors" title="Habilitar acceso (por DNI)">
+            <Icon name="UserCheck" size={16} />
+          </button>
+        )}
+        <button type="button" onClick={() => onArchive?.(coach)} className="p-1 hover:text-warning transition-colors" title="Archivar (deshabilitar)">
+          <Icon name="Archive" size={16} />
+        </button>
+      </div>
     );
   };
 
@@ -88,9 +135,10 @@ const CoachesTable = ({
               onChange={(e) => setStatusFilter(e.target.value)}
               className="h-[42px] min-w-[160px] px-3 rounded-lg border border-border bg-card text-sm font-medium text-text-secondary focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary transition-all"
             >
-              <option value="all">Todos</option>
-              <option value="active">Solo Activos</option>
-              <option value="pending">Pendientes</option>
+              <option value="active">Activos</option>
+              <option value="with">Con acceso</option>
+              <option value="without">Sin acceso</option>
+              <option value="archived">Archivados</option>
             </select>
           </div>
         </div>
@@ -214,36 +262,7 @@ const CoachesTable = ({
 
                   {/* Acciones */}
                   <td className="px-6 py-4 align-middle">
-                    <div className="flex items-center justify-end gap-3 text-text-tertiary">
-                      <button
-                        type="button"
-                        onClick={() => onEdit?.(coach)}
-                        className="p-1 hover:text-text-secondary transition-colors"
-                        title="Editar"
-                      >
-                        <Icon name="Pencil" size={16} />
-                      </button>
-
-                      {coach.needsActivation && (
-                        <button
-                          type="button"
-                          onClick={() => onEnableAccount?.(coach)}
-                          className="p-1 hover:text-warning transition-colors"
-                          title="Habilitar acceso"
-                        >
-                          <Icon name="UserCheck" size={16} />
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => onDelete?.(coach.id)}
-                        className="p-1 hover:text-error transition-colors"
-                        title="Eliminar/Deshabilitar"
-                      >
-                        <Icon name="Ban" size={16} />
-                      </button>
-                    </div>
+                    {renderActions(coach)}
                   </td>
                 </tr>
               ))
@@ -297,11 +316,7 @@ const CoachesTable = ({
                 >
                   {coach.totalAthletes || 0} Atletas
                 </button>
-                <div className="flex gap-4 text-text-tertiary">
-                  <button onClick={() => onEdit?.(coach)} className="hover:text-text-secondary"><Icon name="Pencil" size={16} /></button>
-                  {coach.needsActivation && <button onClick={() => onEnableAccount?.(coach)} className="hover:text-warning"><Icon name="UserCheck" size={16} /></button>}
-                  <button onClick={() => onDelete?.(coach.id)} className="hover:text-error"><Icon name="Ban" size={16} /></button>
-                </div>
+                {renderActions(coach, { compact: true })}
               </div>
             </div>
           ))

@@ -13,11 +13,15 @@ import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
 import { hoyLocal } from "../../utils/formatters";
 import AddAthleteModal from "./components/AddAthleteModal";
-import EnableAccountModal from "../../components/EnableAccountModal";
 import AddPaymentModal from "../payment-management/components/AddPaymentModal";
+import { activateAthleteLogin } from "../../services/athletes";
+import { useToast } from "../../hooks/useToast";
+import { useConfirm } from "../../components/ui/ConfirmProvider";
 
 const AthletesManagement = () => {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
+  const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState({ status: "active" });
   const [sortConfig, setSortConfig] = useState({
@@ -27,9 +31,6 @@ const AthletesManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
-  const [enableTarget, setEnableTarget] = useState(null);
 
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payTarget, setPayTarget] = useState(null);
@@ -325,6 +326,27 @@ const AthletesManagement = () => {
     setLastRefresh(new Date());
   };
 
+  // Habilitar acceso del atleta por DNI (un clic, sin email). Usuario y clave = DNI.
+  const handleEnableAthlete = async (target) => {
+    const ok = await confirm({
+      title: "Habilitar acceso",
+      message: `Se creará el acceso de ${target.name} con usuario y clave = su DNI. Podrá cambiar la clave desde su perfil.`,
+      confirmLabel: "Habilitar",
+    });
+    if (!ok) return;
+    try {
+      const data = await activateAthleteLogin(target.id);
+      toast.success(
+        data?.already
+          ? "El atleta ya tenía acceso."
+          : `Acceso habilitado (usuario y clave: ${data?.dni || "su DNI"}).`
+      );
+      handleRefresh();
+    } catch (err) {
+      toast.error(err.message || "No se pudo habilitar el acceso.");
+    }
+  };
+
   const renderSortIcon = (key) => {
     if (sortConfig.key !== key)
       return <Icon name="ArrowUpDown" size={12} className="opacity-30" />;
@@ -461,19 +483,7 @@ const AthletesManagement = () => {
                             setPayTarget(target);
                             setIsPayModalOpen(true);
                           }}
-                          onEnableAccount={(target) => {
-                            setEnableTarget({
-                              profileId: target.profileId,
-                              email:
-                                target.rawEmail?.includes("@dmg.internal") ||
-                                target.rawEmail?.includes("@vcfit.internal")
-                                  ? ""
-                                  : target.rawEmail,
-                              name: target.name,
-                              role: "atleta",
-                            });
-                            setIsEnableModalOpen(true);
-                          }}
+                          onEnableAccount={handleEnableAthlete}
                         />
                       ))
                     ) : (
@@ -504,16 +514,6 @@ const AthletesManagement = () => {
       {isAddModalOpen && (
         <AddAthleteModal onClose={() => setIsAddModalOpen(false)} onAthleteAdded={handleRefresh} />
       )}
-
-      <EnableAccountModal
-        isOpen={isEnableModalOpen}
-        target={enableTarget}
-        onClose={() => {
-          setIsEnableModalOpen(false);
-          setEnableTarget(null);
-        }}
-        onSuccess={handleRefresh}
-      />
 
       {isPayModalOpen && payTarget && (
         <AddPaymentModal

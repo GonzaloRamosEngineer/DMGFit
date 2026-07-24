@@ -8,12 +8,6 @@ import { useToast } from '../../hooks/useToast';
 import CoachesTable from './components/CoachesTable';
 import CoachFormModal from './components/CoachFormModal';
 import CoachAthletesModal from './components/CoachAthletesModal';
-import EnableAccountModal from '../../components/EnableAccountModal';
-
-const normalizeRelation = (value) => {
-  if (Array.isArray(value)) return value[0] || null;
-  return value || null;
-};
 
 const CoachesManagement = () => {
   const confirm = useConfirm();
@@ -28,61 +22,44 @@ const CoachesManagement = () => {
   const [isAthletesModalOpen, setIsAthletesModalOpen] = useState(false);
   const [coachForAthletes, setCoachForAthletes] = useState(null);
 
-  const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
-  const [enableTarget, setEnableTarget] = useState(null);
-
   const fetchCoaches = async () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from('coaches')
-        .select(`
-          id,
-          specialization,
-          bio,
-          phone,
-          profile_id,
-          profiles:profile_id (
-            full_name,
-            email,
-            avatar_url,
-            dni,
-            phone
-          ),
-          athletes:athletes(count)
-        `)
-        .order('id', { ascending: true });
+      // list_coaches_admin devuelve el estado REAL de acceso (has_login = existe
+      // usuario de auth) en vez de inferirlo del email, y el flag de archivado.
+      const { data, error } = await supabase.rpc('list_coaches_admin');
 
       if (error) throw error;
 
-      const mapped = (data || []).map((coachRow) => {
-        const profile = normalizeRelation(coachRow.profiles);
-        const athletesCountRelation = normalizeRelation(coachRow.athletes);
-
-        const rawEmail = profile?.email || '';
+      const mapped = (data || []).map((row) => {
+        const rawEmail = row.email || '';
         const isInternalEmail =
           rawEmail.includes('@dmg.internal') || rawEmail.includes('@vcfit.internal');
 
         return {
-          id: coachRow.id,
-          profileId: coachRow.profile_id,
-          name: profile?.full_name || 'Sin Nombre',
-          email: isInternalEmail ? 'Sin acceso a App' : rawEmail,
+          id: row.id,
+          profileId: row.profile_id,
+          name: row.full_name || 'Sin Nombre',
+          // email visible solo si es un correo de contacto real (no el interno)
+          email: isInternalEmail || !rawEmail ? '' : rawEmail,
           rawEmail,
-          avatar: profile?.avatar_url || '',
-          specialization: coachRow.specialization || '',
-          bio: coachRow.bio || '',
-          dni: profile?.dni || '',
-          phone: profile?.phone || coachRow.phone || '',
-          totalAthletes: Number(athletesCountRelation?.count || 0),
-          needsActivation: isInternalEmail || rawEmail === '',
+          avatar: row.avatar_url || '',
+          specialization: row.specialization || '',
+          bio: row.bio || '',
+          dni: row.dni || '',
+          phone: row.phone || '',
+          totalAthletes: Number(row.total_athletes || 0),
+          hasLogin: !!row.has_login,
+          needsActivation: !row.has_login,
+          archived: !!row.archived_at,
         };
       });
 
       setCoaches(mapped);
     } catch (error) {
       console.error('Error cargando profesores:', error);
+      toast.error('No se pudieron cargar los profesores.');
     } finally {
       setLoading(false);
     }
@@ -107,38 +84,75 @@ const CoachesManagement = () => {
     setIsAthletesModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
+  // Archivar = deshabilitar sin perder historial (conserva notas/asistencia; bloquea login).
+  const handleArchive = async (coach) => {
     const ok = await confirm({
-      title: 'Eliminar profesor',
-      message: '¿Seguro que deseas eliminar este profesor?',
-      confirmLabel: 'Eliminar',
-      variant: 'danger',
+      title: 'Archivar profesor',
+      message: `${coach.name} saldrá de la lista activa y no podrá ingresar a la app. Su historial (notas, asistencia, sesiones) se conserva. Podés restaurarlo cuando quieras.`,
+      confirmLabel: 'Archivar',
     });
     if (!ok) return;
-
     try {
-      const { error } = await supabase.from('coaches').delete().eq('id', id);
+      const { error } = await supabase.rpc('set_coach_archived', { p_coach_id: coach.id, p_archived: true });
       if (error) throw error;
-      toast.success('Profesor eliminado.');
+      toast.success(`${coach.name} archivado.`);
       fetchCoaches();
     } catch (err) {
-      toast.error('No se pudo eliminar.');
+      toast.error(err.message || 'No se pudo archivar.');
     }
   };
 
-  const handleEnableAccount = (target) => {
-    setEnableTarget({
-      profileId: target.profileId,
-      email:
-        target.rawEmail?.includes('@dmg.internal') ||
-        target.rawEmail?.includes('@vcfit.internal')
-          ? ''
-          : target.rawEmail,
-      name: target.name,
-      role: 'profesor',
-    });
+  const handleRestore = async (coach) => {
+    try {
+      const { error } = await supabase.rpc('set_coach_archived', { p_coach_id: coach.id, p_archived: false });
+      if (error) throw error;
+      toast.success(`${coach.name} restaurado.`);
+      fetchCoaches();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo restaurar.');
+    }
+  };
 
-    setIsEnableModalOpen(true);
+  // Borrado total: solo para demos/errores. Irreversible.
+  const handleHardDelete = async (coach) => {
+    const ok = await confirm({
+      title: 'Eliminar definitivamente',
+      message: `Esto borra a ${coach.name}, su acceso y sus datos operativos (sesiones, rutinas, notas). El historial de accesos se conserva sin su nombre. Es IRREVERSIBLE. ¿Continuar?`,
+      confirmLabel: 'Eliminar definitivo',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      const { error } = await supabase.rpc('delete_coach_hard', { p_coach_id: coach.id });
+      if (error) throw error;
+      toast.success(`${coach.name} eliminado.`);
+      fetchCoaches();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo eliminar.');
+    }
+  };
+
+  // Habilitar acceso por DNI (un clic, sin email). Usuario y clave = DNI.
+  const handleEnableAccount = async (coach) => {
+    if (!coach?.dni) {
+      toast.error('El profesor no tiene DNI cargado. Editá su ficha y agregá el DNI primero.');
+      return;
+    }
+    const ok = await confirm({
+      title: 'Habilitar acceso',
+      message: `Se creará el acceso de ${coach.name} con usuario y clave = su DNI (${coach.dni}). Podrá cambiar la clave desde su perfil.`,
+      confirmLabel: 'Habilitar',
+    });
+    if (!ok) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('activate-coach', { body: { coach_id: coach.id } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.already ? 'El profesor ya tenía acceso.' : `Acceso habilitado (usuario y clave: ${coach.dni}).`);
+      fetchCoaches();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo habilitar el acceso.');
+    }
   };
 
   return (
@@ -174,9 +188,11 @@ const CoachesManagement = () => {
             coaches={coaches}
             loading={loading}
             onEdit={handleEdit}
-            onDelete={handleDelete}
             onViewAthletes={handleViewAthletes}
             onEnableAccount={handleEnableAccount}
+            onArchive={handleArchive}
+            onRestore={handleRestore}
+            onHardDelete={handleHardDelete}
           />
         </div>
       </div>
@@ -196,16 +212,6 @@ const CoachesManagement = () => {
           onClose={() => setIsAthletesModalOpen(false)}
         />
       )}
-
-      <EnableAccountModal
-        isOpen={isEnableModalOpen}
-        target={enableTarget}
-        onClose={() => {
-          setIsEnableModalOpen(false);
-          setEnableTarget(null);
-        }}
-        onSuccess={fetchCoaches}
-      />
     </>
   );
 };
