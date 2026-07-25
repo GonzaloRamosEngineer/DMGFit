@@ -34,6 +34,33 @@ aplicar a prod todavía — falta la password del pooler que provee el usuario).
 - Realineo inicial (una vez, al final de la migración) de los contadores vigentes
   de atletas activos.
 
+### Generación de cuotas atada a la ASISTENCIA (2026-07-25)
+Segunda parte del pedido: "cuándo se regenera la cuota" y el botón "Generar Período".
+
+- Se descartó el cron ciego: generaría cuotas a los que dejaron de venir (deuda
+  fantasma infinita, la preocupación del usuario).
+- Modelo elegido: **la cuota ($, fila `payments` pending) se genera en el kiosco al
+  fichar**, cuando el socio cruza a un período nuevo sin cuota. Atado a asistencia:
+  - El que viene y no paga → se le acumula deuda **real** (1 cuota por período).
+  - El que deja de venir → no ficha → **no se le genera nada** (no infla deuda).
+  - **Sin back-fill**: solo se genera la del período que efectivamente asiste
+    (si faltó agosto y vuelve en octubre, se genera octubre, no agosto).
+  - Reconoce la cuota del alta (`period` NULL) y pagos dentro del período por su
+    `payment_date`, así que no duplica. Idempotente (un fichaje/día).
+- `kiosk_check_in` → bloque **(9b)**: `insert ... on conflict (athlete_id, period)`.
+- `generate_monthly_invoices` (botón "Generar Período"): **alineado al aniversario**
+  y **acotado a socios que asistieron** su período vigente. Queda como respaldo
+  manual; con la generación al fichar, ya casi no hace falta. **No se agregó cron.**
+- Helper nuevo `membership_period(join, ref)` (OUT period_start, period_end): fuente
+  única de la ventana mes-calendario; lo usan kiosco, debt_state, generate y el realineo.
+- **Frontend** (`payment-management`): en Deudores, un socio con **2+ cuotas impagas**
+  muestra badge rojo **"Urgente · N vencidas"** (alerta para Cris). El resto igual.
+
+Validación funcional (Postgres efímero): flujo de "Juan" completo — paga alta, ficha
+y se genera la cuota del período, saltea un mes sin venir (no se genera ese mes),
+vuelve y acumula 2 vencidas; fichar dos veces el mismo día no duplica. Build de
+frontend OK.
+
 **Validación (Postgres efímero, imagen supabase 17.6.1.134):** la cadena
 `0000…0006` aplica limpia; cadencia correcta en todos los bordes (inscripto 31,
 febrero, bisiesto, aniversario exacto); test funcional: realineo de contador

@@ -1,32 +1,71 @@
 -- 0006_accesos_desde_inscripcion.sql
--- El "mes" del atleta (accesos + vencimiento de cuota) corre desde su fecha de
--- inscripción (athletes.join_date), con cadencia de MES CALENDARIO (aniversario
--- del día de inscripción), no desde el último pago ni desde el primer ingreso.
+-- El "mes" del atleta (accesos + cuota) corre desde su fecha de inscripción
+-- (athletes.join_date), con cadencia de MES CALENDARIO (aniversario del día de
+-- inscripción), no desde el último pago ni desde el primer ingreso.
 --
--- Decisiones de producto (2026-07-24, pedido de Cris):
+-- Decisiones de producto (2026-07-24/25, pedido de Cris):
 --   * Cadencia: mes calendario anclado a join_date. Inscripto el 15 -> el mes se
 --     cumple el 15 de cada mes (inscripto el 31 -> último día en meses cortos).
---   * Alcance: la ventana ancla TANTO la renovación de accesos COMO el
---     'cuota vencida/gracia' que muestra el kiosco.
---   * "Cuota del período vigente": se considera paga si hay un pago 'paid' con
---     fecha >= inicio del período actual. Si no, desde el día que se cumple el
---     mes empiezan a correr los días de gracia y luego queda vencida (se PERMITE
---     con aviso, igual que la lógica flexible de 0001: el único tope duro sigue
---     siendo NO_BALANCE).
+--   * Alcance: la ventana ancla accesos Y estado de cuota (vencida/gracia).
+--   * Puerta (sin cambios respecto a 0001): la cuota vencida NO frena el acceso
+--     (se PERMITE en ámbar); los 12 accesos se renuevan cada aniversario aunque
+--     no haya pagado. El único tope duro sigue siendo NO_BALANCE / cuenta inactiva.
+--   * Cuota como DEUDA ($): se genera atada a la ASISTENCIA. Cuando el socio ficha
+--     y cruza a un período nuevo sin cuota, el kiosco se la genera (pendiente).
+--     El que deja de venir NO acumula cuotas (no hay cron ni generación a ciegas).
+--     Sin back-fill: solo se genera la del período que efectivamente asiste.
 --
 -- Cambios:
---   (A) create_full_athlete_atomic: el primer contador cierra a fin de mes
---       calendario (join_date + 1 mes - 1 día), no join_date + 29.
---   (B) kiosk_check_in: reproduce 0001 y SOLO cambia (a) el cálculo de la ventana
---       del período -ahora desde join_date, mes calendario- reutilizándola para
---       accesos y cuota, y (b) el desacople del vencimiento respecto del último
---       pago. Además auto-sana: si el atleta trae un contador viejo (anclado a
---       pago/hoy) que cubre hoy, lo realinea a la inscripción preservando lo
---       consumido.
---   (C) Realineo inicial (una vez) de los contadores vigentes de atletas activos.
+--   (0)  membership_period(join, ref): helper único que calcula [period_start,
+--        period_end] del mes-calendario anclado a la inscripción. Lo usan el
+--        kiosco, athlete_debt_state, generate_monthly_invoices y el realineo.
+--   (A)  create_full_athlete_atomic: primer contador cierra a fin de mes calendario.
+--   (B)  kiosk_check_in: ventana desde join_date (accesos + cuota) + generación
+--        de la cuota del período al fichar (atada a asistencia) + auto-sanado del
+--        contador viejo anclado a pago/hoy.
+--   (B2) athlete_debt_state: mismo modelo aniversario (lo consume el panel de Pagos).
+--   (B3) generate_monthly_invoices (botón manual): alineado al aniversario y acotado
+--        a socios que asistieron su período vigente (coherente con el modelo, sin
+--        generar deuda a fantasmas). Queda como respaldo manual; ya no hace falta cron.
+--   (C)  Realineo inicial (una vez) de los contadores vigentes de atletas activos.
 --
 -- No introduce reason_codes nuevos (reutiliza OK / OK_GRACE / OK_PENDING /
 -- OK_OVERDUE / OK_OFF_SCHEDULE / OK_TURNO_FULL), así que no toca kiosk_reason_codes.
+
+-- =============================================================================
+-- (0) Helper: ventana [period_start, period_end] del mes-calendario anclado a la
+--     inscripción. period_start = aniversario vigente; period_end = día previo al
+--     próximo aniversario. Postgres clampea meses cortos (31-ene + 1 mes -> 28/29-feb).
+-- =============================================================================
+CREATE OR REPLACE FUNCTION "public"."membership_period"(
+  "p_join" date, "p_ref" date,
+  OUT "period_start" date, OUT "period_end" date
+) LANGUAGE "plpgsql" IMMUTABLE
+  SET "search_path" TO 'public'
+  AS $$
+declare
+  v_join date := coalesce(p_join, p_ref);
+  v_k    integer;
+begin
+  -- k = meses completos transcurridos entre la inscripción y la fecha de referencia
+  v_k := greatest(
+           (extract(year  from age(p_ref, v_join)) * 12
+          + extract(month from age(p_ref, v_join)))::int, 0);
+  period_start := (v_join + make_interval(months => v_k))::date;
+  -- Ajustes de borde por si age() redondea distinto según la duración del mes.
+  while period_start > p_ref and v_k > 0 loop
+    v_k := v_k - 1;
+    period_start := (v_join + make_interval(months => v_k))::date;
+  end loop;
+  while (v_join + make_interval(months => v_k + 1))::date <= p_ref loop
+    v_k := v_k + 1;
+    period_start := (v_join + make_interval(months => v_k))::date;
+  end loop;
+  period_end := (v_join + make_interval(months => v_k + 1))::date - 1;
+end $$;
+
+ALTER FUNCTION "public"."membership_period"(date, date) OWNER TO "postgres";
+GRANT EXECUTE ON FUNCTION "public"."membership_period"(date, date) TO "anon", "authenticated", "service_role";
 
 -- =============================================================================
 -- (A) Alta del atleta: primer contador a fin de mes calendario
@@ -134,8 +173,10 @@ $$;
 ALTER FUNCTION "public"."create_full_athlete_atomic"("p_payload" "jsonb") OWNER TO "postgres";
 
 -- =============================================================================
--- (B) Kiosco: ventana del "mes" anclada a la inscripción (mes calendario)
---     Reproduce 0001 y cambia SOLO el cálculo de la ventana (accesos + cuota).
+-- (B) Kiosco: ventana del "mes" anclada a la inscripción (mes calendario).
+--     Reproduce 0001 y cambia SOLO el cálculo de la ventana (accesos + cuota),
+--     el desacople del vencimiento respecto del último pago, el auto-sanado del
+--     contador viejo y la generación de la cuota del período al fichar (9b).
 -- =============================================================================
 CREATE OR REPLACE FUNCTION "public"."kiosk_check_in"("p_dni" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_now" timestamp with time zone DEFAULT "now"(), "p_timezone" "text" DEFAULT 'America/Argentina/Buenos_Aires'::"text", "p_grace_days" integer DEFAULT 3, "p_autocreate_counter" boolean DEFAULT true) RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
@@ -166,7 +207,6 @@ declare
   v_local_dow integer;
 
   v_join_date date;
-  v_k integer := 0;
 
   v_last_paid_at timestamptz;
   v_paid_current boolean := false;
@@ -472,28 +512,10 @@ begin
   -- turnos elegidos y ninguno matchea el momento actual.
   v_off_schedule := (v_weekly_schedule_id is null) or (v_has_assignments and not v_in_own_slot);
 
-  -- ---------------------------------------------------------------------------
-  -- Ventana del "mes" anclada a la inscripción (mes calendario / aniversario).
-  -- k = meses completos transcurridos desde join_date hasta hoy. period_start es
-  -- el aniversario vigente; period_end, el día previo al próximo aniversario.
-  -- Postgres ajusta a fin de mes en meses cortos (join 31-ene + 1 mes -> 28/29-feb).
-  -- Esta ventana ancla TANTO los accesos COMO el vencimiento de cuota.
-  -- ---------------------------------------------------------------------------
-  v_join_date := coalesce(v_join_date, v_local_date);
-  v_k := greatest(
-           (extract(year  from age(v_local_date, v_join_date)) * 12
-          + extract(month from age(v_local_date, v_join_date)))::int, 0);
-  v_period_start := (v_join_date + make_interval(months => v_k))::date;
-  -- Ajustes de borde por si age() redondea distinto según la duración del mes.
-  while v_period_start > v_local_date and v_k > 0 loop
-    v_k := v_k - 1;
-    v_period_start := (v_join_date + make_interval(months => v_k))::date;
-  end loop;
-  while (v_join_date + make_interval(months => v_k + 1))::date <= v_local_date loop
-    v_k := v_k + 1;
-    v_period_start := (v_join_date + make_interval(months => v_k))::date;
-  end loop;
-  v_period_end := (v_join_date + make_interval(months => v_k + 1))::date - 1;
+  -- Ventana del "mes" anclada a la inscripción (mes calendario). Ancla accesos y cuota.
+  select mp.period_start, mp.period_end
+    into v_period_start, v_period_end
+  from public.membership_period(v_join_date, v_local_date) mp;
 
   -- Lock por atleta+día (evita doble consumo concurrente)
   perform pg_advisory_xact_lock(hashtextextended(v_athlete_id::text || ':' || v_local_date::text, 0));
@@ -622,6 +644,32 @@ begin
   where id = v_counter_id;
   v_remaining := v_remaining - 1;
 
+  -- (9b) Cuota del período atada a la ASISTENCIA: si el socio cruzó a un período
+  --      sin cuota (ni pendiente ni paga), se la generamos (pendiente) al fichar.
+  --      El que deja de venir no ficha -> no se le apilan cuotas. Sin back-fill:
+  --      solo el período que asiste. Reconoce la cuota del alta (period NULL) y los
+  --      pagos hechos dentro del período por su payment_date.
+  insert into public.payments (athlete_id, amount, base_amount, status, method, period, payment_date, concept)
+  select v_athlete_id,
+         coalesce(nullif(a.plan_tier_price, 0), pl.price, 0),
+         coalesce(nullif(a.plan_tier_price, 0), pl.price, 0),
+         'pending', 'efectivo', v_period_start, v_local_date,
+         'Cuota ' || to_char(v_period_start, 'DD/MM') || '–' || to_char(v_period_end, 'DD/MM')
+           || ' - ' || coalesce(pl.name, 'Plan')
+  from public.athletes a
+  left join public.plans pl on pl.id = a.plan_id
+  where a.id = v_athlete_id
+    and not exists (
+      select 1 from public.payments p
+      where p.athlete_id = v_athlete_id
+        and p.status in ('paid', 'pending')
+        and (
+          p.period = v_period_start
+          or (p.payment_date >= v_period_start and p.payment_date <= v_period_end)
+        )
+    )
+  on conflict (athlete_id, period) where period is not null do nothing;
+
   v_warn := (v_off_schedule or v_overdue or v_is_grace or v_capacity_full or v_last_paid_at is null);
 
   -- Código de log (precedencia: la excepción "más fuerte" gana).
@@ -677,13 +725,12 @@ end;
 $$;
 
 -- =============================================================================
--- (B2) Estado de deuda alineado al kiosco: athlete_debt_state ahora usa la MISMA
---      ventana mes-calendario anclada a la inscripción. Lo consume admin_billing_status
---      (RPC del panel de Pagos), así que "vencido/gracia/pendiente" del panel queda
---      alineado con lo que muestra el kiosco. Misma precedencia que kiosk_check_in:
---        - pagó el período vigente        -> 'ok'
---        - no pagó y días > gracia         -> 'overdue'
---        - nunca pagó y dentro de gracia   -> 'pending'
+-- (B2) Estado de deuda alineado al kiosco: athlete_debt_state usa la MISMA ventana
+--      mes-calendario. Lo consume admin_billing_status (RPC del panel de Pagos).
+--      Precedencia idéntica a kiosk_check_in:
+--        - pagó el período vigente         -> 'ok'
+--        - no pagó y días > gracia          -> 'overdue'
+--        - nunca pagó y dentro de gracia    -> 'pending'
 --        - pagó un período anterior, gracia -> 'grace'
 -- =============================================================================
 CREATE OR REPLACE FUNCTION "public"."athlete_debt_state"("p_athlete_id" "uuid", "p_now" timestamp with time zone DEFAULT "now"(), "p_timezone" "text" DEFAULT 'America/Argentina/Buenos_Aires'::"text", "p_grace_days" integer DEFAULT 3) RETURNS "jsonb"
@@ -693,7 +740,6 @@ CREATE OR REPLACE FUNCTION "public"."athlete_debt_state"("p_athlete_id" "uuid", 
 declare
   v_join_date    date;
   v_local_date   date;
-  v_k            integer := 0;
   v_period_start date;
   v_period_end   date;
   v_last_paid_at timestamptz;
@@ -704,22 +750,10 @@ declare
 begin
   select a.join_date into v_join_date from public.athletes a where a.id = p_athlete_id;
   v_local_date := (p_now at time zone p_timezone)::date;
-  v_join_date  := coalesce(v_join_date, v_local_date);
 
-  -- Ventana del "mes" (misma cadencia que kiosk_check_in): mes calendario desde join_date.
-  v_k := greatest(
-           (extract(year  from age(v_local_date, v_join_date)) * 12
-          + extract(month from age(v_local_date, v_join_date)))::int, 0);
-  v_period_start := (v_join_date + make_interval(months => v_k))::date;
-  while v_period_start > v_local_date and v_k > 0 loop
-    v_k := v_k - 1;
-    v_period_start := (v_join_date + make_interval(months => v_k))::date;
-  end loop;
-  while (v_join_date + make_interval(months => v_k + 1))::date <= v_local_date loop
-    v_k := v_k + 1;
-    v_period_start := (v_join_date + make_interval(months => v_k))::date;
-  end loop;
-  v_period_end := (v_join_date + make_interval(months => v_k + 1))::date - 1;
+  select mp.period_start, mp.period_end
+    into v_period_start, v_period_end
+  from public.membership_period(v_join_date, v_local_date) mp;
   v_expiration := ((v_period_end + 1)::timestamp at time zone p_timezone);
 
   select p.payment_date::timestamptz into v_last_paid_at
@@ -756,6 +790,75 @@ end;
 $$;
 
 -- =============================================================================
+-- (B3) generate_monthly_invoices (botón manual "Generar Período"): alineado al
+--      aniversario y acotado a socios que ASISTIERON su período vigente. Coherente
+--      con el modelo atado a asistencia: no genera deuda a fantasmas. El kiosco ya
+--      genera al fichar; esto queda como respaldo/catch-up manual. Idempotente.
+-- =============================================================================
+CREATE OR REPLACE FUNCTION "public"."generate_monthly_invoices"("p_now" timestamp with time zone DEFAULT "now"(), "p_timezone" "text" DEFAULT 'America/Argentina/Buenos_Aires'::"text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_local_date date := (p_now at time zone p_timezone)::date;
+  v_created int := 0;
+begin
+  if not public.is_admin(auth.uid()) then
+    raise exception 'FORBIDDEN: solo admin puede generar cuotas';
+  end if;
+
+  with per as (
+    select a.id as athlete_id,
+           coalesce(nullif(a.plan_tier_price, 0), pl.price, 0) as amount,
+           coalesce(pl.name, 'Membresia General') as plan_name,
+           mp.period_start as ps,
+           mp.period_end   as pe
+    from public.athletes a
+    left join public.plans pl on pl.id = a.plan_id
+    cross join lateral public.membership_period(a.join_date, v_local_date) mp
+    where a.status = 'active' and a.join_date is not null and mp.period_start <= v_local_date
+  ),
+  candidates as (
+    select p.*
+    from per p
+    where exists (  -- asistió (fichó) en el período vigente -> la deuda sigue la asistencia
+      select 1 from public.access_logs al
+      where al.athlete_id = p.athlete_id
+        and al.access_granted is true
+        and al.local_checkin_date >= p.ps
+        and al.local_checkin_date <= p.pe
+    )
+    and not exists (  -- no tiene ya una cuota (paga o pendiente) que cubra el período
+      select 1 from public.payments pay
+      where pay.athlete_id = p.athlete_id
+        and pay.status in ('paid', 'pending')
+        and (
+          pay.period = p.ps
+          or (pay.payment_date >= p.ps and pay.payment_date <= p.pe)
+        )
+    )
+  )
+  insert into public.payments
+    (athlete_id, amount, base_amount, status, method, period, payment_date, concept)
+  select c.athlete_id, c.amount, c.amount, 'pending', 'efectivo', c.ps, v_local_date,
+         'Cuota ' || to_char(c.ps, 'DD/MM') || '–' || to_char(c.pe, 'DD/MM') || ' - ' || c.plan_name
+  from candidates c
+  on conflict (athlete_id, period) where period is not null do nothing;
+
+  get diagnostics v_created = row_count;
+
+  return jsonb_build_object(
+    'created', v_created,
+    'message', case when v_created = 0
+                    then 'No hay cuotas nuevas para generar (los que asistieron ya tienen la suya).'
+                    else 'Se generaron ' || v_created || ' nuevas cuotas pendientes.' end
+  );
+end;
+$$;
+
+ALTER FUNCTION "public"."generate_monthly_invoices"("p_now" timestamp with time zone, "p_timezone" "text") OWNER TO "postgres";
+
+-- =============================================================================
 -- (C) Realineo inicial (una vez): llevar el contador vigente de cada atleta
 --     activo a la ventana anclada a su inscripción, preservando consumed_sessions.
 --     Seguro ante colisiones: solo si NO existe ya un contador en la ventana
@@ -766,18 +869,11 @@ with hoy as (
   select (timezone('America/Argentina/Buenos_Aires', now()))::date as d
 ),
 tgt as (
-  select
-    a.id as athlete_id,
-    (a.join_date + make_interval(months =>
-        greatest((extract(year  from age((select d from hoy), a.join_date)) * 12
-                + extract(month from age((select d from hoy), a.join_date)))::int, 0)))::date as ps
+  select a.id as athlete_id, mp.period_start as ps, mp.period_end as pe
   from public.athletes a
+  cross join lateral public.membership_period(a.join_date, (select d from hoy)) mp
   where a.status = 'active' and a.join_date is not null
-),
-tgt2 as (
-  select athlete_id, ps, ((ps + interval '1 month')::date - 1) as pe
-  from tgt
-  where ps <= (select d from hoy)
+    and mp.period_start <= (select d from hoy)
 ),
 cur as (
   select distinct on (amc.athlete_id) amc.id, amc.athlete_id
@@ -791,7 +887,7 @@ update public.athlete_monthly_counters amc
        period_end   = t.pe,
        updated_at   = timezone('utc', now())
 from cur c
-join tgt2 t on t.athlete_id = c.athlete_id
+join tgt t on t.athlete_id = c.athlete_id
 where amc.id = c.id
   and (amc.period_start <> t.ps or amc.period_end <> t.pe)
   and not exists (
