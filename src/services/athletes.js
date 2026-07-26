@@ -151,21 +151,38 @@ export const updateAthletePersonalData = async ({ athleteId, profileId, previous
       .eq('id', profileId);
     if (profileError) throw profileError;
 
+    const athletePatch = {
+      dni: dniDigits,
+      phone,
+      birth_date: data.birthDate || null,
+      gender: data.gender && data.gender !== 'select' ? data.gender : null,
+      address: (data.address || '').trim() || null,
+      city: (data.city || '').trim() || null,
+      emergency_contact_name: (data.emergencyName || '').trim() || null,
+      emergency_contact_phone: (data.emergencyPhone || '').trim() || null,
+      medical_conditions: (data.medicalConditions || '').trim() || null,
+    };
+    // Fecha de inscripción: ancla del ciclo (accesos + cuota). Editable para corregir
+    // altas cargadas con fecha equivocada. Si no vino, no se toca.
+    const joinDate = (data.joinDate || '').trim() || null;
+    const joinDateChanged = joinDate && joinDate !== (data.previousJoinDate || null);
+    if (joinDate) athletePatch.join_date = joinDate;
+
     const { error: athleteError } = await supabase
       .from('athletes')
-      .update({
-        dni: dniDigits,
-        phone,
-        birth_date: data.birthDate || null,
-        gender: data.gender && data.gender !== 'select' ? data.gender : null,
-        address: (data.address || '').trim() || null,
-        city: (data.city || '').trim() || null,
-        emergency_contact_name: (data.emergencyName || '').trim() || null,
-        emergency_contact_phone: (data.emergencyPhone || '').trim() || null,
-        medical_conditions: (data.medicalConditions || '').trim() || null,
-      })
+      .update(athletePatch)
       .eq('id', athleteId);
     if (athleteError) throw athleteError;
+
+    // Si cambió la fecha de inscripción, re-anclar el contador de accesos vigente
+    // a la nueva ventana (el estado de cuota ya recalcula solo). No es crítico:
+    // si falla, el kiosco lo auto-sana en el próximo ingreso.
+    if (joinDateChanged) {
+      const { error: realignError } = await supabase.rpc('admin_realign_athlete_counter', {
+        p_athlete_id: athleteId,
+      });
+      if (realignError) console.warn('No se pudo realinear el contador tras cambiar la fecha:', realignError);
+    }
 
     // DNI cambiado → sincronizar el login interno de auth (si lo tiene).
     // Si la sync falla, los datos YA quedaron guardados: se devuelve warning, no error.

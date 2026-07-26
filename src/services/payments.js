@@ -28,7 +28,8 @@ export const generateMonthlyInvoices = async () => {
 
 /**
  * Estado de deuda ("vencido") de todos los atletas activos, alineado al ciclo del
- * kiosco (último pago 'paid' + 30d + gracia). Fuente única de verdad para Pagos.
+ * kiosco: el "mes" corre desde la fecha de inscripción (aniversario), no desde el
+ * último pago. Fuente única de verdad para Pagos.
  * Devuelve un mapa athlete_id -> { state, last_paid_at, expires_at, days_late }.
  * state: 'ok' | 'grace' | 'overdue' | 'pending'.
  */

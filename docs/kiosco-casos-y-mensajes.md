@@ -7,6 +7,13 @@ con el color/pantalla que ve la persona, el mensaje en pantalla, el código que 
 > Fuente: RPC `kiosk_check_in` (migración `0001_kiosk_flexible_access.sql`) + pantalla `access-control`.
 > Zona horaria: **America/Argentina/Buenos_Aires**. Regla base: **1 acceso = 1 día**.
 
+> ⚠️ **ACTUALIZACIÓN 2026-07-25 (migraciones 0006–0008):** el ciclo de accesos y el
+> vencimiento de cuota ahora corren desde la **fecha de inscripción** (mes calendario),
+> no desde el último pago. El kiosco además **genera la cuota del período al fichar**.
+> Ver **`cuotas-accesos-y-facturacion.md`** (fuente de verdad del modelo). Las
+> casuísticas/mensajes de abajo siguen vigentes; solo cambió de dónde sale la ventana
+> del período y el cálculo de vencido/gracia.
+
 ## Cómo identifica a la persona
 1. Se ingresa **DNI o teléfono** (solo dígitos; el teclado del kiosco o un lector).
 2. Busca el perfil por **DNI**, luego por **teléfono**, luego en la tabla de atletas.

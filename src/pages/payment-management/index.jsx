@@ -589,7 +589,22 @@ const PaymentManagement = () => {
 
       // Deudores: pending + overdue
       const due = processed.filter((p) => p.status === 'pending' || p.status === 'overdue');
-      due.sort((a, b) => (b.daysOverdue - a.daysOverdue) || (Number(b.amount) - Number(a.amount)));
+      // Cuántas cuotas impagas acumula cada atleta (para la alerta "N vencidas").
+      // Un socio que sigue viniendo sin pagar acumula una cuota por período; 2+ => cobrar urgente.
+      const unpaidByAthlete = new Map();
+      due.forEach((p) => {
+        if (!p.athleteId) return;
+        unpaidByAthlete.set(p.athleteId, (unpaidByAthlete.get(p.athleteId) || 0) + 1);
+      });
+      due.forEach((p) => {
+        p.unpaidCount = p.athleteId ? unpaidByAthlete.get(p.athleteId) || 1 : 1;
+      });
+      due.sort(
+        (a, b) =>
+          (b.unpaidCount - a.unpaidCount) ||
+          (b.daysOverdue - a.daysOverdue) ||
+          (Number(b.amount) - Number(a.amount)),
+      );
       setDebtors(due);
 
       // Anulados (soft-delete)
@@ -916,7 +931,18 @@ const PaymentManagement = () => {
                         </td>
 
                         <td className="px-6 py-3 align-middle whitespace-nowrap">
-                          <p className="text-sm font-black text-text-primary">{row.athleteName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-black text-text-primary">{row.athleteName}</p>
+                            {activeTab === 'debtors' && row.unpaidCount >= 2 && (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error-light text-error text-[10px] font-black uppercase tracking-widest"
+                                title={`Este socio acumula ${row.unpaidCount} cuotas impagas. Cobrar urgente.`}
+                              >
+                                <Icon name="AlertTriangle" size={12} strokeWidth={2.5} />
+                                Urgente · {row.unpaidCount} vencidas
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         <td className="px-6 py-3 align-middle">

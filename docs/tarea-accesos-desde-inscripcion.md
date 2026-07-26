@@ -3,6 +3,121 @@
 > Arrancar con: "arreglemos que los accesos arranquen desde la inscripción del atleta".
 > Handoff autocontenido (2026-07-24). Contexto y workflow al final.
 
+## ✅ RESUELTO (2026-07-24) — migración `0006_accesos_desde_inscripcion.sql`
+Implementado en la branch `feat/accesos-desde-inscripcion` (sin pushear, sin
+aplicar a prod todavía — falta la password del pooler que provee el usuario).
+
+**Decisiones tomadas con el usuario (superan al plan original del handoff):**
+- **Cadencia: MES CALENDARIO** anclado a `join_date` (aniversario del día de
+  inscripción), NO 30 días fijos. Inscripto el 15 → vence el 15 de cada mes;
+  inscripto el 31 → último día del mes en meses cortos (Postgres clampea con
+  `join_date + make_interval(months => k)`).
+- **Alcance: la ventana ancla accesos Y vencimiento de cuota** (unificado, no
+  separado como proponía el handoff). El caso disparador fue la duda de un socio:
+  "¿pago julio y de nuevo agosto, o esto cubre hasta que se cumpla el mes?".
+  Cris: "el mes corre desde que se inscribió".
+- **Cuota del período vigente**: paga si hay un pago `paid` con fecha ≥ inicio del
+  período actual; si no, desde el aniversario corren los días de gracia y luego
+  queda vencida (se PERMITE con aviso; el único tope duro sigue siendo NO_BALANCE).
+
+**Qué cambió la 0006:**
+- `create_full_athlete_atomic`: primer contador cierra a fin de mes calendario
+  (`join_date + 1 mes - 1 día`) en vez de `join_date + 29`.
+- `kiosk_check_in`: calcula la ventana `[period_start, period_end]` desde
+  `join_date` (mes calendario) y la usa para accesos y para cuota. Auto-sana:
+  si el atleta trae un contador viejo (anclado a pago/hoy) que cubre hoy, lo
+  realinea a la inscripción preservando `consumed_sessions`.
+- `athlete_debt_state` (la usa la RPC `admin_billing_status` del panel de Pagos):
+  mismo modelo aniversario y misma precedencia que el kiosco, para que el
+  "vencido/gracia/pendiente" del panel quede alineado con lo que ve el socio en
+  el kiosco. `expires_at` ahora es el próximo aniversario (no `último pago + 30`).
+- Realineo inicial (una vez, al final de la migración) de los contadores vigentes
+  de atletas activos.
+
+### Generación de cuotas atada a la ASISTENCIA (2026-07-25)
+Segunda parte del pedido: "cuándo se regenera la cuota" y el botón "Generar Período".
+
+- Se descartó el cron ciego: generaría cuotas a los que dejaron de venir (deuda
+  fantasma infinita, la preocupación del usuario).
+- Modelo elegido: **la cuota ($, fila `payments` pending) se genera en el kiosco al
+  fichar**, cuando el socio cruza a un período nuevo sin cuota. Atado a asistencia:
+  - El que viene y no paga → se le acumula deuda **real** (1 cuota por período).
+  - El que deja de venir → no ficha → **no se le genera nada** (no infla deuda).
+  - **Sin back-fill**: solo se genera la del período que efectivamente asiste
+    (si faltó agosto y vuelve en octubre, se genera octubre, no agosto).
+  - Reconoce la cuota del alta (`period` NULL) y pagos dentro del período por su
+    `payment_date`, así que no duplica. Idempotente (un fichaje/día).
+- `kiosk_check_in` → bloque **(9b)**: `insert ... on conflict (athlete_id, period)`.
+- `generate_monthly_invoices` (botón "Generar Período"): **alineado al aniversario**
+  y **acotado a socios que asistieron** su período vigente. Queda como respaldo
+  manual; con la generación al fichar, ya casi no hace falta. **No se agregó cron.**
+- Helper nuevo `membership_period(join, ref)` (OUT period_start, period_end): fuente
+  única de la ventana mes-calendario; lo usan kiosco, debt_state, generate y el realineo.
+- **Frontend** (`payment-management`): en Deudores, un socio con **2+ cuotas impagas**
+  muestra badge rojo **"Urgente · N vencidas"** (alerta para Cris). El resto igual.
+
+Validación funcional (Postgres efímero): flujo de "Juan" completo — paga alta, ficha
+y se genera la cuota del período, saltea un mes sin venir (no se genera ese mes),
+vuelve y acumula 2 vencidas; fichar dos veces el mismo día no duplica. Build de
+frontend OK.
+
+### Generación automática mensual (migración 0007, 2026-07-25)
+Refinamiento de Cris: que la cuota del socio AL DÍA se genere sola cada mes, no solo
+al fichar. Regla "estratégica" para no inflar deuda de fantasmas:
+- **Cron diario** (`generate_due_invoices_auto`, pg_cron `0 9 * * *` = 06:00 AR) genera
+  la cuota del período vigente el **día del aniversario (día 0)** SOLO para atletas
+  activos **al día** (guard: sin ninguna cuota `pending`).
+- Si el socio **ya debe** (tiene una pendiente) → el cron **no apila**; la siguiente
+  se genera únicamente si **ficha** (bloque 9b de kiosk_check_in, 0006).
+- Los **días de gracia** hacen de aviso (pendiente pero no vencida los primeros días).
+- Resultado: Deudores autoritativo (todos los que deben, vengan o no) sin deuda infinita
+  — el que se va queda con 1 cuota y ahí se frena.
+- `generate_due_invoices_auto` es SECURITY DEFINER **sin guard de admin** (la corre el
+  cron/rol postgres); `REVOKE` de anon/authenticated, `GRANT` solo a service_role.
+- **Requiere pg_cron habilitado** en el proyecto. Validado en imagen supabase local:
+  extensión disponible, `cron.schedule` OK, guard "al día" correcto (Ana al día → genera;
+  Beto que ya debía → no), idempotente. Si en prod `create extension pg_cron` falla,
+  habilitarlo en Dashboard → Database → Extensions y reaplicar 0007.
+- Descartado el timing "2-3 días antes" (ensuciaba Deudores con cuota pendiente-no-vencida):
+  se genera el día 0 y la gracia cubre el heads-up.
+
+Cadena completa `0000..0007` aplica limpia en Postgres efímero.
+
+### Editar fecha de inscripción (migración 0008, 2026-07-25)
+Al aplicar 0006 a prod aparecieron 15/17 atletas "vencidos": su `join_date` era la
+**fecha de carga (02-jul), no la inscripción real** (se cargaron por script sin saber
+el día real). El modelo está bien; la fecha ancla estaba mal. Decisión con el usuario:
+el ancla del ciclo es SIEMPRE `join_date` (nunca el pago: "si me inscribo el 15 y pago
+el 20, el ciclo corre desde el 15"). En altas nuevas ya se setea al dar de alta.
+- **0008** `admin_realign_athlete_counter(athlete_id)`: tras editar `join_date`,
+  re-ancla el contador de accesos vigente a la nueva ventana (preserva consumido). El
+  estado de cuota recalcula solo (athlete_debt_state en vivo).
+- **Front**: campo "Fecha de Inscripción" editable en `EditAthleteModal`;
+  `updateAthletePersonalData` guarda `join_date` y llama al RPC de realineo si cambió.
+- Se descartó el toggle "anclar al pago" en el modal de cobro (el ancla es la inscripción).
+
+**APLICADO A PROD (2026-07-25):** 0006 + 0007 + 0008 aplicadas por el pooler y
+trackeadas en `supabase_migrations.schema_migrations` (0000..0008). pg_cron habilitado
+(`create extension`) y job `generate-due-invoices-daily` activo (`0 9 * * *`). El
+realineo inicial de 0006 movió los 17 contadores a ventana mes-calendario (consumido
+preservado). **Front pendiente de deploy** (branch `feat/accesos-desde-inscripcion`):
+la edición de fecha y el badge de Deudores necesitan mergear/pushear (Vercel deploya).
+El front viejo es compatible con la DB nueva (mismo shape de respuestas).
+
+**Validación (Postgres efímero, imagen supabase 17.6.1.134):** la cadena
+`0000…0006` aplica limpia; cadencia correcta en todos los bordes (inscripto 31,
+febrero, bisiesto, aniversario exacto); test funcional: realineo de contador
+viejo preservando consumo, autocreación en ventana de inscripción, overdue
+anclado al aniversario, y rollover en el aniversario. No introduce reason_codes
+nuevos (no toca `kiosk_reason_codes`).
+
+**Pendiente para aplicar a prod:** correr la 0006 por el pooler IPv4 y trackear
+con `supabase migration repair --status applied 0006` (ver "Contexto/workflow"
+al final). 100% backend, sin cambios de frontend.
+
+---
+### Notas históricas del análisis previo (pre-implementación)
+
 ## Objetivo (pedido del cliente)
 La **cantidad de accesos definidos** para el atleta debe **arrancar/renovarse desde el día de su inscripción** (`athletes.join_date`), no desde la fecha del último pago ni desde el día del primer ingreso.
 

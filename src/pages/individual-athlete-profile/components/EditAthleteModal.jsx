@@ -20,6 +20,7 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
     email: '',
     phone: '',
     birthDate: '',
+    joinDate: '',
     gender: 'select',
     address: '',
     city: '',
@@ -28,11 +29,13 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
     medicalConditions: '',
   });
   const [originalDni, setOriginalDni] = useState('');
+  const [originalJoinDate, setOriginalJoinDate] = useState('');
 
   useEffect(() => {
     if (!athlete) return;
     const dni = athlete.dni || '';
     setOriginalDni(dni.replace(/\D/g, ''));
+    setOriginalJoinDate(athlete.join_date || '');
     setFormData({
       fullName: athlete.name || '',
       dni,
@@ -40,6 +43,7 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
       email: isInternalEmail(athlete.email) ? '' : athlete.email || '',
       phone: athlete.phone || '',
       birthDate: athlete.birth_date || '',
+      joinDate: athlete.join_date || '',
       gender: athlete.gender || 'select',
       address: athlete.address || '',
       city: athlete.city || '',
@@ -74,7 +78,7 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
       athleteId: athlete.id,
       profileId: athlete.profile_id,
       previousDni: originalDni,
-      data: { ...formData, email: finalEmail },
+      data: { ...formData, email: finalEmail, previousJoinDate: originalJoinDate || null },
     });
 
     setLoading(false);
@@ -251,6 +255,20 @@ const EditAthleteModal = ({ athlete, onClose, onSuccess }) => {
                   onChange={handleChange}
                   className={inputClasses}
                 />
+              </div>
+
+              <div>
+                <label className={labelClasses}>Fecha de Inscripción</label>
+                <input
+                  name="joinDate"
+                  type="date"
+                  value={formData.joinDate}
+                  onChange={handleChange}
+                  className={inputClasses}
+                />
+                <p className="mt-1 text-[11px] font-semibold text-text-tertiary">
+                  Ancla el ciclo de cuotas y accesos. Corregila si la carga inicial quedó con otra fecha.
+                </p>
               </div>
 
               <div>
