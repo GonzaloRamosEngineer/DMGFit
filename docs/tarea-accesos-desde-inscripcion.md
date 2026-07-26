@@ -61,6 +61,28 @@ y se genera la cuota del período, saltea un mes sin venir (no se genera ese mes
 vuelve y acumula 2 vencidas; fichar dos veces el mismo día no duplica. Build de
 frontend OK.
 
+### Generación automática mensual (migración 0007, 2026-07-25)
+Refinamiento de Cris: que la cuota del socio AL DÍA se genere sola cada mes, no solo
+al fichar. Regla "estratégica" para no inflar deuda de fantasmas:
+- **Cron diario** (`generate_due_invoices_auto`, pg_cron `0 9 * * *` = 06:00 AR) genera
+  la cuota del período vigente el **día del aniversario (día 0)** SOLO para atletas
+  activos **al día** (guard: sin ninguna cuota `pending`).
+- Si el socio **ya debe** (tiene una pendiente) → el cron **no apila**; la siguiente
+  se genera únicamente si **ficha** (bloque 9b de kiosk_check_in, 0006).
+- Los **días de gracia** hacen de aviso (pendiente pero no vencida los primeros días).
+- Resultado: Deudores autoritativo (todos los que deben, vengan o no) sin deuda infinita
+  — el que se va queda con 1 cuota y ahí se frena.
+- `generate_due_invoices_auto` es SECURITY DEFINER **sin guard de admin** (la corre el
+  cron/rol postgres); `REVOKE` de anon/authenticated, `GRANT` solo a service_role.
+- **Requiere pg_cron habilitado** en el proyecto. Validado en imagen supabase local:
+  extensión disponible, `cron.schedule` OK, guard "al día" correcto (Ana al día → genera;
+  Beto que ya debía → no), idempotente. Si en prod `create extension pg_cron` falla,
+  habilitarlo en Dashboard → Database → Extensions y reaplicar 0007.
+- Descartado el timing "2-3 días antes" (ensuciaba Deudores con cuota pendiente-no-vencida):
+  se genera el día 0 y la gracia cubre el heads-up.
+
+Cadena completa `0000..0007` aplica limpia en Postgres efímero.
+
 **Validación (Postgres efímero, imagen supabase 17.6.1.134):** la cadena
 `0000…0006` aplica limpia; cadencia correcta en todos los bordes (inscripto 31,
 febrero, bisiesto, aniversario exacto); test funcional: realineo de contador
