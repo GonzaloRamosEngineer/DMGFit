@@ -31,7 +31,7 @@ const CoachAttendance = () => {
     try {
       const { data, error } = await supabase
         .from('access_logs')
-        .select('id, check_in_time, local_checkin_date, coach_id, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
+        .select('id, check_in_time, check_out_time, local_checkin_date, coach_id, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
         .not('coach_id', 'is', null)
         .eq('access_granted', true)
         .gte('local_checkin_date', start)
@@ -99,6 +99,39 @@ const CoachAttendance = () => {
     }
   };
 
+  // Minutos trabajados de una fila (entrada->salida). null si aún no fichó salida.
+  const workedMinutes = (r) => {
+    if (!r.check_in_time || !r.check_out_time) return null;
+    const min = Math.round((new Date(r.check_out_time) - new Date(r.check_in_time)) / 60000);
+    return min >= 0 ? min : null;
+  };
+  const fmtDuration = (min) => {
+    if (min == null) return null;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  // Total de horas trabajadas por profesor en el período (solo días con salida fichada).
+  const totals = useMemo(() => {
+    const map = new Map();
+    filtered.forEach((r) => {
+      if (!r.coach_id) return;
+      const cur = map.get(r.coach_id) || {
+        name: r.coaches?.profiles?.full_name || 'Profesor',
+        minutes: 0,
+        dias: 0,
+        sinSalida: 0,
+      };
+      cur.dias += 1;
+      const wm = workedMinutes(r);
+      if (wm == null) cur.sinSalida += 1;
+      else cur.minutes += wm;
+      map.set(r.coach_id, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => b.minutes - a.minutes);
+  }, [filtered]);
+
   return (
     <>
       <Helmet><title>Asistencia de Profesores | VC Fit</title></Helmet>
@@ -108,7 +141,7 @@ const CoachAttendance = () => {
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 shrink-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
-              <p className="text-sm text-text-secondary font-medium mt-0.5">Qué días y horarios estuvo presente cada profesor (registrado en el kiosco).</p>
+              <p className="text-sm text-text-secondary font-medium mt-0.5">Entrada, salida y horas trabajadas de cada profesor (1º fichaje = entrada, 2º = salida).</p>
             </div>
 
             <DateRangeFilter
@@ -134,6 +167,26 @@ const CoachAttendance = () => {
             </DateRangeFilter>
           </div>
 
+          {!loading && totals.length > 0 && (
+            <div className="shrink-0 flex gap-3 overflow-x-auto custom-scrollbar pb-1">
+              {totals.map((t) => (
+                <div
+                  key={t.name}
+                  className="min-w-[180px] rounded-2xl border border-border bg-card px-4 py-3"
+                >
+                  <p className="text-xs font-bold text-text-secondary truncate">{t.name}</p>
+                  <p className="text-xl font-black text-text-primary mt-0.5">
+                    {fmtDuration(t.minutes) || '0m'}
+                  </p>
+                  <p className="text-[11px] font-semibold text-text-tertiary">
+                    {t.dias} {t.dias === 1 ? 'día' : 'días'}
+                    {t.sinSalida > 0 ? ` · ${t.sinSalida} sin salida` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
           <Card padding="none" className="flex flex-col lg:flex-1 lg:min-h-0 overflow-hidden">
             {loading ? (
               <div className="p-6 space-y-3">
@@ -154,7 +207,9 @@ const CoachAttendance = () => {
                     <tr>
                       <th className="text-left font-bold px-5 py-3">Profesor</th>
                       <th className="text-left font-bold px-5 py-3">Fecha</th>
-                      <th className="text-left font-bold px-5 py-3">Hora de llegada</th>
+                      <th className="text-left font-bold px-5 py-3">Entrada</th>
+                      <th className="text-left font-bold px-5 py-3">Salida</th>
+                      <th className="text-left font-bold px-5 py-3">Horas</th>
                       <th className="text-left font-bold px-5 py-3">Turno</th>
                     </tr>
                   </thead>
@@ -168,6 +223,16 @@ const CoachAttendance = () => {
                             : '—'}
                         </td>
                         <td className="px-5 py-3 text-text-secondary">{fmtTime(r.check_in_time)}</td>
+                        <td className="px-5 py-3 text-text-secondary">
+                          {r.check_out_time ? (
+                            fmtTime(r.check_out_time)
+                          ) : (
+                            <span className="text-warning font-semibold">En curso</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 font-bold text-text-primary">
+                          {fmtDuration(workedMinutes(r)) || '—'}
+                        </td>
                         <td className="px-5 py-3 text-text-secondary">
                           {r.weekly_schedule
                             ? `${String(r.weekly_schedule.start_time).slice(0, 5)} - ${String(r.weekly_schedule.end_time).slice(0, 5)}`

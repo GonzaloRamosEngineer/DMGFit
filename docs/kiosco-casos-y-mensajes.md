@@ -14,6 +14,18 @@ con el color/pantalla que ve la persona, el mensaje en pantalla, el código que 
 > casuísticas/mensajes de abajo siguen vigentes; solo cambió de dónde sale la ventana
 > del período y el cálculo de vencido/gracia.
 
+## Profesores: entrada y salida (fichaje doble)
+
+Desde 2026-07-26 (migración `0010`), el fichaje del profe registra **entrada y salida**:
+- **1er fichaje del día** → Entrada. Mensaje: *"¡Hola, [profe]! Entrada registrada."* (verde)
+- **2º fichaje del día** → Salida (misma fila, `access_logs.check_out_time`). Mensaje:
+  *"¡Chau, [profe]! Salida registrada."* (verde). **No** muestra horas en el kiosco.
+- **3º+ fichaje** → *"Ya registraste entrada y salida hoy. ¡Buen descanso!"*
+
+Las **horas trabajadas** (salida − entrada) se ven solo en administración, en
+**Asistencia de Profesores** (`/coach-attendance`): columnas Entrada/Salida/Horas y
+total por profesor del período. La rama atleta del kiosco no cambia.
+
 ## Cómo identifica a la persona
 1. Se ingresa **DNI o teléfono** (solo dígitos; el teclado del kiosco o un lector).
 2. Busca el perfil por **DNI**, luego por **teléfono**, luego en la tabla de atletas.
