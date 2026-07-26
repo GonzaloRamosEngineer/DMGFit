@@ -83,6 +83,27 @@ al fichar. Regla "estratégica" para no inflar deuda de fantasmas:
 
 Cadena completa `0000..0007` aplica limpia en Postgres efímero.
 
+### Editar fecha de inscripción (migración 0008, 2026-07-25)
+Al aplicar 0006 a prod aparecieron 15/17 atletas "vencidos": su `join_date` era la
+**fecha de carga (02-jul), no la inscripción real** (se cargaron por script sin saber
+el día real). El modelo está bien; la fecha ancla estaba mal. Decisión con el usuario:
+el ancla del ciclo es SIEMPRE `join_date` (nunca el pago: "si me inscribo el 15 y pago
+el 20, el ciclo corre desde el 15"). En altas nuevas ya se setea al dar de alta.
+- **0008** `admin_realign_athlete_counter(athlete_id)`: tras editar `join_date`,
+  re-ancla el contador de accesos vigente a la nueva ventana (preserva consumido). El
+  estado de cuota recalcula solo (athlete_debt_state en vivo).
+- **Front**: campo "Fecha de Inscripción" editable en `EditAthleteModal`;
+  `updateAthletePersonalData` guarda `join_date` y llama al RPC de realineo si cambió.
+- Se descartó el toggle "anclar al pago" en el modal de cobro (el ancla es la inscripción).
+
+**APLICADO A PROD (2026-07-25):** 0006 + 0007 + 0008 aplicadas por el pooler y
+trackeadas en `supabase_migrations.schema_migrations` (0000..0008). pg_cron habilitado
+(`create extension`) y job `generate-due-invoices-daily` activo (`0 9 * * *`). El
+realineo inicial de 0006 movió los 17 contadores a ventana mes-calendario (consumido
+preservado). **Front pendiente de deploy** (branch `feat/accesos-desde-inscripcion`):
+la edición de fecha y el badge de Deudores necesitan mergear/pushear (Vercel deploya).
+El front viejo es compatible con la DB nueva (mismo shape de respuestas).
+
 **Validación (Postgres efímero, imagen supabase 17.6.1.134):** la cadena
 `0000…0006` aplica limpia; cadencia correcta en todos los bordes (inscripto 31,
 febrero, bisiesto, aniversario exacto); test funcional: realineo de contador
