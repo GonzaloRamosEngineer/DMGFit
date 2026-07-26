@@ -3,6 +3,13 @@
 _Doc autocontenido. Arrancar con: "Retomemos DMGFit, vamos con pagos — leé `docs/tarea-pagos.md`"._
 _Escrito 2026-07-18, con estado del código verificado a esa fecha._
 
+> ⚠️ **SUPERADO EN PARTE (2026-07-25, migraciones 0006–0008):** el "vencido" ya NO se
+> calcula como "último pago + 30 días" sino desde la **fecha de inscripción** (mes
+> calendario), y la cuota se genera atada a la inscripción/asistencia + un cron diario.
+> Fuente de verdad del modelo vigente: **`cuotas-accesos-y-facturacion.md`**. Lo de
+> abajo (integridad, idempotencia por `period`, anulados/auditoría, comprobante) sigue
+> vigente; solo cambió la lógica de vencido y de generación de cuotas.
+
 ## ✅ ESTADO: RESUELTO (2026-07-19)
 
 Todo el alcance "DENTRO" quedó implementado y **la migración `0026_payments_integrity.sql`
