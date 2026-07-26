@@ -93,7 +93,13 @@ const CoachAttendance = () => {
   const fmtTime = (iso) => {
     if (!iso) return '—';
     try {
-      return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      // Hora fija de Argentina (UTC-3): check_in/out son timestamptz (instantes),
+      // se muestran en hora del gimnasio sin importar la zona de quien mira.
+      return new Date(iso).toLocaleTimeString('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/Argentina/Buenos_Aires',
+      });
     } catch {
       return '—';
     }
