@@ -118,7 +118,7 @@ const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid, onRe
 
   const amount = Number(payment.amount || 0);
   const baseAmount = Number(payment.base_amount || amount);
-  const hasDiscount = payment.discount_value && Number(payment.discount_value) > 0;
+  const hasDiscount = Number(payment.discount_value) > 0;
 
   const setField = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
 
