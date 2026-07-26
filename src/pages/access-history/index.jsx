@@ -162,8 +162,15 @@ const AccessHistory = () => {
   };
 
   // --- Renderers compartidos entre vista tabla y tarjeta ---
+  // Hora en formato 24hs fijado a Argentina (UTC-3). check_in_time es timestamptz;
+  // 24hs evita el "a.m./p.m." que partía la celda en dos renglones y es el estándar local.
   const logTime = (log) =>
-    new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    new Date(log.check_in_time).toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'America/Argentina/Buenos_Aires',
+    });
 
   const typeBadge = (log) => {
     if (log.isUnknown) {
@@ -407,7 +414,7 @@ const AccessHistory = () => {
                       <div className="flex flex-col divide-y divide-border pb-4">
                         {displayLogs.map(log => (
                           <div key={log.id} className="grid grid-cols-[70px_minmax(130px,1.5fr)_88px_minmax(230px,2.6fr)] gap-3 px-5 py-4 items-start hover:bg-muted/80 transition-colors">
-                            <div className="font-bold text-text-secondary text-sm">{logTime(log)}</div>
+                            <div className="font-bold text-text-secondary text-sm whitespace-nowrap tabular-nums">{logTime(log)}</div>
                             <div className="font-black text-text-primary text-sm min-w-0">
                               <p className="truncate">{log.actorName || 'Desconocido'}</p>
                               <span className="mt-1 inline-flex">{typeBadge(log)}</span>
@@ -427,7 +434,7 @@ const AccessHistory = () => {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-black text-text-secondary text-sm shrink-0">{logTime(log)}</span>
+                                <span className="font-black text-text-secondary text-sm shrink-0 whitespace-nowrap tabular-nums">{logTime(log)}</span>
                                 <span className="font-black text-text-primary text-sm truncate">{log.actorName || 'Desconocido'}</span>
                               </div>
                               <span className="mt-1 inline-flex">{typeBadge(log)}</span>
