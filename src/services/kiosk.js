@@ -49,3 +49,14 @@ export async function fetchKioskRemaining({ athleteId }) {
   if (error) throw error;
   return data || null;
 }
+
+// Ajuste manual del saldo de accesos del período vigente (admin). Setea los
+// "accesos restantes"; el backend calcula consumed = allowed - restantes.
+export async function setAccessBalance({ athleteId, remaining }) {
+  const { data, error } = await supabase.rpc('admin_set_access_balance', {
+    p_athlete_id: athleteId,
+    p_remaining: Number(remaining),
+  });
+  if (error) throw error;
+  return data || null;
+}

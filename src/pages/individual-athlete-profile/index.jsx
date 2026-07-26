@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { supabase } from "../../lib/supabaseClient";
-import { fetchKioskRemaining } from "../../services/kiosk";
+import { fetchKioskRemaining, setAccessBalance } from "../../services/kiosk";
 import { fetchPlanSlots } from "../../services/plans";
 import { reassignAthleteSlots, activateAthleteLogin } from "../../services/athletes";
 import { hoyLocal, formatearFecha } from "../../utils/formatters";
@@ -531,6 +531,11 @@ const IndividualAthleteProfile = () => {
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+  // Ajuste manual del saldo de accesos del período (para el arranque del sistema)
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustValue, setAdjustValue] = useState("");
+  const [adjustSaving, setAdjustSaving] = useState(false);
+
   const [availablePlans, setAvailablePlans] = useState([]);
   const [availablePlanOptions, setAvailablePlanOptions] = useState([]);
   const [membershipForm, setMembershipForm] = useState({
@@ -970,6 +975,26 @@ const IndividualAthleteProfile = () => {
     }
   };
 
+  const handleSaveBalance = async () => {
+    const n = Number(adjustValue);
+    if (!Number.isFinite(n) || n < 0) {
+      toast.error("Ingresá un número de accesos válido (0 o más).");
+      return;
+    }
+    try {
+      setAdjustSaving(true);
+      const result = await setAccessBalance({ athleteId, remaining: n });
+      setProfileData((prev) => ({ ...prev, kioskRemaining: result }));
+      setAdjustOpen(false);
+      toast.success(`Saldo ajustado: ${result?.remaining ?? n} accesos restantes.`);
+    } catch (err) {
+      console.error("Error ajustando saldo:", err);
+      toast.error(err.message || "No se pudo ajustar el saldo.");
+    } finally {
+      setAdjustSaving(false);
+    }
+  };
+
   const handleAddNote = async (content) => {
     try {
       const { data, error } = await supabase
@@ -1178,11 +1203,79 @@ const IndividualAthleteProfile = () => {
             )}
 
             {activeTab === "access" && (
-              <AthleteAccessLog
-                logs={profileData.accessLogs}
-                loading={loading}
-                showLimit={null}
-              />
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center">
+                        <Icon name="Wallet" size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-text-primary">
+                          Saldo de accesos del período
+                        </p>
+                        <p className="text-xs font-semibold text-text-tertiary">
+                          {profileData.kioskRemaining?.remaining ?? "—"} de{" "}
+                          {profileData.kioskRemaining?.allowed ?? "—"} disponibles
+                          {profileData.kioskRemaining?.period_end
+                            ? ` · hasta ${formatearFecha(profileData.kioskRemaining.period_end)}`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+                    {!adjustOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdjustValue(String(profileData.kioskRemaining?.remaining ?? ""));
+                          setAdjustOpen(true);
+                        }}
+                        className="px-3 py-2 rounded-xl bg-muted text-text-secondary text-xs font-black uppercase tracking-widest hover:bg-muted/70 transition-colors inline-flex items-center gap-1.5"
+                      >
+                        <Icon name="Pencil" size={13} /> Ajustar
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          value={adjustValue}
+                          onChange={(e) => setAdjustValue(e.target.value)}
+                          className="w-24 px-3 py-2 rounded-xl border border-border bg-background text-sm font-bold text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          placeholder="Restantes"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveBalance}
+                          disabled={adjustSaving}
+                          className="px-3 py-2 rounded-xl bg-success text-success-foreground text-xs font-black uppercase tracking-widest hover:bg-success/90 transition-colors disabled:opacity-70"
+                        >
+                          {adjustSaving ? "..." : "Guardar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdjustOpen(false)}
+                          disabled={adjustSaving}
+                          className="px-3 py-2 rounded-xl bg-muted text-text-tertiary text-xs font-black uppercase tracking-widest hover:bg-muted/70 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-3 text-[11px] font-semibold text-text-tertiary">
+                    Corregí los accesos que ya usó este período si no quedaron registrados por el kiosco.
+                    Se renueva solo en el próximo aniversario de inscripción.
+                  </p>
+                </div>
+
+                <AthleteAccessLog
+                  logs={profileData.accessLogs}
+                  loading={loading}
+                  showLimit={null}
+                />
+              </div>
             )}
           </div>
         </div>

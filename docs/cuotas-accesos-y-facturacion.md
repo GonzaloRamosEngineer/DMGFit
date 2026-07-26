@@ -112,3 +112,15 @@ al dar de alta. Para corregir cargas viejas, el perfil del atleta tiene el campo
 Migraciones: `0006_accesos_desde_inscripcion`, `0007_generar_cuotas_automatico`,
 `0008_editar_fecha_inscripcion`. Todas aplicadas a prod (2026-07-25) y trackeadas.
 TZ: `America/Argentina/Buenos_Aires`.
+
+## 6) Ajustar el saldo de accesos (arranque del sistema)
+
+Al iniciar, `consumed_sessions` está en ~0 porque los ingresos previos no se
+registraron por el kiosco → el saldo mostrado puede estar de más. Es un desfasaje de
+**un solo período**: en el próximo aniversario el contador se resetea y queda exacto.
+
+Para los casos puntuales donde el saldo real importa, el perfil del atleta (pestaña
+**Accesos**) tiene **"Saldo de accesos del período" → Ajustar**: se setea la cantidad
+de **accesos restantes** y el backend calcula `consumed = allowed - restantes`
+(`admin_set_access_balance`, migración `0009`). No hace falta tocar a todos: solo los
+pocos que valga la pena; el resto se acomoda solo el próximo aniversario.
