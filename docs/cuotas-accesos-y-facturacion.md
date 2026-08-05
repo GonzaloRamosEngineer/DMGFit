@@ -108,6 +108,7 @@ al dar de alta. Para corregir cargas viejas, el perfil del atleta tiene el campo
 | `generate_monthly_invoices(...)` | botón manual "Generar Período" (respaldo). |
 | `create_full_athlete_atomic(...)` | alta: primer contador + cuota de inscripción. |
 | `admin_realign_athlete_counter(id)` | re-ancla el contador tras editar `join_date`. |
+| `admin_update_athlete_membership(...)` | cambia plan/frecuencia/cuota y acompaña el contador vigente. |
 
 Migraciones: `0006_accesos_desde_inscripcion`, `0007_generar_cuotas_automatico`,
 `0008_editar_fecha_inscripcion`. Todas aplicadas a prod (2026-07-25) y trackeadas.
@@ -124,3 +125,28 @@ Para los casos puntuales donde el saldo real importa, el perfil del atleta (pest
 de **accesos restantes** y el backend calcula `consumed = allowed - restantes`
 (`admin_set_access_balance`, migración `0009`). No hace falta tocar a todos: solo los
 pocos que valga la pena; el resto se acomoda solo el próximo aniversario.
+
+## 7) Cambiar la frecuencia (y la cuota) de un atleta
+
+La frecuencia (`athletes.visits_per_week`) es el dato que manda: define el saldo de
+accesos (**frecuencia × 4**) y el tier de precio. Antes sólo se podía fijar en el alta,
+así que un atleta cargado como 2x quedaba encerrado en 2x (el perfil sólo guardaba
+`plan_id`/`plan_option`, nunca la frecuencia).
+
+Ahora el perfil del atleta tiene **Membresía y horarios → Gestionar → "Editar plan,
+frecuencia y cuota"**: plan, **frecuencia** (las opciones salen de los
+`plan_pricing_tiers` del plan) y **cuota** (se propone la del tier, editable para
+cliente especial). Al guardar, `admin_update_athlete_membership` (migración `0011`)
+hace todo en una transacción:
+
+- Actualiza `plan_id`, `visits_per_week` y `plan_tier_price`.
+- **Acompaña el contador vigente**: `allowed_sessions = frecuencia × 4`, preservando
+  `consumed_sessions`. Si bajan la frecuencia por debajo de lo ya consumido, `allowed`
+  se queda en lo consumido (lo exige el CHECK y sería quitarle accesos ya usados); la
+  UI lo avisa. El próximo aniversario ya arranca con el valor nuevo.
+- **No toca pagos**: las cuotas ya emitidas conservan su monto. El precio nuevo aplica
+  desde la próxima cuota. Si hay que cobrar la diferencia del período en curso, se hace
+  desde Pagos.
+
+Si la frecuencia cambia, la UI pide confirmación mostrando el impacto (frecuencia,
+accesos y cuota antes → después).
