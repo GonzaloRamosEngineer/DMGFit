@@ -3,8 +3,12 @@ import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { supabase } from "../../lib/supabaseClient";
 import { fetchKioskRemaining, setAccessBalance } from "../../services/kiosk";
-import { fetchPlanSlots } from "../../services/plans";
-import { reassignAthleteSlots, activateAthleteLogin } from "../../services/athletes";
+import { fetchPlanSlots, fetchPlanPricing } from "../../services/plans";
+import {
+  reassignAthleteSlots,
+  activateAthleteLogin,
+  updateAthleteMembership,
+} from "../../services/athletes";
 import { hoyLocal, formatearFecha } from "../../utils/formatters";
 
 // Context
@@ -262,7 +266,9 @@ const StructuralMembershipCard = ({
   canManageMembership = false,
   membershipForm,
   availablePlans = [],
-  availablePlanOptions = [],
+  availableTiers = [],
+  loadingTiers = false,
+  suggestedPrice = null,
   onMembershipChange,
   onSaveMembership,
   savingMembership = false,
@@ -363,11 +369,11 @@ const StructuralMembershipCard = ({
             <div className="flex items-center gap-2 mb-3">
               <Icon name="Settings2" size={16} className="text-text-secondary" />
               <h4 className="text-sm font-black text-text-primary">
-                Editar plan y frecuencia
+                Editar plan, frecuencia y cuota
               </h4>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
                   Plan
@@ -389,35 +395,75 @@ const StructuralMembershipCard = ({
 
               <div>
                 <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
-                  Opción / Variante
+                  Frecuencia semanal
                 </label>
-                <select
-                  name="planOption"
-                  value={membershipForm.planOption}
-                  onChange={onMembershipChange}
-                  disabled={
-                    !membershipForm.planId || availablePlanOptions.length === 0
-                  }
-                  className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm disabled:opacity-60"
-                >
-                  <option value="">
-                    {membershipForm.planId
-                      ? "Sin opción"
-                      : "Selecciona un plan primero"}
-                  </option>
-                  {availablePlanOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
+                {/* Los planes definen su frecuencia con los tiers de precio. Si el
+                    plan todavía no tiene tiers cargados, se permite igual a mano. */}
+                {availableTiers.length > 0 ? (
+                  <select
+                    name="visitsPerWeek"
+                    value={membershipForm.visitsPerWeek}
+                    onChange={onMembershipChange}
+                    disabled={!membershipForm.planId || loadingTiers}
+                    className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm disabled:opacity-60"
+                  >
+                    <option value="">
+                      {loadingTiers ? "Cargando..." : "Seleccionar..."}
                     </option>
-                  ))}
-                </select>
+                    {availableTiers.map((tier) => (
+                      <option
+                        key={tier.visits_per_week}
+                        value={String(tier.visits_per_week)}
+                      >
+                        {tier.visits_per_week}x por semana
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max="7"
+                    name="visitsPerWeek"
+                    value={membershipForm.visitsPerWeek}
+                    onChange={onMembershipChange}
+                    disabled={!membershipForm.planId || loadingTiers}
+                    placeholder={loadingTiers ? "Cargando..." : "Ej: 3"}
+                    className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm disabled:opacity-60"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                  Cuota mensual
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="1"
+                  name="tierPrice"
+                  value={membershipForm.tierPrice}
+                  onChange={onMembershipChange}
+                  disabled={!membershipForm.planId}
+                  placeholder="0"
+                  className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm disabled:opacity-60"
+                />
+                <p className="mt-1 text-[10px] text-text-tertiary">
+                  {suggestedPrice !== null
+                    ? `Sugerido por el plan: ${formatCurrency(suggestedPrice)}`
+                    : "Sin tier cargado para esta frecuencia: se usa el monto que pongas."}
+                </p>
               </div>
             </div>
 
             <p className="mt-3 text-[11px] text-text-secondary">
-              La frecuencia (ej. de 2x a 3x por semana) se ajusta cambiando el
-              plan/opción y luego reasignando los horarios con “Modificar
-              horarios”.
+              La frecuencia define el saldo de accesos del kiosco (frecuencia × 4).
+              Al guardar se actualizan los accesos del período en curso (sin tocar los
+              ya consumidos) y la cuota pendiente de este período pasa al monto nuevo.
+              Las cuotas ya pagadas no se tocan.
             </p>
           </div>
 
@@ -537,10 +583,12 @@ const IndividualAthleteProfile = () => {
   const [adjustSaving, setAdjustSaving] = useState(false);
 
   const [availablePlans, setAvailablePlans] = useState([]);
-  const [availablePlanOptions, setAvailablePlanOptions] = useState([]);
+  const [availableTiers, setAvailableTiers] = useState([]);
+  const [loadingTiers, setLoadingTiers] = useState(false);
   const [membershipForm, setMembershipForm] = useState({
     planId: "",
-    planOption: "",
+    visitsPerWeek: "",
+    tierPrice: "",
   });
   const [savingMembership, setSavingMembership] = useState(false);
 
@@ -739,7 +787,14 @@ const IndividualAthleteProfile = () => {
 
     setMembershipForm({
       planId: profileData.athlete.plan_id || "",
-      planOption: profileData.athlete.plan_option || "",
+      visitsPerWeek:
+        profileData.athlete.visits_per_week != null
+          ? String(profileData.athlete.visits_per_week)
+          : "",
+      tierPrice:
+        profileData.athlete.plan_tier_price != null
+          ? String(profileData.athlete.plan_tier_price)
+          : "",
     });
   }, [profileData.athlete]);
 
@@ -769,52 +824,66 @@ const IndividualAthleteProfile = () => {
     fetchPlans();
   }, [canManageMembership]);
 
+  // Los tiers del plan (frecuencia -> precio) son la fuente de verdad de las
+  // frecuencias disponibles y de la cuota sugerida. Antes se listaban plan_features,
+  // que son las características del plan y no tienen nada que ver con la frecuencia.
   useEffect(() => {
-    const fetchOptions = async () => {
-      if (!membershipForm.planId) {
-        setAvailablePlanOptions([]);
+    let cancelled = false;
+
+    const loadTiers = async () => {
+      if (!canManageMembership || !membershipForm.planId) {
+        setAvailableTiers([]);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("plan_features")
-        .select("feature")
-        .eq("plan_id", membershipForm.planId);
-
-      if (error) {
-        console.error("Error cargando opciones de plan para edición:", error);
-        setAvailablePlanOptions([]);
-        return;
-      }
-
-      const normalized = Array.from(
-        new Set(
-          (data || [])
-            .map((item) =>
-              typeof item.feature === "string" ? item.feature.trim() : ""
-            )
-            .filter(Boolean)
-        )
-      );
-
-      setAvailablePlanOptions(normalized);
-
-      if (
-        membershipForm.planOption &&
-        !normalized.includes(membershipForm.planOption)
-      ) {
-        setMembershipForm((prev) => ({ ...prev, planOption: "" }));
+      setLoadingTiers(true);
+      try {
+        const tiers = await fetchPlanPricing(membershipForm.planId);
+        if (!cancelled) setAvailableTiers(tiers);
+      } catch (error) {
+        console.error("Error cargando frecuencias del plan:", error);
+        if (!cancelled) setAvailableTiers([]);
+      } finally {
+        if (!cancelled) setLoadingTiers(false);
       }
     };
 
-    fetchOptions();
-  }, [membershipForm.planId, membershipForm.planOption]);
+    loadTiers();
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageMembership, membershipForm.planId]);
+
+  const selectedTier = useMemo(
+    () =>
+      availableTiers.find(
+        (tier) =>
+          Number(tier.visits_per_week) === Number(membershipForm.visitsPerWeek)
+      ) || null,
+    [availableTiers, membershipForm.visitsPerWeek]
+  );
+
+  const suggestedPrice = selectedTier ? Number(selectedTier.price) : null;
 
   const handleMembershipChange = (event) => {
     const { name, value } = event.target;
 
+    // Cambiar de plan invalida la frecuencia elegida: los tiers son por plan.
     if (name === "planId") {
-      setMembershipForm((prev) => ({ ...prev, planId: value, planOption: "" }));
+      setMembershipForm({ planId: value, visitsPerWeek: "", tierPrice: "" });
+      return;
+    }
+
+    // Al elegir frecuencia se propone el precio de su tier (editable: cliente especial).
+    if (name === "visitsPerWeek") {
+      const tier = availableTiers.find(
+        (item) => Number(item.visits_per_week) === Number(value)
+      );
+      setMembershipForm((prev) => ({
+        ...prev,
+        visitsPerWeek: value,
+        tierPrice: tier ? String(tier.price) : prev.tierPrice,
+      }));
       return;
     }
 
@@ -822,34 +891,87 @@ const IndividualAthleteProfile = () => {
   };
 
   const handleSaveMembership = async () => {
-    if (!profileData.athlete?.id || !membershipForm.planId) {
-      toast.error("Selecciona un plan válido antes de guardar.");
+    const athlete = profileData.athlete;
+    if (!athlete?.id || !membershipForm.planId) {
+      toast.error("Seleccioná un plan válido antes de guardar.");
       return;
     }
 
-    if (
-      membershipForm.planOption &&
-      !availablePlanOptions.includes(membershipForm.planOption)
-    ) {
-      toast.error("La opción seleccionada no pertenece al plan elegido.");
+    const visits = Number(membershipForm.visitsPerWeek);
+    if (!Number.isInteger(visits) || visits < 1 || visits > 7) {
+      toast.error("Indicá una frecuencia válida (entre 1 y 7 días por semana).");
       return;
+    }
+
+    const price =
+      membershipForm.tierPrice === "" || membershipForm.tierPrice === null
+        ? null
+        : Number(membershipForm.tierPrice);
+    if (price !== null && (!Number.isFinite(price) || price < 0)) {
+      toast.error("Ingresá una cuota válida (0 o más).");
+      return;
+    }
+
+    const prevVisits = Number(athlete.visits_per_week || 0);
+    const prevPrice = athlete.plan_tier_price;
+
+    // Cambiar la frecuencia mueve plata (cuota) y accesos del kiosco: se confirma.
+    if (prevVisits !== visits) {
+      const detalle = [
+        `Frecuencia: ${prevVisits || "—"}x → ${visits}x por semana.`,
+        `Accesos del período: ${Math.max(prevVisits * 4, 1)} → ${Math.max(visits * 4, 1)} (no se tocan los ya consumidos).`,
+        price !== null && Number(prevPrice) !== price
+          ? `Cuota: ${formatCurrency(Number(prevPrice || 0))} → ${formatCurrency(price)}. Si hay una cuota pendiente de este período, pasa al monto nuevo (las pagadas no se tocan).`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const ok = await confirm({
+        title: "Cambiar frecuencia",
+        message: detalle,
+        confirmLabel: "Cambiar",
+      });
+      if (!ok) return;
     }
 
     setSavingMembership(true);
     try {
-      const { error } = await supabase
-        .from("athletes")
-        .update({
-          plan_id: membershipForm.planId,
-          plan_option: membershipForm.planOption || null,
-        })
-        .eq("id", profileData.athlete.id);
+      const { success, error, result } = await updateAthleteMembership({
+        athleteId: athlete.id,
+        planId: membershipForm.planId,
+        visitsPerWeek: visits,
+        tierPrice: price,
+      });
 
-      if (error) throw error;
+      if (!success) {
+        toast.error(error || "No se pudo actualizar la membresía.");
+        return;
+      }
+
+      // Se arma un solo mensaje con lo que efectivamente cambió: accesos y cuota.
+      const partes = [`${visits}x por semana`];
+
+      if (result?.allowed_clamped) {
+        partes.push(
+          `accesos del período en ${result.allowed_sessions} (ya había consumido esa cantidad)`
+        );
+      } else if (result?.balance_synced) {
+        partes.push(`${result.allowed_sessions} accesos en el período`);
+      }
+
+      if (result?.invoice_updated) {
+        partes.push(
+          `cuota pendiente actualizada a ${formatCurrency(Number(result.invoice_amount || 0))}`
+        );
+      }
+
+      toast.success(`Membresía actualizada: ${partes.join(", ")}.`);
+
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
-      console.error("Error actualizando plan del atleta:", error);
-      toast.error(error.message || "No se pudo actualizar el plan del atleta.");
+      console.error("Error actualizando la membresía del atleta:", error);
+      toast.error(error.message || "No se pudo actualizar la membresía.");
     } finally {
       setSavingMembership(false);
     }
@@ -1066,7 +1188,9 @@ const IndividualAthleteProfile = () => {
             canManageMembership={canManageMembership}
             membershipForm={membershipForm}
             availablePlans={availablePlans}
-            availablePlanOptions={availablePlanOptions}
+            availableTiers={availableTiers}
+            loadingTiers={loadingTiers}
+            suggestedPrice={suggestedPrice}
             onMembershipChange={handleMembershipChange}
             onSaveMembership={handleSaveMembership}
             savingMembership={savingMembership}

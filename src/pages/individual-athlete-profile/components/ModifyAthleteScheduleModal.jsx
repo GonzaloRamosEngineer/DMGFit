@@ -21,6 +21,22 @@ const groupByDay = (slots) => {
 const getAssignedWeeklyScheduleId = (slot) =>
   slot?.weekly_schedule_id || normalizeRelation(slot?.weekly_schedule)?.id || null;
 
+// Preselección al abrir el modal: sólo los turnos que siguen perteneciendo al plan
+// actual y como mucho tantos como la frecuencia. Si el atleta cambió de plan, los
+// turnos viejos ya no son válidos y el RPC los rechazaría ("horarios fuera del plan")
+// sin que se vean en la grilla para poder destildarlos; y si le bajaron la frecuencia,
+// arrancar con más turnos que los permitidos deja el formulario trabado.
+export const getInitialSelectedSlotIds = (assignedSlots, availableSlots, visits) => {
+  const planSlotIds = new Set(
+    (availableSlots || []).map((slot) => slot?.weekly_schedule_id).filter(Boolean)
+  );
+
+  return (assignedSlots || [])
+    .map((slot) => getAssignedWeeklyScheduleId(slot))
+    .filter((id) => id && planSlotIds.has(id))
+    .slice(0, Math.max(Number(visits) || 0, 0));
+};
+
 const ModifyAthleteScheduleModal = ({
   athlete,
   assignedSlots,
@@ -31,10 +47,8 @@ const ModifyAthleteScheduleModal = ({
 }) => {
   const visits = Number(athlete?.visits_per_week || 0);
 
-  const [selectedSlotIds, setSelectedSlotIds] = useState(
-    (assignedSlots || [])
-      .map((slot) => getAssignedWeeklyScheduleId(slot))
-      .filter(Boolean)
+  const [selectedSlotIds, setSelectedSlotIds] = useState(() =>
+    getInitialSelectedSlotIds(assignedSlots, availableSlots, visits)
   );
 
   const assignedSet = useMemo(

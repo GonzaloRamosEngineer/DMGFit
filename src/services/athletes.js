@@ -223,6 +223,41 @@ export const updateAthletePersonalData = async ({ athleteId, profileId, previous
   }
 };
 
+// Cambio de membresía: plan + frecuencia semanal + cuota, en una sola transacción.
+// La frecuencia manda (define el saldo de accesos = frecuencia * 4), así que el RPC
+// también acompaña el contador del período vigente. Ver 0011_editar_frecuencia_atleta.sql.
+export const updateAthleteMembership = async ({
+  athleteId,
+  planId,
+  visitsPerWeek,
+  tierPrice = null,
+  planOption = null,
+  syncBalance = true,
+}) => {
+  try {
+    const { data, error } = await supabase.rpc('admin_update_athlete_membership', {
+      p_athlete_id: athleteId,
+      p_plan_id: planId,
+      p_visits_per_week: Number(visitsPerWeek || 0),
+      p_tier_price:
+        tierPrice === null || tierPrice === '' ? null : Number(tierPrice),
+      p_plan_option: planOption,
+      p_sync_balance: syncBalance,
+    });
+
+    if (error) throw error;
+
+    return { success: true, result: data };
+  } catch (error) {
+    console.error('Error en updateAthleteMembership:', error);
+    const message = String(error?.message || '');
+    if (message.includes('FORBIDDEN')) {
+      return { success: false, error: 'No tenés permisos para cambiar la membresía.' };
+    }
+    return { success: false, error: message || 'No se pudo actualizar la membresía.' };
+  }
+};
+
 export const deactivateAthlete = async (athleteId) => {
   const today = hoyLocal();
 
