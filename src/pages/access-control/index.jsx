@@ -195,8 +195,8 @@ const AccessControl = () => {
           <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.12)] p-6 sm:p-10">
             {/* Header dentro del panel */}
             <div className="text-center mb-7">
-              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-primary to-primary-light shadow-lg shadow-primary/20 mb-4">
-                <Icon name="Dumbbell" size={40} color="white" />
+              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-stone-900 shadow-lg shadow-primary/20 mb-4 p-3">
+                <img src="/assets/images/vc-fit-logo.png" alt="VC Fit" className="w-full h-full object-contain" />
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-heading font-bold text-foreground">Control de Acceso</h1>
               <p className="text-sm sm:text-base text-muted-foreground mt-1.5">Ingresá tu DNI o teléfono para validar tu acceso</p>

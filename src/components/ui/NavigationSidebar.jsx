@@ -213,11 +213,13 @@ const NavigationSidebar = ({
   {/* Logo — se oculta al colapsar */}
   {!isCollapsed && (
     <div className="flex items-center gap-3 min-w-0">
-      <img
-        src="/assets/images/vc-fit-logo.png"
-        alt="VC Fit"
-        className="w-10 h-10 object-contain flex-shrink-0"
-      />
+      <div className="w-10 h-10 bg-stone-900 rounded-lg flex items-center justify-center flex-shrink-0 p-1.5">
+        <img
+          src="/assets/images/vc-fit-logo.png"
+          alt="VC Fit"
+          className="w-full h-full object-contain"
+        />
+      </div>
       <span className="text-lg font-heading font-bold text-foreground whitespace-nowrap">
         VC Fit
       </span>
@@ -226,11 +228,13 @@ const NavigationSidebar = ({
 
   {/* Ícono solo cuando colapsado */}
   {isCollapsed && (
-    <img
-      src="/assets/images/vc-fit-logo.png"
-      alt="VC Fit"
-      className="w-10 h-10 object-contain flex-shrink-0"
-    />
+    <div className="w-10 h-10 bg-stone-900 rounded-lg flex items-center justify-center flex-shrink-0 p-1.5">
+      <img
+        src="/assets/images/vc-fit-logo.png"
+        alt="VC Fit"
+        className="w-full h-full object-contain"
+      />
+    </div>
   )}
 
   {/* Botón cerrar — solo mobile, dentro del panel */}
