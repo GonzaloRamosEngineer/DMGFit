@@ -144,9 +144,19 @@ hace todo en una transacción:
   `consumed_sessions`. Si bajan la frecuencia por debajo de lo ya consumido, `allowed`
   se queda en lo consumido (lo exige el CHECK y sería quitarle accesos ya usados); la
   UI lo avisa. El próximo aniversario ya arranca con el valor nuevo.
-- **No toca pagos**: las cuotas ya emitidas conservan su monto. El precio nuevo aplica
-  desde la próxima cuota. Si hay que cobrar la diferencia del período en curso, se hace
-  desde Pagos.
+- **La cuota pendiente del período en curso pasa al monto nuevo** (misma fila, no se
+  duplica ni se deja la vieja). Decisión de Cris (2026-08-05): preguntada si se borra
+  la cuota anterior o se modifica, respondió *"Modifica a 3 días x semana"*.
+  - Sólo cuotas `pending`: una **pagada es un hecho cerrado** y no se toca nunca. Si
+    hay que cobrar una diferencia sobre algo ya pagado, se hace a mano desde Pagos.
+  - Sólo la del **período en curso**: las pendientes de períodos anteriores son deuda
+    de meses cursados con la frecuencia vieja y quedan como están.
+  - Si la cuota tenía descuento, se recalcula con la misma fórmula del panel de Pagos.
+  - Queda registrado en `payment_audit` como `update`, igual que una edición manual.
+
+> **No hay prorrateo.** El mes en curso se cobra entero al precio nuevo; no se calcula
+> la diferencia por los días ya transcurridos. Si en algún momento se quiere prorratear,
+> es una función aparte.
 
 Si la frecuencia cambia, la UI pide confirmación mostrando el impacto (frecuencia,
 accesos y cuota antes → después).

@@ -461,9 +461,9 @@ const StructuralMembershipCard = ({
 
             <p className="mt-3 text-[11px] text-text-secondary">
               La frecuencia define el saldo de accesos del kiosco (frecuencia × 4).
-              Al guardar se actualizan también los accesos del período en curso, sin
-              tocar los que ya consumió. Las cuotas ya emitidas conservan su monto:
-              el precio nuevo aplica desde la próxima.
+              Al guardar se actualizan los accesos del período en curso (sin tocar los
+              ya consumidos) y la cuota pendiente de este período pasa al monto nuevo.
+              Las cuotas ya pagadas no se tocan.
             </p>
           </div>
 
@@ -921,7 +921,7 @@ const IndividualAthleteProfile = () => {
         `Frecuencia: ${prevVisits || "—"}x → ${visits}x por semana.`,
         `Accesos del período: ${Math.max(prevVisits * 4, 1)} → ${Math.max(visits * 4, 1)} (no se tocan los ya consumidos).`,
         price !== null && Number(prevPrice) !== price
-          ? `Cuota: ${formatCurrency(Number(prevPrice || 0))} → ${formatCurrency(price)} (aplica desde la próxima cuota).`
+          ? `Cuota: ${formatCurrency(Number(prevPrice || 0))} → ${formatCurrency(price)}. Si hay una cuota pendiente de este período, pasa al monto nuevo (las pagadas no se tocan).`
           : null,
       ]
         .filter(Boolean)
@@ -949,17 +949,24 @@ const IndividualAthleteProfile = () => {
         return;
       }
 
+      // Se arma un solo mensaje con lo que efectivamente cambió: accesos y cuota.
+      const partes = [`${visits}x por semana`];
+
       if (result?.allowed_clamped) {
-        toast.success(
-          `Membresía actualizada. Los accesos del período quedaron en ${result.allowed_sessions} porque ya había consumido esa cantidad.`
+        partes.push(
+          `accesos del período en ${result.allowed_sessions} (ya había consumido esa cantidad)`
         );
       } else if (result?.balance_synced) {
-        toast.success(
-          `Membresía actualizada: ${visits}x por semana y ${result.allowed_sessions} accesos en el período en curso.`
-        );
-      } else {
-        toast.success("Membresía actualizada.");
+        partes.push(`${result.allowed_sessions} accesos en el período`);
       }
+
+      if (result?.invoice_updated) {
+        partes.push(
+          `cuota pendiente actualizada a ${formatCurrency(Number(result.invoice_amount || 0))}`
+        );
+      }
+
+      toast.success(`Membresía actualizada: ${partes.join(", ")}.`);
 
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
