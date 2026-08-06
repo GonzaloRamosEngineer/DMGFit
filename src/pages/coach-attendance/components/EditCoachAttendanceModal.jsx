@@ -34,8 +34,18 @@ const fmtDuration = (min) => {
  * horas no se computan. Acá se carga la hora real a la que se fue.
  */
 const EditCoachAttendanceModal = ({ row, onClose, onSave, saving = false }) => {
-  const [checkIn, setCheckIn] = useState(() => toLocalTime(row?.check_in_time));
-  const [checkOut, setCheckOut] = useState(() => toLocalTime(row?.check_out_time));
+  // Los valores originales son la referencia de "qué se tocó": sólo se manda al
+  // backend el campo que cambió, así cargar una salida nunca reescribe la entrada.
+  const original = useMemo(
+    () => ({
+      checkIn: toLocalTime(row?.check_in_time),
+      checkOut: toLocalTime(row?.check_out_time),
+    }),
+    [row],
+  );
+
+  const [checkIn, setCheckIn] = useState(original.checkIn);
+  const [checkOut, setCheckOut] = useState(original.checkOut);
   const [error, setError] = useState('');
 
   const fecha = useMemo(() => {
@@ -67,7 +77,17 @@ const EditCoachAttendanceModal = ({ row, onClose, onSave, saving = false }) => {
       return;
     }
 
-    await onSave({ checkIn, checkOut });
+    const cambios = {};
+    if (checkIn !== original.checkIn) cambios.checkIn = checkIn;
+    // null = vaciar la salida (deshacer); undefined = ni se toca.
+    if (checkOut !== original.checkOut) cambios.checkOut = checkOut || null;
+
+    if (Object.keys(cambios).length === 0) {
+      onClose();
+      return;
+    }
+
+    await onSave(cambios);
   };
 
   return (

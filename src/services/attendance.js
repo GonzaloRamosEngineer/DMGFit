@@ -2,13 +2,18 @@ import { supabase } from '../lib/supabaseClient';
 
 // Corrección manual de la entrada/salida de un profesor (admin). Las horas van como
 // 'HH:MM' locales del día del registro; el backend las ancla a la zona horaria.
-// Salida vacía = deja el día "En curso". Ver 0013_corregir_asistencia_profes.sql.
+//
+// Sólo se manda lo que se tocó: `undefined` = no cambiar. Así, cargar la salida que
+// faltó no puede reescribir la entrada real que fichó el profe en el kiosco, pase lo
+// que pase con lo que el formulario tenía precargado. Para vaciar la salida se manda
+// `checkOut: null` explícito. Ver 0013_corregir_asistencia_profes.sql.
 export const setCoachAttendance = async ({ logId, checkIn, checkOut }) => {
   try {
     const { data, error } = await supabase.rpc('admin_set_coach_attendance', {
       p_log_id: logId,
-      p_check_in: checkIn,
-      p_check_out: checkOut || null,
+      p_check_in: checkIn === undefined ? null : checkIn,
+      p_check_out: checkOut === undefined || checkOut === null ? null : checkOut,
+      p_clear_check_out: checkOut === null,
     });
 
     if (error) throw error;
