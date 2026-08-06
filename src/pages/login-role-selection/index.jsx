@@ -152,7 +152,7 @@ const LoginRoleSelection = () => {
     if (uiStatus === 'success') return <Icon name="CheckCircle" size={34} color="#22C55E" />;
     if (uiStatus === 'checking') return <Icon name="ScanFace" size={34} color="var(--color-primary)" />;
     if (uiStatus === 'error') return <Icon name="AlertTriangle" size={34} color="var(--color-error)" />;
-    return <Icon name="Dumbbell" size={34} color="#FFFFFF" />;
+    return <img src="/assets/images/vc-fit-logo.png" alt="VC Fit" className="w-9 h-9 object-contain" />;
   };
 
   return (
