@@ -313,3 +313,41 @@ pendientes solas. Cris avisó (audio 2026-08-05) que **todavía no cargó ningú
 piensa cargarlos a mano — o sea que el sistema le está generando deuda mientras ella sólo
 usa el kiosco para controlar asistencia. Decidir si se pausa el cron hasta que arranquen
 con pagos en serio.
+
+---
+
+## Corregir asistencia de profesores a mano (2026-08-06, en `main` + prod)
+
+Pedido de Cris: *"el profe no registró la salida, se fue a las 8. Si yo lo registro
+ahora, ¿puedo poner la hora en la que se fue?"*. `/coach-attendance` era de sólo
+lectura: si el profe se olvidaba de fichar la salida, el día quedaba **"En curso"
+para siempre** y sus horas trabajadas no se computaban nunca.
+
+**Migración `0013`** — RPC `admin_set_coach_attendance`. Va por RPC porque
+`access_logs` tiene policies de SELECT/INSERT/DELETE para staff pero **ninguna de
+UPDATE**: el update directo queda denegado por RLS.
+
+Tres reglas que valen para cualquier corrección manual sobre datos que vienen de un
+dispositivo:
+
+1. **NULL = "no tocar", nunca "borrar".** El formulario manda **sólo el campo que
+   cambió**. Antes mandaba siempre los dos, así que cargar la salida que faltó
+   reescribía la entrada real que fichó el profe en el kiosco con lo que hubiera
+   quedado precargado en el input. Para vaciar la salida hay un pedido explícito
+   (`p_clear_check_out`).
+2. **La marca "a mano" es por campo** (`check_in_edited_at` / `check_out_edited_at`).
+   Antes era una marca por fila dibujada en la columna Salida: corregir sólo la
+   entrada terminaba marcando como "cargado a mano" un fichaje **real**. Esa marca es
+   lo único que distingue horas reales de horas cargadas por administración, así que
+   señalar mal ahí es peor que no marcar nada.
+3. **Sólo se marca lo que realmente cambió de valor**: abrir el modal y guardar sin
+   mover nada no ensucia horarios reales.
+
+**Gotcha de UI:** el `<input type="time">` nativo se dibuja en **12h (AM/PM)** según el
+idioma del navegador, mientras la app usa 24h. Como el caso es literalmente "las 8"
+(= 20:00), la vista previa repite el rango en 24h ("De 18:02 a 20:00: 1 h 58 min") y la
+validación rechaza salida ≤ entrada, que es justo el error de elegir 08:00 AM.
+
+**Alcance deliberado:** sólo se corrigen registros existentes. Si el profe no fichó
+nada ese día no hay fila que editar; crear presencias desde cero es otra cosa
+(fabricar una presencia) y se dejó afuera a propósito.
