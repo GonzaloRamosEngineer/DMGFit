@@ -126,7 +126,7 @@ const AccessControl = () => {
             type="button"
             onClick={() => handleNumberClick(num.toString())}
             disabled={status !== 'idle'}
-            className="h-16 sm:h-20 rounded-2xl bg-white border-2 border-border text-2xl sm:text-3xl font-bold text-foreground shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/5 hover:border-primary/30"
+            className="h-[clamp(2.75rem,6vh,4.5rem)] rounded-2xl bg-white border-2 border-border text-2xl sm:text-3xl font-bold text-foreground shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/5 hover:border-primary/30"
           >
             {num}
           </button>
@@ -136,7 +136,7 @@ const AccessControl = () => {
           type="button"
           onClick={handleClear}
           disabled={status !== 'idle'}
-          className="h-16 sm:h-20 rounded-2xl bg-white border-2 border-error/30 text-error font-bold shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-error/5 flex items-center justify-center gap-2"
+          className="h-[clamp(2.75rem,6vh,4.5rem)] rounded-2xl bg-white border-2 border-error/30 text-error font-bold shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-error/5 flex items-center justify-center gap-2"
         >
           <Icon name="X" size={20} />
           <span className="text-sm sm:text-base">C</span>
@@ -146,7 +146,7 @@ const AccessControl = () => {
           type="button"
           onClick={() => handleNumberClick('0')}
           disabled={status !== 'idle'}
-          className="h-16 sm:h-20 rounded-2xl bg-white border-2 border-border text-2xl sm:text-3xl font-bold text-foreground shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/5 hover:border-primary/30"
+          className="h-[clamp(2.75rem,6vh,4.5rem)] rounded-2xl bg-white border-2 border-border text-2xl sm:text-3xl font-bold text-foreground shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/5 hover:border-primary/30"
         >
           0
         </button>
@@ -155,7 +155,7 @@ const AccessControl = () => {
           type="button"
           onClick={handleBackspace}
           disabled={status !== 'idle'}
-          className="h-16 sm:h-20 rounded-2xl bg-white border-2 border-warning/30 text-warning font-bold shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-warning/5 flex items-center justify-center"
+          className="h-[clamp(2.75rem,6vh,4.5rem)] rounded-2xl bg-white border-2 border-warning/30 text-warning font-bold shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-warning/5 flex items-center justify-center"
         >
           <Icon name="Delete" size={24} />
         </button>
@@ -184,25 +184,31 @@ const AccessControl = () => {
           : 'bg-primary/15';
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-colors duration-500 ${bgClass}`}>
+    // Contenedor raíz: alto dinámico (dvh) para respetar las barras del navegador
+    // en tablets/móviles, y overflow-hidden solo aquí para recortar las decoraciones.
+    <div className={`relative min-h-dvh overflow-hidden transition-colors duration-500 ${bgClass}`}>
       {/* Textura de puntos (cohesión con el login) */}
       <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#d6d3d1_1px,transparent_1px)] [background-size:32px_32px] pointer-events-none" />
       {/* Glow suave tintado por estado */}
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] rounded-full blur-3xl pointer-events-none transition-colors duration-500 ${glowClass}`} />
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] max-w-[140vw] rounded-full blur-3xl pointer-events-none transition-colors duration-500 ${glowClass}`} />
 
-      <div className="w-full max-w-2xl relative z-10">
+      {/* Capa de contenido con scroll propio: centra cuando entra en pantalla y
+          permite hacer scroll cuando el contenido es más alto que el viewport
+          (móviles, tablets en horizontal, ventanas chicas). */}
+      <div className="absolute inset-0 overflow-y-auto flex flex-col items-center p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-2xl relative z-10 my-auto">
         {(status === 'idle' || status === 'loading') && (
-          <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.12)] p-6 sm:p-10">
+          <div className="bg-white/80 backdrop-blur-2xl border border-white/60 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.12)] p-6 sm:p-8 lg:p-10">
             {/* Header dentro del panel */}
-            <div className="text-center mb-7">
-              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-primary to-primary-light shadow-lg shadow-primary/20 mb-4">
-                <Icon name="Dumbbell" size={40} color="white" />
+            <div className="text-center mb-[clamp(0.75rem,2.5vh,1.5rem)]">
+              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-stone-900 shadow-lg shadow-primary/20 mb-[clamp(0.5rem,2vh,1rem)] p-2.5">
+                <img src="/assets/images/vc-fit-logo.png" alt="VC Fit" className="w-full h-full object-contain" />
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-heading font-bold text-foreground">Control de Acceso</h1>
               <p className="text-sm sm:text-base text-muted-foreground mt-1.5">Ingresá tu DNI o teléfono para validar tu acceso</p>
             </div>
 
-            <form onSubmit={handleCheckIn} className="space-y-6">
+            <form onSubmit={handleCheckIn} className="space-y-[clamp(0.625rem,2vh,1.25rem)]">
               {/* Identifier Display */}
               <div className="relative">
                 <input
@@ -211,7 +217,7 @@ const AccessControl = () => {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value.replace(/\D/g, ''))}
                   placeholder="_ _ _ _ _ _ _ _"
-                  className="w-full text-center text-4xl sm:text-5xl lg:text-6xl font-bold py-5 sm:py-6 rounded-3xl border-2 border-border bg-white/70 shadow-inner focus:ring-4 focus:ring-primary/40 focus:border-primary outline-none transition-all placeholder:text-muted-foreground/20 tracking-widest"
+                  className="w-full text-center text-4xl sm:text-5xl font-bold py-[clamp(0.625rem,1.8vh,1.25rem)] rounded-3xl border-2 border-border bg-white/70 shadow-inner focus:ring-4 focus:ring-primary/40 focus:border-primary outline-none transition-all placeholder:text-muted-foreground/20 tracking-widest"
                   autoFocus
                   maxLength={11}
                   disabled={status === 'loading'}
@@ -225,12 +231,12 @@ const AccessControl = () => {
                 )}
               </div>
 
-              <div className="pt-2">{renderKeypad()}</div>
+              <div>{renderKeypad()}</div>
 
               <button
                 type="submit"
                 disabled={!identifier || status === 'loading'}
-                className="w-full h-16 sm:h-[72px] rounded-2xl bg-gradient-to-r from-primary to-primary-light text-white text-xl sm:text-2xl font-bold shadow-xl shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center gap-3"
+                className="w-full h-[clamp(3rem,6vh,4.25rem)] rounded-2xl bg-gradient-to-r from-primary to-primary-light text-white text-xl sm:text-2xl font-bold shadow-xl shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center gap-3"
               >
                 {status === 'loading' ? (
                   <>
@@ -255,9 +261,9 @@ const AccessControl = () => {
             initial={{ opacity: 0, scale: 0.94, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className={`bg-white/85 backdrop-blur-2xl rounded-[2.5rem] p-8 sm:p-12 shadow-[0_20px_60px_rgba(0,0,0,0.15)] border-2 ${status === 'warning' ? 'border-warning/40' : 'border-success/40'}`}
+            className={`bg-white/85 backdrop-blur-2xl rounded-[2.5rem] p-6 sm:p-8 lg:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)] border-2 ${status === 'warning' ? 'border-warning/40' : 'border-success/40'}`}
           >
-            <div className={`relative w-32 h-32 sm:w-40 sm:h-40 mx-auto mb-6 ${status === 'warning' ? 'text-warning' : 'text-success'}`}>
+            <div className={`relative w-[clamp(6rem,15vh,10rem)] h-[clamp(6rem,15vh,10rem)] mx-auto mb-[clamp(1rem,3vh,1.5rem)] ${status === 'warning' ? 'text-warning' : 'text-success'}`}>
               <CountdownRing />
               <div className={`w-full h-full rounded-full border-4 p-1 bg-white shadow-xl ${status === 'warning' ? 'border-warning' : 'border-success'}`}>
                 {athleteData.photo ? (
@@ -276,14 +282,14 @@ const AccessControl = () => {
             <h2 className={`text-3xl sm:text-4xl lg:text-5xl font-heading font-bold mb-3 text-center ${status === 'warning' ? 'text-warning' : 'text-foreground'}`}>
               {status === 'warning' ? 'ATENCIÓN' : '¡BIENVENIDO!'}
             </h2>
-            <p className="text-2xl sm:text-3xl font-bold text-foreground mb-6 text-center">{athleteData.name}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-foreground mb-[clamp(0.75rem,2.5vh,1.5rem)] text-center">{athleteData.name}</p>
 
-            <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full mx-auto mb-8 block w-fit border ${status === 'warning' ? 'bg-warning-light border-warning/30' : 'bg-info-light border-primary/20'}`}>
+            <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-full mx-auto mb-[clamp(1rem,3vh,2rem)] block w-fit border ${status === 'warning' ? 'bg-warning-light border-warning/30' : 'bg-info-light border-primary/20'}`}>
               <Icon name="Award" size={20} color={status === 'warning' ? 'var(--color-warning)' : 'var(--color-primary)'} />
               <span className={`font-bold text-lg ${status === 'warning' ? 'text-warning' : 'text-primary'}`}>{athleteData.plan}</span>
             </div>
 
-            <div className={`rounded-2xl p-6 mb-6 border ${status === 'warning' ? 'bg-warning-light border-warning/30' : 'bg-success-light border-success/30'}`}>
+            <div className={`rounded-2xl p-5 mb-[clamp(0.75rem,2.5vh,1.5rem)] border ${status === 'warning' ? 'bg-warning-light border-warning/30' : 'bg-success-light border-success/30'}`}>
               <div className={`flex items-center justify-center gap-3 mb-3 ${status === 'warning' ? 'text-warning' : 'text-success'}`}>
                 <Icon name={status === 'warning' ? 'AlertTriangle' : 'CheckCircle'} size={36} />
                 <span className="text-2xl sm:text-3xl font-bold">{status === 'warning' ? 'Acceso con Excepción' : 'Acceso Permitido'}</span>
@@ -302,22 +308,22 @@ const AccessControl = () => {
             initial={{ opacity: 0, scale: 0.94, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="bg-white/85 backdrop-blur-2xl border-2 border-error/40 rounded-[2.5rem] p-8 sm:p-12 shadow-[0_20px_60px_rgba(0,0,0,0.15)]"
+            className="bg-white/85 backdrop-blur-2xl border-2 border-error/40 rounded-[2.5rem] p-6 sm:p-8 lg:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]"
           >
-            <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 text-error">
+            <div className="relative w-[clamp(5rem,12vh,8rem)] h-[clamp(5rem,12vh,8rem)] mx-auto mb-[clamp(0.75rem,3vh,1.5rem)] text-error">
               <CountdownRing />
               <div className="w-full h-full bg-gradient-to-br from-error/20 to-error/10 rounded-full flex items-center justify-center border-4 border-error/30">
                 <Icon name="XOctagon" size={60} className="text-error" />
               </div>
             </div>
 
-            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-error mb-6 text-center">ACCESO DENEGADO</h2>
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-error mb-[clamp(0.75rem,2.5vh,1.5rem)] text-center">ACCESO DENEGADO</h2>
 
             {athleteData?.name && (
               <p className="text-xl sm:text-2xl text-foreground font-bold text-center mb-4">{athleteData.name}</p>
             )}
 
-            <div className="bg-error-light border border-error/30 rounded-2xl p-6 mb-6">
+            <div className="bg-error-light border border-error/30 rounded-2xl p-5 mb-[clamp(0.75rem,2.5vh,1.5rem)]">
               <p className="text-xl sm:text-2xl text-foreground font-bold text-center mb-2">{message}</p>
             </div>
 
@@ -342,18 +348,18 @@ const AccessControl = () => {
             initial={{ opacity: 0, scale: 0.94, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className="bg-white/85 backdrop-blur-2xl border-2 border-primary/30 rounded-[2.5rem] p-8 sm:p-12 shadow-[0_20px_60px_rgba(0,0,0,0.15)]"
+            className="bg-white/85 backdrop-blur-2xl border-2 border-primary/30 rounded-[2.5rem] p-6 sm:p-8 lg:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]"
           >
-            <div className="relative w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-6 text-primary">
+            <div className="relative w-[clamp(5rem,12vh,8rem)] h-[clamp(5rem,12vh,8rem)] mx-auto mb-[clamp(0.75rem,3vh,1.5rem)] text-primary">
               <CountdownRing />
               <div className="w-full h-full bg-gradient-to-br from-primary/15 to-primary/5 rounded-full flex items-center justify-center border-4 border-primary/30">
                 <Icon name="Info" size={60} className="text-primary" />
               </div>
             </div>
 
-            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-foreground mb-6 text-center">NO TE ENCONTRAMOS</h2>
+            <h2 className="text-3xl sm:text-4xl font-heading font-bold text-foreground mb-[clamp(0.75rem,2.5vh,1.5rem)] text-center">NO TE ENCONTRAMOS</h2>
 
-            <div className="bg-info-light border border-primary/20 rounded-2xl p-6 mb-6">
+            <div className="bg-info-light border border-primary/20 rounded-2xl p-5 mb-[clamp(0.75rem,2.5vh,1.5rem)]">
               <p className="text-xl sm:text-2xl text-foreground font-bold text-center">{message}</p>
             </div>
 
@@ -372,9 +378,10 @@ const AccessControl = () => {
           </motion.div>
         )}
 
-        <div className="mt-8 text-center">
+        <div className="mt-[clamp(0.75rem,2.5vh,1.5rem)] text-center">
           <p className="text-sm text-muted-foreground">Powered by <span className="font-bold text-primary">DigitalMatch</span></p>
         </div>
+      </div>
       </div>
     </div>
   );
