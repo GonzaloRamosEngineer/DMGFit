@@ -54,7 +54,11 @@ export const ConfirmProvider = ({ children }) => {
           </div>
         }
       >
-        {state?.message && <p className="text-sm text-text-secondary">{state.message}</p>}
+        {/* `message` acepta texto (se envuelve en <p>) o contenido propio, para
+            confirmaciones que se leen mejor como filas que como párrafo. */}
+        {typeof state?.message === 'string'
+          ? state.message && <p className="text-sm text-text-secondary">{state.message}</p>
+          : state?.message}
       </Modal>
     </ConfirmContext.Provider>
   );

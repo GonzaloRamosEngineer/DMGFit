@@ -460,10 +460,8 @@ const StructuralMembershipCard = ({
             </div>
 
             <p className="mt-3 text-[11px] text-text-secondary">
-              La frecuencia define el saldo de accesos del kiosco (frecuencia × 4).
-              Al guardar se actualizan los accesos del período en curso (sin tocar los
-              ya consumidos) y la cuota pendiente de este período pasa al monto nuevo.
-              Las cuotas ya pagadas no se tocan.
+              La frecuencia define la cuota y los accesos del kiosco (frecuencia × 4).
+              Al guardar vas a ver el detalle de lo que cambia.
             </p>
           </div>
 
@@ -916,21 +914,67 @@ const IndividualAthleteProfile = () => {
     const prevPrice = athlete.plan_tier_price;
 
     // Cambiar la frecuencia mueve plata (cuota) y accesos del kiosco: se confirma.
+    // Que va a entrenar N días ya lo sabe quien lo está cambiando; lo que hay que
+    // mostrarle es el arrastre. Sólo se listan las filas que efectivamente cambian.
     if (prevVisits !== visits) {
-      const detalle = [
-        `Frecuencia: ${prevVisits || "—"}x → ${visits}x por semana.`,
-        `Accesos del período: ${Math.max(prevVisits * 4, 1)} → ${Math.max(visits * 4, 1)} (no se tocan los ya consumidos).`,
-        price !== null && Number(prevPrice) !== price
-          ? `Cuota: ${formatCurrency(Number(prevPrice || 0))} → ${formatCurrency(price)}. Si hay una cuota pendiente de este período, pasa al monto nuevo (las pagadas no se tocan).`
+      const precioCambia = price !== null && Number(prevPrice) !== price;
+
+      // Accesos: se usan los valores REALES del contador (pueden no ser
+      // frecuencia × 4 si el saldo se ajustó a mano) y se respeta el tope por
+      // lo ya consumido, igual que hace el backend.
+      const consumidos = Number(profileData.kioskRemaining?.consumed ?? 0);
+      const accesosAntes = profileData.kioskRemaining?.allowed ?? null;
+      const accesosDespues =
+        accesosAntes === null
+          ? null
+          : Math.max(Math.max(visits * 4, 1), consumidos);
+
+      const filas = [
+        { label: "Frecuencia", antes: `${prevVisits || "—"}x`, despues: `${visits}x` },
+        precioCambia
+          ? {
+              label: "Cuota mensual",
+              antes: formatCurrency(Number(prevPrice || 0)),
+              despues: formatCurrency(price),
+            }
           : null,
-      ]
-        .filter(Boolean)
-        .join(" ");
+        accesosAntes !== null && accesosAntes !== accesosDespues
+          ? { label: "Accesos del mes", antes: `${accesosAntes}`, despues: `${accesosDespues}` }
+          : null,
+      ].filter(Boolean);
 
       const ok = await confirm({
-        title: "Cambiar frecuencia",
-        message: detalle,
+        title: `Pasar a ${visits} días por semana`,
         confirmLabel: "Cambiar",
+        message: (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
+              {filas.map((fila) => (
+                <div
+                  key={fila.label}
+                  className="flex items-center justify-between gap-3 px-3 py-2.5"
+                >
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-text-secondary">
+                    {fila.label}
+                  </span>
+                  <span className="flex items-center gap-2 text-sm font-bold text-text-primary tabular-nums">
+                    <span className="text-text-tertiary">{fila.antes}</span>
+                    <Icon name="ArrowRight" size={14} className="text-text-tertiary" />
+                    <span>{fila.despues}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Sólo se aclara lo que VA A PASAR; lo que no cambia (una cuota ya
+                pagada) no es noticia y sólo agrega ruido. */}
+            {precioCambia && (
+              <p className="text-[11px] text-text-secondary">
+                La cuota pendiente de este mes pasa a {formatCurrency(price)}.
+              </p>
+            )}
+          </div>
+        ),
       });
       if (!ok) return;
     }
@@ -949,24 +993,24 @@ const IndividualAthleteProfile = () => {
         return;
       }
 
-      // Se arma un solo mensaje con lo que efectivamente cambió: accesos y cuota.
+      // Resumen telegráfico de lo que cambió; el detalle ya se confirmó antes.
       const partes = [`${visits}x por semana`];
-
-      if (result?.allowed_clamped) {
-        partes.push(
-          `accesos del período en ${result.allowed_sessions} (ya había consumido esa cantidad)`
-        );
-      } else if (result?.balance_synced) {
-        partes.push(`${result.allowed_sessions} accesos en el período`);
-      }
-
       if (result?.invoice_updated) {
-        partes.push(
-          `cuota pendiente actualizada a ${formatCurrency(Number(result.invoice_amount || 0))}`
-        );
+        partes.push(formatCurrency(Number(result.invoice_amount || 0)));
+      }
+      if (result?.balance_synced) {
+        partes.push(`${result.allowed_sessions} accesos`);
       }
 
-      toast.success(`Membresía actualizada: ${partes.join(", ")}.`);
+      toast.success(`Listo: ${partes.join(" · ")}.`);
+
+      // El tope por accesos ya consumidos es el único caso que no se pudo
+      // anticipar en la confirmación: se avisa aparte para que no pase inadvertido.
+      if (result?.allowed_clamped) {
+        toast.info(
+          `Los accesos quedaron en ${result.allowed_sessions}: ya había consumido esa cantidad este mes.`
+        );
+      }
 
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
