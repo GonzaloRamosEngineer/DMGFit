@@ -12,6 +12,19 @@ import { useToast } from '../../hooks/useToast';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
+// Señala que ESE horario lo cargó administración y no salió del kiosco.
+const ManualBadge = ({ editedAt, campo }) => {
+  if (!editedAt) return null;
+  return (
+    <span
+      title={`La ${campo} la cargó administración a mano, no se fichó en el kiosco.`}
+      className="px-1.5 py-0.5 rounded bg-info-light text-info text-[10px] font-black uppercase tracking-wide"
+    >
+      A mano
+    </span>
+  );
+};
+
 // Fecha local (evita el desfase UTC)
 const localDate = (d = new Date()) => {
   const off = d.getTimezoneOffset() * 60000;
@@ -37,7 +50,7 @@ const CoachAttendance = () => {
     try {
       const { data, error } = await supabase
         .from('access_logs')
-        .select('id, check_in_time, check_out_time, local_checkin_date, coach_id, attendance_edited_at, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
+        .select('id, check_in_time, check_out_time, local_checkin_date, coach_id, check_in_edited_at, check_out_edited_at, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
         .not('coach_id', 'is', null)
         .eq('access_granted', true)
         .gte('local_checkin_date', start)
@@ -264,7 +277,14 @@ const CoachAttendance = () => {
                             ? `${DAY_NAMES[new Date(r.local_checkin_date + 'T00:00:00').getDay()]} ${new Date(r.local_checkin_date + 'T00:00:00').toLocaleDateString('es-AR')}`
                             : '—'}
                         </td>
-                        <td className="px-5 py-3 text-text-secondary">{fmtTime(r.check_in_time)}</td>
+                        {/* La marca es por campo: en una misma fila la entrada puede
+                            ser real (kiosco) y la salida cargada por administración. */}
+                        <td className="px-5 py-3 text-text-secondary">
+                          <span className="flex items-center gap-2">
+                            {fmtTime(r.check_in_time)}
+                            <ManualBadge editedAt={r.check_in_edited_at} campo="entrada" />
+                          </span>
+                        </td>
                         <td className="px-5 py-3 text-text-secondary">
                           <span className="flex items-center gap-2">
                             {r.check_out_time ? (
@@ -272,15 +292,7 @@ const CoachAttendance = () => {
                             ) : (
                               <span className="text-warning font-semibold">En curso</span>
                             )}
-                            {/* Distingue lo fichado en el kiosco de lo cargado a mano. */}
-                            {r.attendance_edited_at && (
-                              <span
-                                title="Horario corregido a mano por administración"
-                                className="px-1.5 py-0.5 rounded bg-info-light text-info text-[10px] font-black uppercase tracking-wide"
-                              >
-                                A mano
-                              </span>
-                            )}
+                            <ManualBadge editedAt={r.check_out_edited_at} campo="salida" />
                           </span>
                         </td>
                         <td className="px-5 py-3 font-bold text-text-primary">

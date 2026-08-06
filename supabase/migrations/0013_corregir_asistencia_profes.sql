@@ -18,12 +18,21 @@
 -- como "corregido a mano" para poder distinguirlos de lo fichado en el kiosco.
 
 -- (1) Procedencia de la corrección (idempotente)
+--     La marca es POR CAMPO, no por fila: en un mismo registro la entrada puede ser
+--     real (la fichó el profe en el kiosco) y la salida cargada a mano. Una marca
+--     única no distinguiría los dos casos y terminaría señalando como "a mano" un
+--     horario que sí es real.
 ALTER TABLE "public"."access_logs"
   ADD COLUMN IF NOT EXISTS "attendance_edited_by" "uuid",
-  ADD COLUMN IF NOT EXISTS "attendance_edited_at" timestamp with time zone;
+  ADD COLUMN IF NOT EXISTS "check_in_edited_at" timestamp with time zone,
+  ADD COLUMN IF NOT EXISTS "check_out_edited_at" timestamp with time zone;
 
 COMMENT ON COLUMN "public"."access_logs"."attendance_edited_by" IS
-  'Admin que corrigió a mano la entrada/salida del profesor (NULL = tal cual lo fichó el kiosco).';
+  'Último admin que corrigió a mano la asistencia del profesor.';
+COMMENT ON COLUMN "public"."access_logs"."check_in_edited_at" IS
+  'Cuándo se cargó la ENTRADA a mano (NULL = tal cual la fichó el kiosco).';
+COMMENT ON COLUMN "public"."access_logs"."check_out_edited_at" IS
+  'Cuándo se cargó la SALIDA a mano (NULL = tal cual la fichó el kiosco).';
 
 -- (2) Corrección de entrada/salida
 --     p_check_in / p_check_out son horas locales 'HH:MM' del día del registro.
@@ -112,11 +121,24 @@ begin
       to_char((v_out at time zone v_tz)::time, 'HH24:MI'), to_char(v_in_t, 'HH24:MI');
   end if;
 
+  -- Cada campo se marca por separado, y sólo si REALMENTE cambió: reabrir el modal
+  -- y guardar sin mover una hora no debe ensuciarla con un "a mano" que no ocurrió.
+  -- Vaciar la salida limpia su marca (vuelve a no haber nada cargado a mano).
   update public.access_logs
      set check_in_time        = v_in,
          check_out_time       = v_out,
          attendance_edited_by = auth.uid(),
-         attendance_edited_at = timezone('utc', now())
+         check_in_edited_at   = case
+                                  when v_in is distinct from v_log.check_in_time
+                                    then timezone('utc', now())
+                                  else check_in_edited_at
+                                end,
+         check_out_edited_at  = case
+                                  when v_out is null then null
+                                  when v_out is distinct from v_log.check_out_time
+                                    then timezone('utc', now())
+                                  else check_out_edited_at
+                                end
    where id = p_log_id;
 
   return jsonb_build_object(
