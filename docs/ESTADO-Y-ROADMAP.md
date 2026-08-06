@@ -1,9 +1,10 @@
 # DMGFit — Estado y Roadmap
 
-_Última actualización: 2026-07-19_
+_Última actualización: 2026-08-05_
 
 > Documento vivo de estado del producto y prioridades. Complementa la doc técnica
-> del repo (CLAUDE.md, `docs/tarea-*.md`) y el análisis de auditoría.
+> del repo (`docs/tarea-*.md`, `docs/cuotas-accesos-y-facturacion.md`) y el análisis
+> de auditoría. (No hay `CLAUDE.md` en este repo; la doc viva son estos `docs/`.)
 
 ---
 
@@ -265,3 +266,50 @@ Pusheada a `main` en **4 commits lógicos** (`c218e7c..dc66543`), deploy Vercel 
   completo), header de 4ª columna dinámico (Método / Estado según pestaña), tabs en 1 línea.
 - **Filtro por fecha** nuevo sobre la tabla (en vivo, con "Todo"); filtra movimientos,
   deudores y anulados.
+
+---
+
+## Editar frecuencia semanal del atleta (2026-08-05, en `main`)
+
+Reporte de Cris: cargó una atleta como 2x, quiso pasarla a 3x y **no podía**. No era
+un bug puntual sino una funcionalidad ausente: `athletes.visits_per_week` sólo se
+seteaba en el alta (`create_full_athlete_atomic`). El perfil guardaba únicamente
+`plan_id`/`plan_option`, el modal "Editar Datos" no toca la membresía, y
+`reassign_athlete_slots_atomic` usa la frecuencia como **candado** (`Debes seleccionar
+exactamente N horarios`). Peor: el texto de ayuda afirmaba que la frecuencia se
+ajustaba "cambiando el plan/opción", y el select **"Opción / Variante" se llenaba con
+`plan_features`** (las características del plan), que no tienen relación con la
+frecuencia — de ahí el "Sin opción" vacío que veía Cris.
+
+**Migraciones `0011` y `0012`** (RPC `admin_update_athlete_membership`). Al guardar,
+en una sola transacción:
+
+1. `plan_id` + `visits_per_week` + `plan_tier_price`.
+2. **Accesos del período en curso** → `frecuencia × 4`, preservando `consumed_sessions`.
+   Si bajan la frecuencia por debajo de lo ya consumido, `allowed` queda en lo consumido
+   (lo exige `athlete_monthly_counters_consumed_chk` y sería quitarle accesos ya usados).
+3. **Cuota `pending` del período en curso** → monto nuevo, misma fila. Sólo `pending`
+   (una pagada es un hecho cerrado) y sólo la del período vigente (las anteriores son
+   deuda de meses cursados con la frecuencia vieja). Respeta descuentos y deja registro
+   en `payment_audit`.
+
+**Decisión de producto (Cris, 2026-08-05):** preguntada si al pasar de 2x a 3x se borra
+la cuota anterior o se modifica, respondió *"Modifica a 3 días x semana"*. **No hay
+prorrateo**: el mes en curso se cobra entero al precio nuevo, no se calcula la diferencia
+por los días transcurridos. Es una decisión, no un olvido.
+
+**UI** (`individual-athlete-profile`): el bloque pasa a "Editar plan, frecuencia y cuota".
+Las frecuencias salen de los **`plan_pricing_tiers` del plan** (no de `plan_features`) y
+proponen su precio, editable para cliente especial; si el plan no tiene tiers, cae a un
+input numérico. Confirmación con el impacto antes → después cuando cambia la frecuencia.
+
+**De paso:** `ModifyAthleteScheduleModal` preseleccionaba turnos del plan viejo tras un
+cambio de plan → el RPC los rechazaba ("horarios fuera del plan") sin que se vieran en la
+grilla para destildarlos. Ahora interseca con el plan actual y topa en la frecuencia.
+Cubierto con tests (`getInitialSelectedSlotIds`, 6 casos; total 21 en verde).
+
+**Nota operativa:** el cron `generate-due-invoices-daily` está activo y genera cuotas
+pendientes solas. Cris avisó (audio 2026-08-05) que **todavía no cargó ningún pago** y que
+piensa cargarlos a mano — o sea que el sistema le está generando deuda mientras ella sólo
+usa el kiosco para controlar asistencia. Decidir si se pausa el cron hasta que arranquen
+con pagos en serio.
