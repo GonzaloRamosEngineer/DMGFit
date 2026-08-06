@@ -6,8 +6,24 @@ import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import DateRangeFilter, { FilterSegment } from '../../components/ui/DateRangeFilter';
+import EditCoachAttendanceModal from './components/EditCoachAttendanceModal';
+import { setCoachAttendance } from '../../services/attendance';
+import { useToast } from '../../hooks/useToast';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+// Señala que ESE horario lo cargó administración y no salió del kiosco.
+const ManualBadge = ({ editedAt, campo }) => {
+  if (!editedAt) return null;
+  return (
+    <span
+      title={`La ${campo} la cargó administración a mano, no se fichó en el kiosco.`}
+      className="px-1.5 py-0.5 rounded bg-info-light text-info text-[10px] font-black uppercase tracking-wide"
+    >
+      A mano
+    </span>
+  );
+};
 
 // Fecha local (evita el desfase UTC)
 const localDate = (d = new Date()) => {
@@ -17,8 +33,11 @@ const localDate = (d = new Date()) => {
 
 const CoachAttendance = () => {
   const [rows, setRows] = useState([]);
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [coachFilter, setCoachFilter] = useState('all');
+  const [editing, setEditing] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [start, setStart] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -31,7 +50,7 @@ const CoachAttendance = () => {
     try {
       const { data, error } = await supabase
         .from('access_logs')
-        .select('id, check_in_time, check_out_time, local_checkin_date, coach_id, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
+        .select('id, check_in_time, check_out_time, local_checkin_date, coach_id, check_in_edited_at, check_out_edited_at, coaches ( profiles ( full_name ) ), weekly_schedule ( day_of_week, start_time, end_time )')
         .not('coach_id', 'is', null)
         .eq('access_granted', true)
         .gte('local_checkin_date', start)
@@ -117,6 +136,34 @@ const CoachAttendance = () => {
     const h = Math.floor(min / 60);
     const m = min % 60;
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  const handleSaveEdit = async ({ checkIn, checkOut }) => {
+    if (!editing?.id) return;
+
+    setSavingEdit(true);
+    try {
+      const { success, error, result } = await setCoachAttendance({
+        logId: editing.id,
+        checkIn,
+        checkOut,
+      });
+
+      if (!success) {
+        toast.error(error || 'No se pudo guardar la corrección.');
+        return;
+      }
+
+      toast.success(
+        result?.minutos != null
+          ? `Asistencia corregida: ${fmtDuration(result.minutos)} trabajados.`
+          : 'Asistencia corregida.',
+      );
+      setEditing(null);
+      load({ silent: true });
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   // Total de horas trabajadas por profesor en el período (solo días con salida fichada).
@@ -218,6 +265,7 @@ const CoachAttendance = () => {
                       <th className="text-left font-bold px-5 py-3">Salida</th>
                       <th className="text-left font-bold px-5 py-3">Horas</th>
                       <th className="text-left font-bold px-5 py-3">Turno</th>
+                      <th className="text-right font-bold px-5 py-3 w-px whitespace-nowrap">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -229,13 +277,23 @@ const CoachAttendance = () => {
                             ? `${DAY_NAMES[new Date(r.local_checkin_date + 'T00:00:00').getDay()]} ${new Date(r.local_checkin_date + 'T00:00:00').toLocaleDateString('es-AR')}`
                             : '—'}
                         </td>
-                        <td className="px-5 py-3 text-text-secondary">{fmtTime(r.check_in_time)}</td>
+                        {/* La marca es por campo: en una misma fila la entrada puede
+                            ser real (kiosco) y la salida cargada por administración. */}
                         <td className="px-5 py-3 text-text-secondary">
-                          {r.check_out_time ? (
-                            fmtTime(r.check_out_time)
-                          ) : (
-                            <span className="text-warning font-semibold">En curso</span>
-                          )}
+                          <span className="flex items-center gap-2">
+                            {fmtTime(r.check_in_time)}
+                            <ManualBadge editedAt={r.check_in_edited_at} campo="entrada" />
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-text-secondary">
+                          <span className="flex items-center gap-2">
+                            {r.check_out_time ? (
+                              fmtTime(r.check_out_time)
+                            ) : (
+                              <span className="text-warning font-semibold">En curso</span>
+                            )}
+                            <ManualBadge editedAt={r.check_out_edited_at} campo="salida" />
+                          </span>
                         </td>
                         <td className="px-5 py-3 font-bold text-text-primary">
                           {fmtDuration(workedMinutes(r)) || '—'}
@@ -245,6 +303,18 @@ const CoachAttendance = () => {
                             ? `${String(r.weekly_schedule.start_time).slice(0, 5)} - ${String(r.weekly_schedule.end_time).slice(0, 5)}`
                             : 'Sin turno'}
                         </td>
+                        <td className="px-5 py-3 text-right whitespace-nowrap">
+                          {/* Sin salida es el caso frecuente (se fue y no fichó): se
+                              nombra la acción, no "Editar", para que se entienda sola. */}
+                          <button
+                            type="button"
+                            onClick={() => setEditing(r)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold text-text-secondary hover:bg-muted hover:text-text-primary transition-colors"
+                          >
+                            <Icon name={r.check_out_time ? 'Pencil' : 'LogOut'} size={13} />
+                            {r.check_out_time ? 'Corregir' : 'Registrar salida'}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -253,6 +323,15 @@ const CoachAttendance = () => {
             )}
           </Card>
       </div>
+
+      {editing && (
+        <EditCoachAttendanceModal
+          row={editing}
+          onClose={() => setEditing(null)}
+          onSave={handleSaveEdit}
+          saving={savingEdit}
+        />
+      )}
     </>
   );
 };
