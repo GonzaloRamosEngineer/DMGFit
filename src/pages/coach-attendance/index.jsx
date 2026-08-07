@@ -3,11 +3,13 @@ import { Helmet } from 'react-helmet';
 import { supabase } from '../../lib/supabaseClient';
 import Icon from '../../components/AppIcon';
 import { Card } from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import DateRangeFilter, { FilterSegment } from '../../components/ui/DateRangeFilter';
 import EditCoachAttendanceModal from './components/EditCoachAttendanceModal';
-import { setCoachAttendance } from '../../services/attendance';
+import CreateCoachAttendanceModal from './components/CreateCoachAttendanceModal';
+import { setCoachAttendance, createCoachAttendance } from '../../services/attendance';
 import { useToast } from '../../hooks/useToast';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -38,6 +40,9 @@ const CoachAttendance = () => {
   const [coachFilter, setCoachFilter] = useState('all');
   const [editing, setEditing] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [allCoaches, setAllCoaches] = useState([]);
+  const [creating, setCreating] = useState(false);
+  const [savingCreate, setSavingCreate] = useState(false);
   const [start, setStart] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -70,6 +75,20 @@ const CoachAttendance = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Lista de profesores para el selector del alta manual.
+  useEffect(() => {
+    const loadCoaches = async () => {
+      const { data, error } = await supabase
+        .from('coaches')
+        .select('id, profiles:profile_id(full_name)')
+        .order('id');
+      if (!error) {
+        setAllCoaches((data || []).map((c) => ({ id: c.id, name: c.profiles?.full_name || 'Profesor' })));
+      }
+    };
+    loadCoaches();
+  }, []);
 
   // Realtime: refresca cuando un profe registra ingreso en el kiosco.
   const loadRef = useRef(load);
@@ -166,7 +185,31 @@ const CoachAttendance = () => {
     }
   };
 
-  // Total de horas trabajadas por profesor en el período (solo días con salida fichada).
+  const handleCreate = async ({ coachId, date, checkIn, checkOut }) => {
+    setSavingCreate(true);
+    try {
+      const { success, error, result } = await createCoachAttendance({ coachId, date, checkIn, checkOut });
+
+      if (!success) {
+        toast.error(error || 'No se pudo registrar la asistencia.');
+        return;
+      }
+
+      toast.success(
+        result?.minutos != null
+          ? `Asistencia registrada: ${fmtDuration(result.minutos)} trabajados.`
+          : 'Asistencia registrada.',
+      );
+      setCreating(false);
+      load({ silent: true });
+    } finally {
+      setSavingCreate(false);
+    }
+  };
+
+  // Total de horas trabajadas por profesor en el período. "dias" cuenta días
+  // distintos, no fichajes: un profe puede tener varios ciclos entrada/salida en
+  // el mismo día y eso sigue siendo 1 sólo día trabajado.
   const totals = useMemo(() => {
     const map = new Map();
     filtered.forEach((r) => {
@@ -174,16 +217,18 @@ const CoachAttendance = () => {
       const cur = map.get(r.coach_id) || {
         name: r.coaches?.profiles?.full_name || 'Profesor',
         minutes: 0,
-        dias: 0,
+        dias: new Set(),
         sinSalida: 0,
       };
-      cur.dias += 1;
+      if (r.local_checkin_date) cur.dias.add(r.local_checkin_date);
       const wm = workedMinutes(r);
       if (wm == null) cur.sinSalida += 1;
       else cur.minutes += wm;
       map.set(r.coach_id, cur);
     });
-    return Array.from(map.values()).sort((a, b) => b.minutes - a.minutes);
+    return Array.from(map.values())
+      .map((t) => ({ ...t, dias: t.dias.size }))
+      .sort((a, b) => b.minutes - a.minutes);
   }, [filtered]);
 
   return (
@@ -195,30 +240,40 @@ const CoachAttendance = () => {
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 shrink-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
-              <p className="text-sm text-text-secondary font-medium mt-0.5">Entrada, salida y horas trabajadas de cada profesor (1º fichaje = entrada, 2º = salida).</p>
+              <p className="text-sm text-text-secondary font-medium mt-0.5">Entrada, salida y horas trabajadas de cada profesor (puede fichar varias veces por día).</p>
             </div>
 
-            <DateRangeFilter
-              start={start}
-              end={end}
-              onStartChange={(e) => setStart(e.target.value)}
-              onEndChange={(e) => setEnd(e.target.value)}
-              onRangeSelect={(r) => { setStart(r.start); setEnd(r.end); }}
-            >
-              <FilterSegment label="Profesor" className="min-w-[120px]">
-                <span className="relative flex items-center">
-                  <select
-                    value={coachFilter}
-                    onChange={(e) => setCoachFilter(e.target.value)}
-                    className="w-full cursor-pointer appearance-none border-0 bg-transparent bg-none p-0 pr-5 text-sm font-black text-text-primary outline-none focus:ring-0"
-                  >
-                    <option value="all">Todos</option>
-                    {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <Icon name="ChevronDown" size={13} className="pointer-events-none absolute right-0 text-text-tertiary" />
-                </span>
-              </FilterSegment>
-            </DateRangeFilter>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+              <DateRangeFilter
+                start={start}
+                end={end}
+                onStartChange={(e) => setStart(e.target.value)}
+                onEndChange={(e) => setEnd(e.target.value)}
+                onRangeSelect={(r) => { setStart(r.start); setEnd(r.end); }}
+              >
+                <FilterSegment label="Profesor" className="min-w-[120px]">
+                  <span className="relative flex items-center">
+                    <select
+                      value={coachFilter}
+                      onChange={(e) => setCoachFilter(e.target.value)}
+                      className="w-full cursor-pointer appearance-none border-0 bg-transparent bg-none p-0 pr-5 text-sm font-black text-text-primary outline-none focus:ring-0"
+                    >
+                      <option value="all">Todos</option>
+                      {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <Icon name="ChevronDown" size={13} className="pointer-events-none absolute right-0 text-text-tertiary" />
+                  </span>
+                </FilterSegment>
+              </DateRangeFilter>
+
+              <Button
+                onClick={() => setCreating(true)}
+                iconName="Plus"
+                className="shrink-0"
+              >
+                Registrar asistencia
+              </Button>
+            </div>
           </div>
 
           {!loading && totals.length > 0 && (
@@ -330,6 +385,15 @@ const CoachAttendance = () => {
           onClose={() => setEditing(null)}
           onSave={handleSaveEdit}
           saving={savingEdit}
+        />
+      )}
+
+      {creating && (
+        <CreateCoachAttendanceModal
+          coaches={allCoaches}
+          onClose={() => setCreating(false)}
+          onSave={handleCreate}
+          saving={savingCreate}
         />
       )}
     </>

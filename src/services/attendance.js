@@ -28,6 +28,31 @@ export const setCoachAttendance = async ({ logId, checkIn, checkOut }) => {
   }
 };
 
+// Registrar una presencia de profesor DESDE CERO, cargada por admin (sin que el
+// profe haya fichado nada en el kiosco). `checkOut` es opcional: si no se manda,
+// el registro queda "En curso" igual que un fichaje real sin salida.
+// Ver 0014_asistencia_profes_multi_registro.sql.
+export const createCoachAttendance = async ({ coachId, date, checkIn, checkOut }) => {
+  try {
+    const { data, error } = await supabase.rpc('admin_create_coach_attendance', {
+      p_coach_id: coachId,
+      p_date: date,
+      p_check_in: checkIn,
+      p_check_out: checkOut || null,
+    });
+
+    if (error) throw error;
+    return { success: true, result: data };
+  } catch (error) {
+    console.error('Error en createCoachAttendance:', error);
+    const message = String(error?.message || '');
+    if (message.includes('FORBIDDEN')) {
+      return { success: false, error: 'No tenés permisos para registrar asistencia.' };
+    }
+    return { success: false, error: message || 'No se pudo registrar la asistencia.' };
+  }
+};
+
 export const fetchAttendanceByAthlete = async (athleteId) => {
   const { data, error } = await supabase
     .from('attendance')
