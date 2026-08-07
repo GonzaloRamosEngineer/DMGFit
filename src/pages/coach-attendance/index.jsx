@@ -76,15 +76,22 @@ const CoachAttendance = () => {
     load();
   }, [load]);
 
-  // Lista de profesores para el selector del alta manual.
+  // Lista de profesores para el selector del alta manual. Sólo los ACTIVOS:
+  // un profe archivado ya no trabaja acá (0002 le bloquea hasta el login), así
+  // que ofrecerlo para cargarle una presencia nueva no tiene sentido. Sus
+  // registros viejos siguen viéndose en la tabla y en el filtro de arriba.
   useEffect(() => {
     const loadCoaches = async () => {
       const { data, error } = await supabase
         .from('coaches')
-        .select('id, profiles:profile_id(full_name)')
-        .order('id');
+        .select('id, archived_at, profiles:profile_id(full_name)')
+        .is('archived_at', null);
       if (!error) {
-        setAllCoaches((data || []).map((c) => ({ id: c.id, name: c.profiles?.full_name || 'Profesor' })));
+        setAllCoaches(
+          (data || [])
+            .map((c) => ({ id: c.id, name: c.profiles?.full_name || 'Profesor' }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+        );
       }
     };
     loadCoaches();
@@ -236,60 +243,70 @@ const CoachAttendance = () => {
       <Helmet><title>Asistencia de Profesores | VC Fit</title></Helmet>
 
       <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
-          {/* Header compacto (fila simple, sin caja) */}
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 shrink-0">
+          {/* Header: título + acción primaria. Misma gramática que Profesores y
+              Atletas (la acción vive arriba a la derecha, sola). Los filtros van
+              en su propia banda abajo: apretados los tres en el mismo renglón la
+              esquina quedaba ilegible. */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
               <p className="text-sm text-text-secondary font-medium mt-0.5">Entrada, salida y horas trabajadas de cada profesor (puede fichar varias veces por día).</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-              <DateRangeFilter
-                start={start}
-                end={end}
-                onStartChange={(e) => setStart(e.target.value)}
-                onEndChange={(e) => setEnd(e.target.value)}
-                onRangeSelect={(r) => { setStart(r.start); setEnd(r.end); }}
-              >
-                <FilterSegment label="Profesor" className="min-w-[120px]">
-                  <span className="relative flex items-center">
-                    <select
-                      value={coachFilter}
-                      onChange={(e) => setCoachFilter(e.target.value)}
-                      className="w-full cursor-pointer appearance-none border-0 bg-transparent bg-none p-0 pr-5 text-sm font-black text-text-primary outline-none focus:ring-0"
-                    >
-                      <option value="all">Todos</option>
-                      {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                    <Icon name="ChevronDown" size={13} className="pointer-events-none absolute right-0 text-text-tertiary" />
-                  </span>
-                </FilterSegment>
-              </DateRangeFilter>
-
-              <Button
-                onClick={() => setCreating(true)}
-                iconName="Plus"
-                className="shrink-0"
-              >
-                Registrar asistencia
-              </Button>
-            </div>
+            <Button
+              onClick={() => setCreating(true)}
+              iconName="Plus"
+              className="h-auto w-full shrink-0 rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-widest shadow-md transition-all hover:-translate-y-0.5 md:w-auto"
+            >
+              Registrar asistencia
+            </Button>
           </div>
+
+          {/* Filtros. `self-start` para que la card no se estire a todo el ancho
+              del contenedor: estirada, los campos quedan separados por cientos de
+              píxeles y deja de leerse como una barra de herramientas. */}
+          <DateRangeFilter
+            className="shrink-0 self-start"
+            start={start}
+            end={end}
+            onStartChange={(e) => setStart(e.target.value)}
+            onEndChange={(e) => setEnd(e.target.value)}
+            onRangeSelect={(r) => { setStart(r.start); setEnd(r.end); }}
+          >
+            <FilterSegment label="Profesor" className="min-w-[140px]">
+              <span className="relative flex items-center">
+                <select
+                  value={coachFilter}
+                  onChange={(e) => setCoachFilter(e.target.value)}
+                  className="w-full cursor-pointer appearance-none border-0 bg-transparent bg-none p-0 pr-5 text-sm font-black text-text-primary outline-none focus:ring-0"
+                >
+                  <option value="all">Todos</option>
+                  {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <Icon name="ChevronDown" size={13} className="pointer-events-none absolute right-0 text-text-tertiary" />
+              </span>
+            </FilterSegment>
+          </DateRangeFilter>
 
           {!loading && totals.length > 0 && (
             <div className="shrink-0 flex gap-3 overflow-x-auto custom-scrollbar pb-1">
               {totals.map((t) => (
                 <div
                   key={t.name}
-                  className="min-w-[180px] rounded-2xl border border-border bg-card px-4 py-3"
+                  className="min-w-[180px] rounded-2xl border border-border bg-card px-4 py-3 shadow-sm"
                 >
                   <p className="text-xs font-bold text-text-secondary truncate">{t.name}</p>
                   <p className="text-xl font-black text-text-primary mt-0.5">
                     {fmtDuration(t.minutes) || '0m'}
                   </p>
+                  {/* "sin salida" es lo accionable de la tarjeta (son los días que
+                      no computan horas hasta que alguien los cierre), así que va
+                      en ámbar, igual que el "En curso" de la tabla. */}
                   <p className="text-[11px] font-semibold text-text-tertiary">
                     {t.dias} {t.dias === 1 ? 'día' : 'días'}
-                    {t.sinSalida > 0 ? ` · ${t.sinSalida} sin salida` : ''}
+                    {t.sinSalida > 0 && (
+                      <span className="text-warning"> · {t.sinSalida} sin salida</span>
+                    )}
                   </p>
                 </div>
               ))}
@@ -353,7 +370,7 @@ const CoachAttendance = () => {
                         <td className="px-5 py-3 font-bold text-text-primary">
                           {fmtDuration(workedMinutes(r)) || '—'}
                         </td>
-                        <td className="px-5 py-3 text-text-secondary">
+                        <td className="px-5 py-3 text-text-secondary whitespace-nowrap">
                           {r.weekly_schedule
                             ? `${String(r.weekly_schedule.start_time).slice(0, 5)} - ${String(r.weekly_schedule.end_time).slice(0, 5)}`
                             : 'Sin turno'}
