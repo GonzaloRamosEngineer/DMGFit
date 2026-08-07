@@ -215,8 +215,8 @@ const CoachAttendance = () => {
   };
 
   // Total de horas trabajadas por profesor en el período. "dias" cuenta días
-  // distintos, no fichajes: un profe puede tener varios ciclos entrada/salida en
-  // el mismo día y eso sigue siendo 1 sólo día trabajado.
+  // distintos, no filas: desde 0014 un profe puede tener varios ciclos
+  // entrada/salida el mismo día y eso sigue siendo 1 solo día trabajado.
   const totals = useMemo(() => {
     const map = new Map();
     filtered.forEach((r) => {
@@ -243,70 +243,61 @@ const CoachAttendance = () => {
       <Helmet><title>Asistencia de Profesores | VC Fit</title></Helmet>
 
       <div className="flex flex-col gap-4 lg:gap-5 lg:h-[calc(100vh-4rem)]">
-          {/* Header: título + acción primaria. Misma gramática que Profesores y
-              Atletas (la acción vive arriba a la derecha, sola). Los filtros van
-              en su propia banda abajo: apretados los tres en el mismo renglón la
-              esquina quedaba ilegible. */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 shrink-0">
+          {/* Header compacto (fila simple, sin caja) */}
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 shrink-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-black text-text-primary tracking-tight">Asistencia de Profesores</h1>
               <p className="text-sm text-text-secondary font-medium mt-0.5">Entrada, salida y horas trabajadas de cada profesor (puede fichar varias veces por día).</p>
+
+              {/* La acción cuelga del bloque de título: queda en el arranque de la
+                  lectura y con un vecino inmediato, en vez de flotando sola en la
+                  esquina opuesta. */}
+              <Button
+                onClick={() => setCreating(true)}
+                iconName="Plus"
+                className="mt-3 h-auto w-full rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-widest shadow-md transition-all hover:-translate-y-0.5 sm:w-auto"
+              >
+                Registrar asistencia
+              </Button>
             </div>
 
-            <Button
-              onClick={() => setCreating(true)}
-              iconName="Plus"
-              className="h-auto w-full shrink-0 rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-widest shadow-md transition-all hover:-translate-y-0.5 md:w-auto"
+            <DateRangeFilter
+              start={start}
+              end={end}
+              onStartChange={(e) => setStart(e.target.value)}
+              onEndChange={(e) => setEnd(e.target.value)}
+              onRangeSelect={(r) => { setStart(r.start); setEnd(r.end); }}
             >
-              Registrar asistencia
-            </Button>
+              <FilterSegment label="Profesor" className="min-w-[120px]">
+                <span className="relative flex items-center">
+                  <select
+                    value={coachFilter}
+                    onChange={(e) => setCoachFilter(e.target.value)}
+                    className="w-full cursor-pointer appearance-none border-0 bg-transparent bg-none p-0 pr-5 text-sm font-black text-text-primary outline-none focus:ring-0"
+                  >
+                    <option value="all">Todos</option>
+                    {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <Icon name="ChevronDown" size={13} className="pointer-events-none absolute right-0 text-text-tertiary" />
+                </span>
+              </FilterSegment>
+            </DateRangeFilter>
           </div>
-
-          {/* Filtros. `self-start` para que la card no se estire a todo el ancho
-              del contenedor: estirada, los campos quedan separados por cientos de
-              píxeles y deja de leerse como una barra de herramientas. */}
-          <DateRangeFilter
-            className="shrink-0 self-start"
-            start={start}
-            end={end}
-            onStartChange={(e) => setStart(e.target.value)}
-            onEndChange={(e) => setEnd(e.target.value)}
-            onRangeSelect={(r) => { setStart(r.start); setEnd(r.end); }}
-          >
-            <FilterSegment label="Profesor" className="min-w-[140px]">
-              <span className="relative flex items-center">
-                <select
-                  value={coachFilter}
-                  onChange={(e) => setCoachFilter(e.target.value)}
-                  className="w-full cursor-pointer appearance-none border-0 bg-transparent bg-none p-0 pr-5 text-sm font-black text-text-primary outline-none focus:ring-0"
-                >
-                  <option value="all">Todos</option>
-                  {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <Icon name="ChevronDown" size={13} className="pointer-events-none absolute right-0 text-text-tertiary" />
-              </span>
-            </FilterSegment>
-          </DateRangeFilter>
 
           {!loading && totals.length > 0 && (
             <div className="shrink-0 flex gap-3 overflow-x-auto custom-scrollbar pb-1">
               {totals.map((t) => (
                 <div
                   key={t.name}
-                  className="min-w-[180px] rounded-2xl border border-border bg-card px-4 py-3 shadow-sm"
+                  className="min-w-[180px] rounded-2xl border border-border bg-card px-4 py-3"
                 >
                   <p className="text-xs font-bold text-text-secondary truncate">{t.name}</p>
                   <p className="text-xl font-black text-text-primary mt-0.5">
                     {fmtDuration(t.minutes) || '0m'}
                   </p>
-                  {/* "sin salida" es lo accionable de la tarjeta (son los días que
-                      no computan horas hasta que alguien los cierre), así que va
-                      en ámbar, igual que el "En curso" de la tabla. */}
                   <p className="text-[11px] font-semibold text-text-tertiary">
                     {t.dias} {t.dias === 1 ? 'día' : 'días'}
-                    {t.sinSalida > 0 && (
-                      <span className="text-warning"> · {t.sinSalida} sin salida</span>
-                    )}
+                    {t.sinSalida > 0 ? ` · ${t.sinSalida} sin salida` : ''}
                   </p>
                 </div>
               ))}
@@ -370,7 +361,7 @@ const CoachAttendance = () => {
                         <td className="px-5 py-3 font-bold text-text-primary">
                           {fmtDuration(workedMinutes(r)) || '—'}
                         </td>
-                        <td className="px-5 py-3 text-text-secondary whitespace-nowrap">
+                        <td className="px-5 py-3 text-text-secondary">
                           {r.weekly_schedule
                             ? `${String(r.weekly_schedule.start_time).slice(0, 5)} - ${String(r.weekly_schedule.end_time).slice(0, 5)}`
                             : 'Sin turno'}
