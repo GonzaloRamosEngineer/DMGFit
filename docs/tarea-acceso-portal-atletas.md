@@ -3,9 +3,11 @@
 _Última actualización: 2026-09-01_
 
 > Estado: **#1, #5 y #6 implementados** en la branch `fix/acceso-atletas-panel`
-> (build verde). **Falta aplicar la migración 0015 y deployar la Edge Function**
-> `reset-athlete-password` a producción. Los hallazgos #2, #3, #4 y #7 quedan
-> abiertos: ver "Pendientes".
+> (build verde). **Backend YA EN PRODUCCIÓN (2026-09-01):** migraciones `0015` y `0016`
+> aplicadas por `db push` (pooler) y Edge Function `reset-athlete-password` deployada;
+> verificación e2e más abajo. **Falta mergear a main y desplegar el front** — hasta
+> entonces el panel sigue mostrando el botón viejo. Los hallazgos #2, #3, #4 y #7
+> quedan abiertos: ver "Pendientes".
 
 ---
 
@@ -133,6 +135,26 @@ comunicarle. **Solo admin** — restablecer la clave de otra persona no es tarea
 Si se deploya el front **sin** la migración, no rompe: el estado de acceso queda en
 "no sé" y ni el chip ni el botón aparecen. Si se deploya **sin** la Edge Function, el
 botón "Restablecer clave" muestra un error al usarse.
+
+### Verificación en producción (2026-09-01)
+
+Los tres pasos de backend quedaron aplicados y verificados contra prod:
+
+| Prueba | Resultado |
+|---|---|
+| `athletes_login_status()` con la publishable key (rol `anon`) | `42501 permission denied` — 0016 cerró el grant heredado |
+| Idem con un JWT de usuario (`authenticated`) | `200` + lista vacía — el revoke NO rompió a la app y `is_staff()` filtra |
+| Idem con la secret key | `200` + lista vacía |
+| `reset-athlete-password` sin sesión | `401 "Sesión inválida"` |
+| `reset-athlete-password` como no-admin | `403 "Solo el admin puede restablecer contraseñas"` |
+
+**Falta la verificación en pantalla** (requiere sesión real de admin y de atleta): que el
+botón desaparezca de las fichas, que aparezca "Restablecer clave", y que el aviso del
+portal salga al entrar con DNI.
+
+**Higiene del dato:** la prueba con JWT de usuario usó la cuenta de test
+`prueba.portal@vcfit.app`, así que su `last_sign_in_at` quedó con fecha 2026-09-01.
+No es un atleta real.
 
 ---
 
