@@ -5,6 +5,7 @@ import Modal from '../../../components/ui/Modal';
 import Input from '../../../components/ui/Input';
 import { getMyProfile, updateMyProfile, changeMyPassword } from '../../../services/athletes';
 import { useToast } from '../../../hooks/useToast';
+import { CLAVE_POR_DEFECTO_KEY, CLAVE_ACTUALIZADA_EVENT } from './PasswordNudge';
 
 const EDITABLE = [
   'full_name', 'phone', 'birth_date', 'gender', 'address', 'city',
@@ -70,6 +71,9 @@ const MyDataCard = () => {
     setPwSaving(true);
     try {
       await changeMyPassword(pw.next);
+      // Ya tiene clave propia: se baja el aviso de "tu contraseña es tu DNI".
+      try { sessionStorage.removeItem(CLAVE_POR_DEFECTO_KEY); } catch { /* storage bloqueado */ }
+      window.dispatchEvent(new Event(CLAVE_ACTUALIZADA_EVENT));
       toast.success('Contraseña actualizada.');
       setPwOpen(false);
       setPw({ next: '', confirm: '' });

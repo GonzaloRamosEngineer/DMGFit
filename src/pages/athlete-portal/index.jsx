@@ -39,6 +39,7 @@ import PaymentsCard from './components/PaymentsCard';        // Wallet Financier
 import AttendanceCard from './components/AttendanceCard';    // Monitor de Hábito
 import CoachNotesCard from './components/CoachNotesCard';    // Feed de Feedback
 import WorkoutSection from './components/workout/WorkoutSection'; // Registrador de entrenamiento + biblioteca
+import PasswordNudge from './components/PasswordNudge';  // Aviso: la clave sigue siendo el DNI
 
 const runPortalTask = async (key, task, fallback) => {
   try {
@@ -254,6 +255,8 @@ const AthletePortal = () => {
               </div>
             </div>
           )}
+
+          <PasswordNudge enCuenta={activeSection === 'cuenta'} />
 
           {activeSection === 'inicio' && (
             <>

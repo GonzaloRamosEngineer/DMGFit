@@ -1,6 +1,10 @@
 # Plan de implementación — Login por DNI (portal del atleta)
 
-> Estado: **DISEÑO** (para ejecutar en otra sesión). No implementado.
+> Estado: **IMPLEMENTADO Y EN PRODUCCIÓN** (actualizado 2026-09-01). Los 73 atletas
+> entran con DNI + clave = DNI, y el alta crea el login sola. Lo que sigue vigente de
+> este documento es la recomendación de separar el **email de contacto** de la identidad
+> de login (ver `athletes.contact_email`): sigue pendiente y está registrada como #2/#7 en
+> [`tarea-acceso-portal-atletas.md`](./tarea-acceso-portal-atletas.md).
 > Contexto: muchos clientes **no tienen email**; el DNI es la identidad universal
 > (ya se usa en el kiosco). Objetivo: que el atleta entre al portal con **DNI + contraseña**,
 > con email real **opcional**. Unifica identidad (kiosco + portal) y elimina la fricción

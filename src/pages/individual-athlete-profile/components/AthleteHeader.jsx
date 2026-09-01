@@ -25,6 +25,8 @@ const AthleteHeader = ({
   loading = false,
   onEnableAccess,
   canEnable = false,
+  hasLogin = null,
+  onResetPassword,
   canManage = false,
   onEditData,
 }) => {
@@ -33,8 +35,14 @@ const AthleteHeader = ({
   const confirm = useConfirm();
   const { toast } = useToast();
 
-  const isOffline =
-    athlete?.email && INTERNAL_DOMAINS.some((domain) => athlete.email.endsWith(domain));
+  // El email interno ({DNI}@vcfit.internal) es la identidad de login, no un dato de
+  // contacto: significa "no tenemos su mail", NO "no puede entrar". El acceso real
+  // llega en `hasLogin`, que sale de auth.users (0015).
+  const sinEmailContacto =
+    !athlete?.email ||
+    INTERNAL_DOMAINS.some((domain) => String(athlete.email).endsWith(domain));
+
+  const sinAcceso = hasLogin === false;
 
   const membershipType = athlete?.membership_type || athlete?.membershipType || 'standard';
   const isPremium = String(membershipType).toLowerCase() === 'premium';
@@ -162,10 +170,10 @@ const AthleteHeader = ({
                   {athlete.status === 'active' ? 'Activo' : 'Inactivo'}
                 </span>
 
-                {isOffline && (
+                {sinAcceso && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold uppercase bg-warning/10 text-warning">
                     <Icon name="CloudOff" size={12} />
-                    Offline
+                    Sin acceso
                   </span>
                 )}
               </div>
@@ -174,7 +182,7 @@ const AthleteHeader = ({
 
           {/* Acciones */}
           <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-end">
-            {isOffline && canEnable && (
+            {sinAcceso && canEnable && (
               <Button
                 variant="default"
                 size="sm"
@@ -183,6 +191,18 @@ const AthleteHeader = ({
                 className="bg-warning hover:bg-warning/90 text-warning-foreground border-none shadow-sm"
               >
                 Habilitar Acceso
+              </Button>
+            )}
+
+            {hasLogin === true && onResetPassword && (
+              <Button
+                variant="outline"
+                size="sm"
+                iconName="KeyRound"
+                onClick={() => onResetPassword(athlete)}
+                title="Vuelve la contraseña a su DNI (para cuando la olvidó)"
+              >
+                Restablecer clave
               </Button>
             )}
 
@@ -269,18 +289,18 @@ const AthleteHeader = ({
 
             <div className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
               <Icon
-                name={isOffline ? 'MailX' : 'Mail'}
+                name={sinEmailContacto ? 'MailX' : 'Mail'}
                 size={16}
-                className={isOffline ? 'text-warning' : 'text-primary'}
+                className={sinEmailContacto ? 'text-muted-foreground' : 'text-primary'}
               />
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground uppercase font-medium">Email</p>
                 <p
                   className={`text-sm font-bold truncate ${
-                    isOffline ? 'text-warning italic' : 'text-foreground'
+                    sinEmailContacto ? 'text-muted-foreground italic' : 'text-foreground'
                   }`}
                 >
-                  {athlete.email || '—'}
+                  {sinEmailContacto ? 'Sin email' : athlete.email}
                 </p>
               </div>
             </div>

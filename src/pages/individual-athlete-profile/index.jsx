@@ -7,6 +7,8 @@ import { fetchPlanSlots, fetchPlanPricing } from "../../services/plans";
 import {
   reassignAthleteSlots,
   activateAthleteLogin,
+  resetAthletePassword,
+  fetchAthleteLoginStatus,
   updateAthleteMembership,
 } from "../../services/athletes";
 import { hoyLocal, formatearFecha } from "../../utils/formatters";
@@ -573,6 +575,10 @@ const IndividualAthleteProfile = () => {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Acceso REAL al portal (0015): se le pregunta a auth.users, no al dominio del
+  // email. `null` = todavía no se sabe (no se muestra ni acceso ni falta de acceso).
+  const [hasLogin, setHasLogin] = useState(null);
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Ajuste manual del saldo de accesos del período (para el arranque del sistema)
@@ -800,6 +806,26 @@ const IndividualAthleteProfile = () => {
   // El profesor entra en "vista entrenador": lee todo salvo pagos y puede cargar notas.
   const isAdmin = currentUser?.role === "admin";
   const canManageMembership = isAdmin;
+
+  // Estado de acceso al portal. Se relee cuando se habilita el acceso (refreshKey).
+  useEffect(() => {
+    let cancelled = false;
+    if (!athleteId) return undefined;
+
+    fetchAthleteLoginStatus(athleteId)
+      .then((value) => {
+        if (!cancelled) setHasLogin(value);
+      })
+      .catch(() => {
+        // Migración 0015 no aplicada o consulta fallida: se queda en "no sé" y la
+        // ficha no afirma nada sobre el acceso.
+        if (!cancelled) setHasLogin(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [athleteId, refreshKey]);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -1141,6 +1167,28 @@ const IndividualAthleteProfile = () => {
     }
   };
 
+  // Restablecer la clave del atleta a su DNI (solo admin). El atleta no tiene
+  // recupero por email: su identidad de login es interna y no recibe correo.
+  const handleResetPassword = async (target) => {
+    const ok = await confirm({
+      title: "Restablecer contraseña",
+      message: `La contraseña de ${target?.name || "este atleta"} vuelve a ser su DNI. Si tenía una clave propia, deja de funcionar.`,
+      confirmLabel: "Restablecer",
+      variant: "danger",
+    });
+    if (!ok) return;
+    try {
+      const data = await resetAthletePassword(athleteId);
+      toast.success(
+        data?.uses_dni
+          ? `Contraseña restablecida. Entra con su DNI (${data?.dni}) como usuario y clave.`
+          : data?.message || "Contraseña restablecida al DNI."
+      );
+    } catch (err) {
+      toast.error(err.message || "No se pudo restablecer la contraseña.");
+    }
+  };
+
   const handleSaveBalance = async () => {
     const n = Number(adjustValue);
     if (!Number.isFinite(n) || n < 0) {
@@ -1221,6 +1269,8 @@ const IndividualAthleteProfile = () => {
             onExport={isAdmin ? handleExportPDF : undefined}
             canEnable={isAdmin}
             onEnableAccess={handleEnableAccess}
+            hasLogin={hasLogin}
+            onResetPassword={isAdmin ? handleResetPassword : undefined}
             canManage={isAdmin}
             onEditData={isAdmin ? () => setIsEditModalOpen(true) : undefined}
           />

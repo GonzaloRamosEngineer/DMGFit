@@ -1,6 +1,6 @@
 # DMGFit — Estado y Roadmap
 
-_Última actualización: 2026-08-05_
+_Última actualización: 2026-09-01_
 
 > Documento vivo de estado del producto y prioridades. Complementa la doc técnica
 > del repo (`docs/tarea-*.md`, `docs/cuotas-accesos-y-facturacion.md`) y el análisis
@@ -15,6 +15,12 @@ DMGFit es un **MVP operativo real y en uso**. El núcleo de operación diaria
 auditoría se sumó superficie de producto (biblioteca de ejercicios con media,
 registrador de entrenamiento estilo Hevy, portal del atleta por secciones,
 progreso de fuerza) y se cerraron varios bloqueantes transversales.
+
+> ⚠️ **Frente nuevo (2026-09-01): la adopción del portal del atleta.** El acceso funciona
+> —los 73 atletas tienen login desde el día del alta— pero **66 nunca entraron**, porque
+> nadie les avisa que la cuenta existe. El panel además mostraba "sin acceso" a 36 de
+> ellos por leer mal el email interno. Diagnóstico completo, decisiones y pendientes en
+> [`docs/tarea-acceso-portal-atletas.md`](./tarea-acceso-portal-atletas.md).
 
 **El rol profesor y Pagos — antes los frentes más flojos — quedaron resueltos (🟢).**
 Pagos pasó de "sólo registro" a **fuente de verdad contable** (migración 0026 en prod:
@@ -351,3 +357,33 @@ validación rechaza salida ≤ entrada, que es justo el error de elegir 08:00 AM
 **Alcance deliberado:** sólo se corrigen registros existentes. Si el profe no fichó
 nada ese día no hay fila que editar; crear presencias desde cero es otra cosa
 (fabricar una presencia) y se dejó afuera a propósito.
+
+---
+
+## Acceso al portal del atleta (2026-09-01, branch `fix/acceso-atletas-panel`)
+
+Relevamiento en vivo sobre producción: **73 atletas, 0 sin login, 66 que nunca entraron.**
+El alta ya crea el usuario de auth en el mismo momento (identidad `{DNI}@vcfit.internal`,
+clave = DNI), así que no había nada pendiente de activar a mano. Los problemas eran otros.
+
+**Resuelto en esta tanda (migración `0015` + Edge Function `reset-athlete-password`):**
+
+- **El panel dejó de mentir sobre el acceso.** El botón "Habilitar Acceso", el chip de la
+  ficha y el `"Sin acceso a App"` del listado se deducían del dominio del email — que
+  desde el login por DNI significa **lo contrario** (que el atleta SÍ tiene cuenta).
+  Alcanzaba a 36 de 73. Ahora el acceso se le pregunta a `auth.users`, igual que
+  `list_coaches_admin()` hace con profesores desde 0002.
+- **Aviso de contraseña, sin obligar.** El atleta que sigue usando su DNI como clave ve una
+  recomendación descartable en el portal. Se detecta en el login (único momento en que se
+  conoce la clave escrita), sin tocar la base.
+- **Restablecer la clave al DNI desde el panel** (solo admin). Antes no había forma: la
+  identidad de login es interna, así que el "olvidé mi contraseña" por email no existe.
+
+**Pendiente de más valor: avisarle al atleta que tiene cuenta** (66 personas). Hay teléfono
+usable en 61 de 73 y el patrón de WhatsApp ya resuelto en el comprobante de pago. Ningún
+arreglo del panel mueve ese número.
+
+**Deuda que queda abierta:** `profiles.email` sigue guardando la identidad de login en 36
+perfiles y el trigger `handle_new_user` la repone en cada alta; la heurística del dominio
+interno sigue duplicada en 6 archivos. Detalle, riesgos y orden en
+[`docs/tarea-acceso-portal-atletas.md`](./tarea-acceso-portal-atletas.md).
