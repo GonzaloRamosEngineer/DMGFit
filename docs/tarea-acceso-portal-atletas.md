@@ -8,6 +8,8 @@ _Última actualización: 2026-09-01_
 > verificación e2e más abajo. **Falta mergear a main y desplegar el front** — hasta
 > entonces el panel sigue mostrando el botón viejo. Los hallazgos #2, #3, #4 y #7
 > quedan abiertos: ver "Pendientes".
+>
+> **Mergeado a `main`** el 2026-09-01 (merge `c33726c`, 5 commits lógicos).
 
 ---
 
