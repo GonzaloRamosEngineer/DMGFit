@@ -73,7 +73,13 @@ ya alimentan Gestión de Atletas y la ficha individual. Menos superficie, menos 
 
 - Migración [`0015_athletes_login_status.sql`](../supabase/migrations/0015_athletes_login_status.sql):
   `athletes_login_status()` (mapa para listados) y `athlete_login_status(uuid)` (ficha).
-  Ambas `security definer`, acotadas con `is_staff()`, sin permisos para `anon`.
+  Ambas `security definer`, acotadas con `is_staff()`.
+- Migración [`0016_login_status_revoke_public.sql`](../supabase/migrations/0016_login_status_revoke_public.sql):
+  cierra el `EXECUTE` que Postgres otorga a **PUBLIC** por defecto al crear una función.
+  El `revoke ... from anon` de 0015 no alcanzaba: revocar de un rol no quita el grant
+  que ese rol hereda vía PUBLIC. Se detectó verificando contra prod (anon recibía 200,
+  con lista vacía por el guard: no hubo filtración). **`list_coaches_admin()` (0002)
+  arrastra el mismo grant heredado** — queda registrado como deuda, no se tocó acá.
 - `src/services/athletes.js`: `fetchAthletesLoginStatus()` y `fetchAthleteLoginStatus()`.
 - Gestión de Atletas: el email interno ya no se muestra como `"Sin acceso a App"`; si no
   hay email de contacto, la tarjeta muestra el **DNI**, que es el dato útil. `needsActivation`
@@ -120,7 +126,7 @@ comunicarle. **Solo admin** — restablecer la clave de otra persona no es tarea
 
 ## Cómo se pone en producción
 
-1. **Migración:** aplicar `supabase/migrations/0015_athletes_login_status.sql`.
+1. **Migraciones:** aplicar `0015_athletes_login_status.sql` y `0016_login_status_revoke_public.sql`.
 2. **Edge Function:** `supabase functions deploy reset-athlete-password`.
 3. El front no requiere nada especial (deploy normal de Vercel).
 

@@ -59,9 +59,10 @@ Ninguna contiene datos personales (son catálogos/config), por eso es prioridad 
 
 **Negocio:** `kiosk_check_in` ⚠️ (a reescribir para acceso flexible), `create_full_athlete_atomic`, `reassign_athlete_slots_atomic`, `save_plan_configuration`, `assign_coach_to_plan_slot`, `unassign_coach_from_plan_slot`, `plan_grid_availability`, `plan_slot_availability`, `coach_planned_hours`.
 **Autorización (`security definer`):** `is_admin` ✅ (existe → sirve para separar admin de profe), `is_staff`, `is_coach_of_athlete`, `is_athlete`, `is_coach`, `current_coach_id`, `current_profile_id`, `athlete_id_for_user`, `coach_id_for_user`.
-**Acceso al portal (0015):** `athletes_login_status()` (mapa `athlete_id → has_login`) y
-`athlete_login_status(uuid)`. Ambas `security definer` acotadas con `is_staff()`, sin grant a
-`anon`. Son la **fuente de verdad del acceso**: preguntan por `auth.users`. Nunca deducir el
+**Acceso al portal (0015 + 0016):** `athletes_login_status()` (mapa `athlete_id → has_login`) y
+`athlete_login_status(uuid)`. Ambas `security definer` acotadas con `is_staff()`; 0016 les revoca
+el `EXECUTE` heredado de `PUBLIC` (⚠️ `revoke from anon` NO alcanza: hay que revocar de `PUBLIC`,
+que es a quien Postgres otorga por defecto — `list_coaches_admin()` de 0002 arrastra ese grant). Son la **fuente de verdad del acceso**: preguntan por `auth.users`. Nunca deducir el
 acceso del dominio del email (`@vcfit.internal` significa que el atleta **sí** tiene login).
 
 **Identidad/sistema:** `handle_new_user` ✅ (existe en prod, NO está en el repo — es el que usa "Habilitar cuenta"), `set_profiles_identity_normalized`, `only_digits`, `set_updated_at`, `touch_updated_at`, `pssc_resolve_timeslot`, `populate_workout_result_athlete`, `profiles_public_list`.
