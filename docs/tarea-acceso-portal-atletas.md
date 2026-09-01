@@ -171,9 +171,30 @@ atleta porque su email de login es interno.
 - **Canal disponible: 61 de 73 tienen teléfono usable.** Los otros 12 hay que
   resolverlos en el mostrador.
 - Propuesta: botón "Enviar acceso por WhatsApp" en la ficha, con `wa.me` y el mensaje
-  prearmado (link + DNI + recomendación de cambiar la clave). El patrón ya está
-  resuelto en [`PaymentReceipt.jsx`](../src/pages/payment-management/components/PaymentReceipt.jsx)
-  (`buildWhatsAppText` + `wa.me`): se copia.
+  prearmado (link + DNI + recomendación de cambiar la clave). El armado del texto se
+  copia de [`PaymentReceipt.jsx`](../src/pages/payment-management/components/PaymentReceipt.jsx)
+  (`buildWhatsAppText`), **pero el número NO** — ver abajo.
+
+**🔴 Pre-requisito descubierto (2026-09-01): los teléfonos no están en formato
+internacional.** Relevado sobre los 73:
+
+| Formato | Cantidad |
+|---|--:|
+| 10 dígitos, sin `549` (ej. `3874579668`) | 56 |
+| Vacío | 11 |
+| `549…` listo para `wa.me` | 1 |
+| `54…` sin el 9 | 1 |
+| Basura (`387`, `155842143`, `387513991497`, `38754711031`) | 4 |
+
+`wa.me` exige el número completo con código de país. `PaymentReceipt.jsx` hace
+`replace(/\D/g,'')` y manda los dígitos crudos, así que **el comprobante de pago por
+WhatsApp ya está fallando en producción** para casi todos: es el mismo bug, sólo que
+todavía no se reportó.
+
+Antes (o junto con) el #4 hace falta un helper `waNumber(phone)` compartido que
+normalice a `549` + área sin `0` + abonado sin `15`, y que devuelva `null` cuando no
+se puede (para no abrir un chat vacío). Las 4 fichas con basura se corrigen a mano.
+Corregir `PaymentReceipt.jsx` con el mismo helper cierra el bug existente.
 - **Ojo con el orden:** enviar 66 credenciales sin el aviso de contraseña (#5, ya hecho)
   amplifica la exposición en vez de reducirla.
 
