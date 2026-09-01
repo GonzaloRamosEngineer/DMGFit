@@ -114,7 +114,7 @@ const AthleteCard = ({
             {avatar}
             <div className="min-w-0">
               <h3 className="text-xs font-black text-text-primary truncate group-hover:text-primary transition-colors">{athlete.name}</h3>
-              <p className="text-[10px] font-medium text-text-tertiary truncate">{athlete.email}</p>
+              <p className="text-[10px] font-medium text-text-tertiary truncate">{athlete.email || (athlete.dni ? `DNI ${athlete.dni}` : "")}</p>
             </div>
           </div>
 
@@ -154,7 +154,7 @@ const AthleteCard = ({
           {/* Columna central: nombre, email y membresía alineados */}
           <div className="min-w-0 flex-1 cursor-pointer" onClick={goToProfile}>
             <h3 className="text-sm font-black text-text-primary truncate group-hover:text-primary transition-colors">{athlete.name}</h3>
-            <p className="text-[11px] font-medium text-text-tertiary truncate">{athlete.email}</p>
+            <p className="text-[11px] font-medium text-text-tertiary truncate">{athlete.email || (athlete.dni ? `DNI ${athlete.dni}` : "")}</p>
             <p className="mt-1.5 text-xs font-bold text-text-secondary truncate">
               {athlete.planName}
               {athlete.planOption ? ` · ${athlete.planOption}` : ''}

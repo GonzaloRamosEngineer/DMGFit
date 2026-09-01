@@ -381,3 +381,37 @@ export const activateAthleteLogin = async (athleteId) => {
   if (data?.error) throw new Error(data.error);
   return data; // { ok, dni, already?, message }
 };
+
+// Restablece la clave del atleta a su DNI (solo admin). Para cuando cambió la suya
+// y la olvidó: su identidad de login es interna, así que no hay recupero por email.
+export const resetAthletePassword = async (athleteId) => {
+  const { data, error } = await supabase.functions.invoke('reset-athlete-password', {
+    body: { athlete_id: athleteId },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data; // { ok, dni, uses_dni, login_hint, message }
+};
+
+// ── Estado REAL de acceso al portal (0015) ───────────────────────────────────
+// Se le pregunta a auth.users, que es la única fuente de verdad. NO se deduce del
+// dominio del email: desde el login por DNI, `@vcfit.internal` significa lo contrario
+// de lo que el panel asumía (que el atleta SÍ tiene cuenta).
+
+// Mapa athleteId → tiene acceso. Para los listados.
+export const fetchAthletesLoginStatus = async () => {
+  const { data, error } = await supabase.rpc('athletes_login_status');
+  if (error) throw error;
+  const map = new Map();
+  (data || []).forEach((row) => map.set(row.athlete_id, !!row.has_login));
+  return map;
+};
+
+// Estado de un atleta puntual. Para la ficha individual.
+export const fetchAthleteLoginStatus = async (athleteId) => {
+  const { data, error } = await supabase.rpc('athlete_login_status', {
+    p_athlete_id: athleteId,
+  });
+  if (error) throw error;
+  return !!data;
+};

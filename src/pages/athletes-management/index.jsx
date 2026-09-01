@@ -14,7 +14,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { hoyLocal } from "../../utils/formatters";
 import AddAthleteModal from "./components/AddAthleteModal";
 import AddPaymentModal from "../payment-management/components/AddPaymentModal";
-import { activateAthleteLogin } from "../../services/athletes";
+import { activateAthleteLogin, fetchAthletesLoginStatus } from "../../services/athletes";
 import { useToast } from "../../hooks/useToast";
 import { useConfirm } from "../../components/ui/ConfirmProvider";
 
@@ -71,6 +71,7 @@ const AthletesManagement = () => {
             join_date,
             coach_id,
             profile_id,
+            dni,
             plan_tier_price,
             visits_per_week,
             profiles:profile_id ( full_name, email, avatar_url ),
@@ -96,7 +97,7 @@ const AthletesManagement = () => {
           return;
         }
 
-        const [attendanceRes, metricsRes, paymentsRes] = await Promise.all([
+        const [attendanceRes, metricsRes, paymentsRes, loginStatus] = await Promise.all([
           supabase
             .from("attendance")
             .select("athlete_id, status, date")
@@ -111,6 +112,9 @@ const AthletesManagement = () => {
             .select("athlete_id, status, date, payment_date")
             .in("athlete_id", athleteIds)
             .neq("status", "void"),
+          // Acceso REAL al portal (0015). Si la migración todavía no está aplicada,
+          // se degrada a "no sé" y el panel no inventa un estado.
+          fetchAthletesLoginStatus().catch(() => new Map()),
         ]);
 
         const enrichedAthletes = athletesData.map((athlete) => {
@@ -141,8 +145,12 @@ const AthletesManagement = () => {
             )[0];
 
           const rawEmail = athlete.profiles?.email || "";
+          // El email interno ({DNI}@vcfit.internal) es la identidad de login, no un
+          // dato de contacto: no se muestra. Que exista NO significa "sin acceso"
+          // (significa lo contrario); el acceso se lee de `hasLogin`.
           const isInternalEmail =
             rawEmail.includes("@dmg.internal") || rawEmail.includes("@vcfit.internal");
+          const hasLogin = loginStatus.get(athlete.id);
 
           const planData = Array.isArray(athlete.plans) ? athlete.plans[0] : athlete.plans;
 
@@ -161,8 +169,10 @@ const AthletesManagement = () => {
             id: athlete.id,
             profileId: athlete.profile_id,
             name: athlete.profiles?.full_name || "Sin Nombre",
-            email: isInternalEmail ? "Sin acceso a App" : rawEmail,
+            email: isInternalEmail ? "" : rawEmail,
             rawEmail: rawEmail,
+            dni: athlete.dni || "",
+            hasLogin,
             profileImage: athlete.profiles?.avatar_url,
             avatar: athlete.profiles?.avatar_url,
 
@@ -189,7 +199,9 @@ const AthletesManagement = () => {
             paymentStatus: latestPayment?.status || "pending",
 
             attendanceLast30Days: [80, 90, 75, 85],
-            needsActivation: isInternalEmail || rawEmail === "",
+            // Solo si la base confirma que NO tiene usuario de auth. `undefined`
+            // (migración no aplicada / consulta fallida) no marca a nadie.
+            needsActivation: hasLogin === false,
           };
         });
 
