@@ -128,6 +128,22 @@ const LoginRoleSelection = () => {
 
       if (loginError) throw loginError;
 
+      // ¿Entró con la clave por defecto (= su DNI)? Solo se puede saber acá, en el
+      // único momento en que conocemos la contraseña escrita. El portal usa esta
+      // marca para recomendarle (sin obligarlo) que ponga una clave propia.
+      try {
+        const dniDigits = idRaw.replace(/\D/g, '');
+        const usaClavePorDefecto =
+          !idRaw.includes('@') && dniDigits.length > 0 && formData.password === dniDigits;
+        if (usaClavePorDefecto) {
+          sessionStorage.setItem('vcfit:clave-por-defecto', '1');
+        } else {
+          sessionStorage.removeItem('vcfit:clave-por-defecto');
+        }
+      } catch {
+        // Navegación privada / storage bloqueado: sin aviso, no es crítico.
+      }
+
       setUiStatus('success');
 
       // La redirección ahora la maneja principalmente el useEffect, 
