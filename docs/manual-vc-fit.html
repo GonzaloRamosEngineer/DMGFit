@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual del Sistema · VC Fit</title>
+<style>
+  :root{
+    --blue:#2563eb; --blue-soft:#eff2ff; --blue-ink:#1e3a8a;
+    --green:#16a34a; --green-soft:#ecfdf5; --green-ink:#166534;
+    --amber:#d97706; --amber-soft:#fffbeb; --amber-ink:#92400e;
+    --red:#dc2626;
+    --ink:#1f2937; --muted:#6b7280; --faint:#9ca3af;
+    --line:#e5e7eb; --line-soft:#f1f2f4; --bg:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:#f6f7f9; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px; line-height:1.55;
+  }
+  .page{max-width:860px; margin:0 auto; padding:48px 40px 72px;}
+  h1{font-size:30px; line-height:1.15; font-weight:800; letter-spacing:-.02em; margin:.2em 0 .35em;}
+  h2{font-size:20px; font-weight:800; letter-spacing:-.01em; margin:0 0 4px;}
+  h3{font-size:15px; font-weight:700; margin:0;}
+  p{margin:.35em 0;}
+  .lead{color:var(--muted); font-size:14.5px; max-width:62ch;}
+  a{color:var(--blue); text-decoration:none;}
+
+  /* kicker pill */
+  .kicker{display:inline-block; background:var(--blue-soft); color:var(--blue-ink);
+    font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+    padding:5px 12px; border-radius:999px;}
+  .tag{display:inline-block; border:1px solid var(--line); color:var(--muted);
+    font-size:12px; padding:4px 12px; border-radius:999px; background:#fff;}
+
+  hr.rule{border:none; border-top:1px solid var(--line); margin:22px 0;}
+
+  /* section header with left bar */
+  section.block{margin-top:38px;}
+  .sec-head{border-left:4px solid var(--blue); padding-left:14px; margin-bottom:18px;}
+  .sec-head.green{border-color:var(--green);}
+  .sec-head .num{font-size:12px; font-weight:800; color:var(--faint); letter-spacing:.05em;}
+  .sec-head p{color:var(--muted); margin:.2em 0 0; font-size:13.5px;}
+
+  /* cards */
+  .card{border:1px solid var(--line); border-radius:14px; background:var(--bg);
+    padding:18px 20px; margin:14px 0;}
+  .card + .card{margin-top:14px;}
+
+  /* auto-process mini card */
+  .proc{display:flex; gap:14px; align-items:flex-start;}
+  .proc .badge{flex:none; width:26px; height:26px; border-radius:8px; background:var(--green-soft);
+    color:var(--green-ink); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center;}
+  .proc h3{margin-bottom:2px;}
+  .proc p{color:var(--muted); font-size:13.5px; margin:0;}
+
+  /* task card */
+  .task-head{display:flex; gap:12px; align-items:flex-start; margin-bottom:12px;}
+  .task-head .tnum{flex:none; width:24px; height:24px; border-radius:7px; background:var(--blue-soft);
+    color:var(--blue-ink); font-weight:800; font-size:12.5px; display:flex; align-items:center; justify-content:center; margin-top:1px;}
+  .task-head .subtitle{color:var(--muted); font-size:12.5px; margin-top:1px;}
+
+  ol.steps{list-style:none; counter-reset:s; margin:0; padding:0;}
+  ol.steps > li{counter-increment:s; position:relative; padding:5px 0 5px 34px; font-size:13.5px;}
+  ol.steps > li::before{content:counter(s); position:absolute; left:0; top:4px;
+    width:20px; height:20px; border-radius:999px; background:var(--blue); color:#fff;
+    font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;}
+
+  ul.plain{margin:.3em 0; padding-left:18px;}
+  ul.plain li{padding:2px 0; font-size:13.5px;}
+
+  /* inline UI chip (buttons / tabs / field names) */
+  .k{display:inline-block; background:#f3f4f6; border:1px solid var(--line); border-radius:6px;
+    padding:1px 7px; font-size:12.5px; font-weight:600; color:#374151; white-space:nowrap; line-height:1.7;}
+
+  /* callouts */
+  .note,.warn{border-radius:10px; padding:11px 14px; margin:12px 0 2px; font-size:13px; line-height:1.5;}
+  .note{background:var(--green-soft); color:#14532d;}
+  .warn{background:var(--amber-soft); color:#7c2d12;}
+  .lbl{display:inline-block; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+    padding:2px 8px; border-radius:5px; margin-right:8px; vertical-align:1px;}
+  .note .lbl{background:var(--green); color:#fff;}
+  .warn .lbl{background:var(--amber); color:#fff;}
+
+  /* semaphore */
+  .dot{display:inline-block; width:11px; height:11px; border-radius:999px; margin-right:8px; vertical-align:0;}
+  .status{font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; margin-top:6px;}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  @media (max-width:640px){ .grid2{grid-template-columns:1fr;} .page{padding:32px 20px 56px;} }
+
+  .foot{margin-top:44px; padding-top:18px; border-top:1px solid var(--line);
+    text-align:center; color:var(--faint); font-size:12px;}
+
+  @media print{
+    body{background:#fff;}
+    .page{max-width:none; padding:0 8mm;}
+    section.block{break-inside:avoid;}
+    .card{break-inside:avoid;}
+    .cover{break-after:page;}
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <!-- ============ COVER ============ -->
+  <div class="cover">
+    <span class="kicker">Manual del sistema</span>
+    <h1>Cómo usar el sistema del gimnasio</h1>
+    <p class="lead">Manual de referencia con instrucciones para el uso del sistema de gestión del
+    gimnasio, organizado por área y tarea.</p>
+    <p style="margin-top:14px;"><span class="tag">Documento interno · VC Fit</span></p>
+    <hr class="rule">
+    <p style="font-size:13px; color:var(--muted);">
+      <strong style="color:var(--ink);">Contenido:</strong>
+      Roles y acceso · Procesos automáticos · Panel principal · Socios · Cobros y deudas ·
+      Planes · Horarios · Profesores · Biblioteca de ejercicios · Kiosco de acceso ·
+      Portal del socio · Preguntas frecuentes
+    </p>
+  </div>
+
+  <!-- ============ 0. ROLES Y ACCESO ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 1</div>
+      <h2>Roles y acceso al sistema</h2>
+      <p>Quiénes usan el sistema y a qué pantalla entra cada uno.</p>
+    </div>
+
+    <div class="card">
+      <p style="margin-top:0;">El sistema tiene <strong>una única pantalla de acceso</strong>. No se elige el rol
+      a mano: el sistema reconoce la cuenta y lleva a cada persona a la pantalla que le corresponde.</p>
+      <ul class="plain">
+        <li><strong>Administración</strong> → entra al <span class="k">Dashboard Operativo</span> (control total).</li>
+        <li><strong>Profesor</strong> → entra a su <span class="k">Panel del Entrenador</span>.</li>
+        <li><strong>Socio / Atleta</strong> → entra al <span class="k">Portal del Atleta</span>.</li>
+        <li><strong>Kiosco</strong> → cuenta dedicada al molinete; entra directo a la pantalla de acceso y no puede salir de ahí.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="task-head">
+        <div class="tnum">1</div>
+        <div><h3>Iniciar sesión (con email o DNI)</h3>
+        <div class="subtitle">Válido para administración, profesores y socios</div></div>
+      </div>
+      <ol class="steps">
+        <li>Abrir la pantalla <span class="k">Acceso</span>.</li>
+        <li>En <span class="k">Email o DNI</span> escribir el <strong>DNI</strong> (socios y profesores) o el email, según cómo se cargó la cuenta.</li>
+        <li>Ingresar la contraseña y seleccionar <span class="k">Ingresar</span>.</li>
+        <li>El sistema redirige automáticamente a la pantalla del rol.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>Los socios y profesores creados por DNI entran con
+      <strong>usuario = DNI</strong> y <strong>clave = DNI</strong>. Conviene que cada uno cambie su clave la primera vez.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head">
+        <div class="tnum">2</div>
+        <div><h3>Recuperar o cambiar la contraseña</h3>
+        <div class="subtitle">Cuando alguien la olvidó</div></div>
+      </div>
+      <ol class="steps">
+        <li>En la pantalla de acceso, seleccionar <span class="k">¿Olvidaste tu contraseña?</span>.</li>
+        <li>Ingresar el email registrado y seleccionar <span class="k">Enviar Enlace</span>.</li>
+        <li>Abrir el correo (revisar spam) y seguir el enlace para fijar la <span class="k">Nueva Clave</span>.</li>
+      </ol>
+      <div class="warn"><span class="lbl">Advertencia</span>Este método necesita un <strong>email real</strong>.
+      Un socio que entra solo con su DNI no recibe correo: en ese caso cambia la clave desde el propio portal
+      (ver <em>Portal del socio → Mis Datos</em>) o administración se la vuelve a dejar en su DNI.</div>
+    </div>
+  </section>
+
+  <!-- ============ 1. PROCESOS AUTOMÁTICOS ============ -->
+  <section class="block">
+    <div class="sec-head green">
+      <div class="num">ÁREA 2</div>
+      <h2>Procesos automáticos del sistema</h2>
+      <p>Se ejecutan solos y no requieren intervención manual.</p>
+    </div>
+
+    <div class="card"><div class="proc"><div class="badge">R</div><div>
+      <h3>Renovación de accesos</h3>
+      <p>Cada socio recupera sus accesos mensuales automáticamente, en la fecha correspondiente a su inscripción.</p>
+    </div></div></div>
+
+    <div class="card"><div class="proc"><div class="badge">G</div><div>
+      <h3>Generación de cuotas</h3>
+      <p>La cuota mensual se genera automáticamente: en la fecha de vencimiento para los socios al día,
+      y al momento del reingreso para los socios atrasados.</p>
+    </div></div></div>
+
+    <div class="card"><div class="proc"><div class="badge">E</div><div>
+      <h3>Identificación de vencimientos</h3>
+      <p>El sistema determina automáticamente el estado de cada socio: al día, en gracia o vencido.</p>
+    </div></div></div>
+
+    <div class="card"><div class="proc"><div class="badge">D</div><div>
+      <h3>Control de deuda</h3>
+      <p>Los socios inactivos no acumulan cuotas adicionales; permanece registrada una única cuota pendiente como referencia.</p>
+    </div></div></div>
+  </section>
+
+  <!-- ============ 2. PANEL PRINCIPAL ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 3</div>
+      <h2>Panel principal (Dashboard)</h2>
+      <p>Pantalla de inicio de administración. Corresponde al <span class="k">Dashboard Operativo</span>.</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:6px;">Qué muestra de un vistazo</h3>
+      <p style="margin-top:0; color:var(--muted); font-size:13.5px;">El estado del día en cuatro indicadores, la agenda de hoy y las notificaciones críticas.</p>
+      <ul class="plain">
+        <li><span class="k">Atletas activos</span> — socios con la membresía vigente (los que hoy pueden entrar).</li>
+        <li><span class="k">Accesos hoy</span> — cuántos atletas entraron por el kiosco y cuántos fueron rechazados.</li>
+        <li><span class="k">Pagos vencidos</span> — cuotas pasadas de fecha, con el monto total a reclamar.</li>
+        <li><span class="k">Profesores hoy</span> — profesores que ficharon su entrada.</li>
+      </ul>
+      <p style="font-size:13.5px;">Debajo, el panel <span class="k">Agenda de Hoy</span> lista las sesiones y
+      el panel <span class="k">Notificaciones</span> avisa de pagos vencidos y accesos denegados. Cada aviso
+      tiene un botón directo (<span class="k">Ir a Cobros</span>, <span class="k">Ver Historial</span>).</p>
+      <div class="note"><span class="lbl">Nota</span>Con <span class="k">Auto-Sync ON</span> el panel se actualiza
+      solo cada 30 segundos y refleja en vivo cada acceso que registra el kiosco.</div>
+    </div>
+  </section>
+
+  <!-- ============ 3. SOCIOS ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 4</div>
+      <h2>Socios</h2>
+      <p>Alta, búsqueda y datos de cada socio. Corresponde al módulo <span class="k">Atletas</span>.</p>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">3</div>
+        <div><h3>Registrar un nuevo socio</h3><div class="subtitle">Alta de un nuevo integrante</div></div></div>
+      <ol class="steps">
+        <li>Ingresar a <span class="k">Atletas</span> y seleccionar <span class="k">Nuevo Atleta</span>.</li>
+        <li>Paso <span class="k">1. Datos del Atleta</span>: completar <strong>Nombre Completo</strong>,
+        <strong>DNI</strong>, teléfono y demás datos de contacto/salud.</li>
+        <li>Paso <span class="k">2. Membresía y Pago</span>: elegir <strong>Plan</strong>, <strong>Frecuencia</strong>
+        y la <strong>Fecha de Inicio</strong> real.</li>
+        <li>Elegir <span class="k">Cobrar la inscripción ahora</span> o <span class="k">Registrar sin cobro (pago pendiente)</span>.</li>
+        <li>Seleccionar <span class="k">Registrar Atleta</span>. Queda habilitado para ingresar por el kiosco con su DNI.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>La <strong>fecha de inicio (inscripción)</strong> determina el
+      ciclo de renovación de cuotas y accesos. Si se registra sin cobro, el socio entra igual y el kiosco avisará
+      "cuota pendiente" hasta que se registre el pago en <span class="k">Pagos</span>.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">4</div>
+        <div><h3>Editar los datos de un socio</h3><div class="subtitle">Nombre, DNI, contacto, salud, fecha de inscripción</div></div></div>
+      <ol class="steps">
+        <li>Abrir el <strong>perfil del atleta</strong> desde el listado.</li>
+        <li>En el encabezado, abrir <span class="k">Ver detalles</span> y seleccionar <span class="k">Editar Datos</span>.</li>
+        <li>Modificar lo necesario y <span class="k">Guardar Cambios</span>.</li>
+      </ol>
+      <div class="warn"><span class="lbl">Advertencia</span>El campo <span class="k">Fecha de Inscripción</span> ancla el
+      ciclo de cuotas y accesos. Durante la carga inicial pueden haber quedado fechas aproximadas; corregir la fecha
+      real normaliza los estados de vencimiento. Al cambiar el <strong>DNI</strong>, el sistema sincroniza el acceso al kiosco y el login.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">5</div>
+        <div><h3>Ajustar los accesos disponibles</h3><div class="subtitle">Para socios con accesos usados antes del sistema</div></div></div>
+      <ol class="steps">
+        <li>Ingresar al perfil del atleta y abrir la pestaña <span class="k">Accesos</span>.</li>
+        <li>En <span class="k">Saldo de accesos del período</span>, seleccionar <span class="k">Ajustar</span>.</li>
+        <li>Indicar la cantidad real de accesos restantes y <span class="k">Guardar</span>.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>Es un ajuste puntual; el saldo se renueva solo en el próximo aniversario de inscripción.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">6</div>
+        <div><h3>Dar de baja (desactivar) un socio</h3><div class="subtitle">Sin perder su historial</div></div></div>
+      <ol class="steps">
+        <li>En el perfil, abrir <span class="k">Ver detalles</span> → <span class="k">Desactivar Atleta</span> y confirmar.</li>
+      </ol>
+      <div class="warn"><span class="lbl">Advertencia</span>El atleta queda sin acceso operativo y se cierran sus
+      turnos semanales activos. Se conserva todo el historial (pagos, asistencias, notas y accesos).</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:6px;">Buscar y filtrar socios</h3>
+      <p style="margin-top:0; font-size:13.5px;">En <span class="k">Atletas</span> se puede buscar por nombre o email y
+      abrir <span class="k">Filtros</span> por estado de pago (<span class="k">Pagado</span> / <span class="k">Pendiente</span> /
+      <span class="k">Vencido</span>) y estado del atleta (<span class="k">Activos</span> / <span class="k">Inactivos</span>).
+      Las tarjetas superiores muestran totales reales: total, activos, nuevos del mes y al día con la cuota.</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:6px;">El perfil del socio, por dentro</h3>
+      <p style="margin-top:0; font-size:13.5px;">Cada atleta tiene una ficha con pestañas:</p>
+      <ul class="plain">
+        <li><span class="k">Resumen</span> — próximos horarios, últimos pagos, salud y notas.</li>
+        <li><span class="k">Asistencia</span> — calendario de presencias.</li>
+        <li><span class="k">Salud</span> — contacto de emergencia y métricas (peso, IMC, etc.).</li>
+        <li><span class="k">Notas</span> — observaciones del staff (el profesor también puede cargar).</li>
+        <li><span class="k">Accesos</span> — saldo del período e historial de ingresos por DNI.</li>
+        <li><span class="k">Pagos</span> — historial (solo administración).</li>
+      </ul>
+      <p style="font-size:13.5px;">Desde el encabezado se puede <span class="k">Exportar PDF</span> con el informe del atleta
+      y gestionar la <span class="k">Membresía y horarios</span> (cambiar plan/frecuencia y reasignar turnos con <span class="k">Modificar horarios</span>).</p>
+    </div>
+  </section>
+
+  <!-- ============ 4. COBROS Y DEUDAS ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 5</div>
+      <h2>Cobros y deudas</h2>
+      <p>Corresponde al módulo <span class="k">Pagos</span>.</p>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">7</div>
+        <div><h3>Registrar el cobro de una cuota</h3><div class="subtitle">Registrar el pago de un socio</div></div></div>
+      <ol class="steps">
+        <li>Ingresar al módulo <span class="k">Pagos</span>.</li>
+        <li>Seleccionar la pestaña <span class="k">Deudores</span>, donde se listan los socios con pagos pendientes.</li>
+        <li>Ubicar al socio y seleccionar <span class="k">Registrar cobro</span>.</li>
+        <li>Completar el <strong>monto</strong> y el <strong>método de pago</strong> (efectivo, transferencia, etc.).</li>
+        <li>Guardar. El socio queda registrado como al día.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>El sistema genera automáticamente un comprobante (no fiscal) que puede imprimirse o enviarse por WhatsApp.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">8</div>
+        <div><h3>Consultar los socios con pagos pendientes</h3><div class="subtitle">A quién contactar con prioridad</div></div></div>
+      <ol class="steps">
+        <li>Ingresar a <span class="k">Pagos</span> → pestaña <span class="k">Deudores</span>.</li>
+        <li>Se muestra el listado completo de socios con cuotas impagas.</li>
+        <li>Los que tienen la etiqueta <span class="k">Urgente · 2 vencidas</span> registran 2 o más cuotas y deben contactarse con prioridad.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>La etiqueta <strong>Urgente</strong> se activa automáticamente al acumularse 2 o más cuotas sin pagar.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">9</div>
+        <div><h3>Corregir o anular un pago</h3><div class="subtitle">En caso de un error de registro</div></div></div>
+      <ol class="steps">
+        <li>En <span class="k">Pagos</span>, seleccionar el pago correspondiente.</li>
+        <li>Se abre la vista <span class="k">Detalle del Pago</span>.</li>
+        <li>Seleccionar <span class="k">Editar</span> para cambiar monto/fecha/método, o <span class="k">Anular</span> si el pago no corresponde.</li>
+        <li>Guardar. El sistema registra el cambio y la fecha.</li>
+      </ol>
+      <div class="warn"><span class="lbl">Advertencia</span>Anular un pago revierte el estado de deuda del socio.
+      Usar esta opción únicamente cuando el pago haya sido efectivamente incorrecto.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">10</div>
+        <div><h3>Generar las cuotas del mes manualmente</h3><div class="subtitle">Uso excepcional</div></div></div>
+      <ol class="steps">
+        <li>En <span class="k">Pagos</span>, seleccionar el botón <span class="k">Generar Período</span>.</li>
+        <li>Fuerza la generación de las cuotas del mes en curso.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>Las cuotas se generan automáticamente. Esta función es un respaldo y no genera duplicados.</div>
+    </div>
+  </section>
+
+  <!-- ============ 5. PLANES ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 6</div>
+      <h2>Planes</h2>
+      <p>Crear y editar los servicios, con horarios, cupos y precios. Módulo <span class="k">Gestión de Planes</span>.</p>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">11</div>
+        <div><h3>Crear un plan</h3><div class="subtitle">Identidad, horarios y precios en un solo asistente</div></div></div>
+      <ol class="steps">
+        <li>Ingresar a <span class="k">Gestión de Planes</span> y seleccionar <span class="k">Crear Plan</span>.</li>
+        <li>Pestaña <span class="k">1. Identidad</span>: nombre comercial, descripción, estado (activo/oculto) y profesores a cargo.</li>
+        <li>Pestaña <span class="k">2. Horarios por Día</span>: fijar la duración del turno y agregar franjas
+        (hora inicio, hora fin, cupo y días). El sistema arma la grilla de turnos.</li>
+        <li>Pestaña <span class="k">3. Precios</span>: agregar cada <strong>frecuencia semanal</strong> (1 a 7 días) con su valor mensual.</li>
+        <li>Seleccionar <span class="k">Crear Plan</span>.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>El precio del socio depende de la <strong>frecuencia semanal</strong>
+      que elija (ej. 2×/semana cuesta distinto que 3×/semana).</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">12</div>
+        <div><h3>Editar, activar/dar de baja o ver cupos</h3><div class="subtitle">Desde la tarjeta de cada plan</div></div></div>
+      <ul class="plain">
+        <li><span class="k">Editar</span> — modifica identidad, horarios o precios.</li>
+        <li><span class="k">Dar de baja</span> / <span class="k">Activar</span> — oculta o publica el plan sin borrarlo.</li>
+        <li><span class="k">Ver grilla de cupos</span> — muestra la ocupación por día y turno (verde = lugares, ámbar = pocos, rojo = completo).</li>
+      </ul>
+      <div class="warn"><span class="lbl">Advertencia</span>Eliminar un plan es irreversible. Para retirarlo de la
+      oferta sin perder datos, usar <span class="k">Dar de baja</span>.</div>
+    </div>
+  </section>
+
+  <!-- ============ 6. HORARIOS ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 7</div>
+      <h2>Horarios (Planificación)</h2>
+      <p>Grilla semanal donde se asignan profesores y actividades a cada turno. Módulo <span class="k">Planificación</span>.</p>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">13</div>
+        <div><h3>Asignar un profesor a un turno</h3><div class="subtitle">Configurar la grilla de la semana</div></div></div>
+      <ol class="steps">
+        <li>Ingresar a <span class="k">Planificación</span>. Navegar la semana con las flechas o el botón <span class="k">Hoy</span>.</li>
+        <li>Seleccionar la tarjeta del turno a configurar (un punto ámbar indica "pendiente de configurar").</li>
+        <li>En <span class="k">Configuración del horario</span>, elegir el/los <strong>Profesores</strong> y, opcionalmente, la <strong>Actividad</strong> y un detalle.</li>
+        <li>Seleccionar <span class="k">Guardar cambios</span>.</li>
+      </ol>
+      <div class="warn"><span class="lbl">Advertencia</span>Un profesor no puede estar asignado a dos planes en el mismo
+      horario. Si ocurre, el sistema avisa y pide elegir otro profesor o liberar el turno.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">14</div>
+        <div><h3>Administrar las actividades / disciplinas</h3><div class="subtitle">Crossfit, Funcional, Boxeo, etc.</div></div></div>
+      <ol class="steps">
+        <li>En <span class="k">Planificación</span>, seleccionar <span class="k">Actividades</span>.</li>
+        <li>Escribir el nombre, elegir un color y seleccionar <span class="k">Agregar actividad</span>.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>El panel <span class="k">Analítica</span> muestra las horas
+      planificadas por profesor en la semana y el mes.</div>
+    </div>
+  </section>
+
+  <!-- ============ 7. PROFESORES ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 8</div>
+      <h2>Profesores</h2>
+      <p>Alta del staff, acceso a la app, panel propio y registro de asistencia. Módulo <span class="k">Equipo de Profesores</span>.</p>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">15</div>
+        <div><h3>Dar de alta un profesor</h3><div class="subtitle">Registro de personal</div></div></div>
+      <ol class="steps">
+        <li>Ingresar a <span class="k">Equipo de Profesores</span> y seleccionar <span class="k">Nuevo Profesor</span>.</li>
+        <li>Completar <strong>Nombre Completo</strong>, <strong>DNI</strong>, teléfono y perfil profesional (especialidad, biografía).</li>
+        <li>Seleccionar <span class="k">Registrar</span>.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>Con el <strong>DNI</strong> el profesor entra a la app y ficha en el kiosco.
+      Si aún no tiene DNI real, se puede cargar uno provisorio y corregirlo después.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">16</div>
+        <div><h3>Habilitar el acceso a la app</h3><div class="subtitle">Para que el profesor ingrese</div></div></div>
+      <ol class="steps">
+        <li>En la fila del profesor, seleccionar <span class="k">Habilitar acceso (por DNI)</span>.</li>
+        <li>Confirmar. Se crea el acceso con <strong>usuario y clave = su DNI</strong>.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>El profesor puede cambiar su clave desde su perfil. Si no tiene DNI cargado,
+      primero hay que editarlo desde su ficha.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">17</div>
+        <div><h3>Archivar, restaurar o eliminar un profesor</h3><div class="subtitle">Sin perder el historial</div></div></div>
+      <ul class="plain">
+        <li><span class="k">Archivar (deshabilitar)</span> — sale de la lista activa y pierde el acceso; su historial (notas, asistencia, sesiones) se conserva.</li>
+        <li>Con el filtro <span class="k">Archivados</span>: <span class="k">Restaurar</span> vuelve a activarlo.</li>
+        <li><span class="k">Eliminar definitivamente</span> — solo para registros de prueba; es irreversible.</li>
+      </ul>
+      <div class="warn"><span class="lbl">Advertencia</span>Para dejar de contar a un profesor conviene <strong>archivar</strong>,
+      no eliminar. Eliminar borra sus datos operativos (el historial de accesos se conserva sin su nombre).</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">18</div>
+        <div><h3>Registro de asistencia del profesor</h3><div class="subtitle">Procedimiento a comunicar al personal</div></div></div>
+      <ol class="steps">
+        <li>Al llegar: registrar el DNI en el kiosco. El sistema indica "Entrada registrada".</li>
+        <li>Al retirarse: registrar el DNI nuevamente. El sistema indica "Salida registrada".</li>
+        <li>Con esto, el sistema calcula las horas trabajadas del día.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>El primer registro del día es la entrada y el segundo la salida.
+      El profesor no ve las horas registradas; esa información es de uso exclusivo de administración.</div>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">19</div>
+        <div><h3>Consultar las horas trabajadas</h3><div class="subtitle">Entrada, salida y total</div></div></div>
+      <ol class="steps">
+        <li>Ingresar a <span class="k">Asistencia de Profesores</span>.</li>
+        <li>Seleccionar el rango de fechas (por ejemplo, el mes en curso).</li>
+        <li>Se muestra por día la entrada, la salida y las horas trabajadas, con el total por profesor arriba.</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>Si un día muestra <strong>"En curso"</strong> en lugar de una hora de
+      salida, significa que el profesor no registró la salida ese día.</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:6px;">El panel del profesor</h3>
+      <p style="margin-top:0; font-size:13.5px;">Cada profesor entra a su <span class="k">Panel del Entrenador</span>, donde ve
+      a <strong>todos los atletas activos</strong>, puede <span class="k">Seguir</span> a los suyos (marca personal),
+      abrir la ficha con <span class="k">Ver Perfil</span> y cargar notas. En el lateral ve su propia asistencia del mes,
+      sus turnos asignados y la gestión de clases del día.</p>
+    </div>
+  </section>
+
+  <!-- ============ 8. BIBLIOTECA DE EJERCICIOS ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 9</div>
+      <h2>Biblioteca de ejercicios</h2>
+      <p>Catálogo con animaciones e instrucciones para armar rutinas y enseñar la técnica.</p>
+    </div>
+    <div class="card">
+      <p style="margin-top:0; font-size:13.5px;">Disponible para administración y profesores (y también para el socio dentro
+      de su portal). Se puede explorar <strong>por grupo muscular</strong>, filtrar por categoría
+      (<span class="k">Fuerza</span>, <span class="k">Cardio</span>, <span class="k">Movilidad</span>…) o buscar por nombre.
+      Al abrir un ejercicio se ve el GIF/imagen, el músculo, el equipo, el tipo de registro y el paso a paso
+      en <span class="k">Cómo se hace</span>.</p>
+      <div class="note"><span class="lbl">Nota</span>Es una biblioteca de <strong>consulta</strong>: no se cargan ni editan
+      ejercicios desde esta pantalla.</div>
+    </div>
+  </section>
+
+  <!-- ============ 9. KIOSCO ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 10</div>
+      <h2>Kiosco de acceso</h2>
+      <p>Vista que ve el socio al identificarse con su DNI, mediante un sistema de semáforo.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="dot" style="background:var(--green);"></span>Verde</h3>
+      <p style="color:var(--muted); margin:.3em 0; font-size:13.5px;">Acceso habilitado. Se muestra la cantidad de accesos disponibles.</p>
+      <div class="status" style="color:var(--green);">Acceso permitido</div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--amber);"></span>Ámbar</h3>
+      <p style="color:var(--muted); margin:.3em 0; font-size:13.5px;">Acceso permitido con una advertencia (por ejemplo, cuota vencida,
+      fuera de horario o cuota pendiente de registro). Se recomienda que el socio pase por administración.</p>
+      <div class="status" style="color:var(--amber);">Acceso con advertencia</div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--red);"></span>Rojo</h3>
+      <p style="color:var(--muted); margin:.3em 0; font-size:13.5px;">Acceso no permitido. Ocurre únicamente cuando el socio no tiene
+      accesos disponibles o su cuenta está inactiva. Requiere intervención de administración.</p>
+      <div class="status" style="color:var(--red);">Acceso denegado</div>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--blue);"></span>Azul (aviso)</h3>
+      <p style="color:var(--muted); margin:.3em 0; font-size:13.5px;">El DNI ingresado no está registrado en el sistema. No es un rechazo:
+      es un aviso para verificar el número o dar de alta a la persona.</p>
+      <div class="status" style="color:var(--blue);">DNI no registrado</div>
+    </div>
+
+    <div class="note"><span class="lbl">Nota</span>Tener una cuota vencida <u>no</u> bloquea el acceso (se muestra en ámbar).
+    El acceso solo se bloquea por falta de accesos disponibles o por baja de la cuenta.</div>
+  </section>
+
+  <!-- ============ 10. PORTAL DEL SOCIO ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 11</div>
+      <h2>Portal del socio</h2>
+      <p>Autoservicio del atleta. Corresponde al <span class="k">Portal del Atleta</span> (ingresa con su DNI).</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:6px;">Qué puede hacer el socio</h3>
+      <ul class="plain">
+        <li><span class="k">Inicio</span> — resumen: accesos disponibles, disciplina, fuerza, mejor marca.</li>
+        <li><span class="k">Cuenta</span> — membresía, accesos del mes, sus datos y finanzas.</li>
+        <li><span class="k">Agenda</span> — sus horarios y próximas sesiones.</li>
+        <li><span class="k">Progreso</span> — métricas y evolución; puede cargar sus mediciones.</li>
+        <li><span class="k">Entrenar</span> — registrar entrenamientos y ver la biblioteca.</li>
+        <li><span class="k">Coach</span> — feedback del staff. <span class="k">Logros</span> — hitos y nivel.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="task-head"><div class="tnum">20</div>
+        <div><h3>Cambiar su contraseña o sus datos (lo hace el socio)</h3><div class="subtitle">Desde Cuenta → Mis Datos</div></div></div>
+      <ol class="steps">
+        <li>En <span class="k">Cuenta</span>, ubicar la tarjeta <span class="k">Mis Datos</span>.</li>
+        <li><span class="k">Editar</span> permite actualizar teléfono, domicilio, contacto de emergencia y condición médica.</li>
+        <li><span class="k">Contraseña</span> permite fijar una clave personal (mínimo 6 caracteres).</li>
+      </ol>
+      <div class="note"><span class="lbl">Nota</span>El DNI, el plan y el email no los edita el socio: eso lo maneja administración.
+      Los <strong>horarios de referencia</strong> se eligen desde <span class="k">Mis Horarios</span> (el socio puede entrar cualquier día con lugar disponible).</div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="block">
+    <div class="sec-head">
+      <div class="num">ÁREA 12</div>
+      <h2>Preguntas frecuentes</h2>
+    </div>
+
+    <div class="card">
+      <h3>¿Por qué se genera una nueva cuota si el socio ya abonó el mes anterior?</h3>
+      <p style="color:var(--muted); font-size:13.5px;">El ciclo mensual de cada socio se calcula a partir de su fecha de
+      inscripción, no del mes calendario. Un socio inscripto el día 15 tiene cobertura hasta el 15 del mes siguiente,
+      cuando se genera la nueva cuota.</p>
+    </div>
+    <div class="card">
+      <h3>¿Por qué figuran socios como vencidos al iniciar el uso del sistema?</h3>
+      <p style="color:var(--muted); font-size:13.5px;">Ocurre cuando la fecha de inscripción cargada no coincide con la real.
+      Corrigiendo ese dato (ver tarea 4) el estado se normaliza automáticamente.</p>
+    </div>
+    <div class="card">
+      <h3>¿Es necesario generar las cuotas manualmente todos los meses?</h3>
+      <p style="color:var(--muted); font-size:13.5px;">No. Las cuotas se generan automáticamente. La opción
+      <span class="k">Generar Período</span> es únicamente un respaldo.</p>
+    </div>
+    <div class="card">
+      <h3>¿Qué ocurre si un profesor no registra la salida?</h3>
+      <p style="color:var(--muted); font-size:13.5px;">Ese día figurará como "En curso" en Asistencia de Profesores.
+      No afecta el cálculo de los demás días; solo indica que falta el cierre de ese registro.</p>
+    </div>
+    <div class="card">
+      <h3>¿Cómo entra un socio que no tiene email?</h3>
+      <p style="color:var(--muted); font-size:13.5px;">Con su <strong>DNI</strong> como usuario y clave. Puede cambiar la
+      clave desde el portal (Cuenta → Mis Datos → Contraseña).</p>
+    </div>
+    <div class="card">
+      <h3>Un DNI aparece como "Sin registro" en el historial de accesos, ¿qué significa?</h3>
+      <p style="color:var(--muted); font-size:13.5px;">Alguien tipeó en el kiosco un DNI que no corresponde a ningún socio ni
+      profesor. Se guarda el intento como referencia, pero no está asociado a una persona.</p>
+    </div>
+  </section>
+
+  <div class="foot">
+    VC Fit · Documento interno del sistema de gestión · Ante consultas, contactar al equipo de administración.
+  </div>
+
+</main>
+</body>
+</html>

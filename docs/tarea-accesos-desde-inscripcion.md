@@ -111,9 +111,10 @@ viejo preservando consumo, autocreación en ventana de inscripción, overdue
 anclado al aniversario, y rollover en el aniversario. No introduce reason_codes
 nuevos (no toca `kiosk_reason_codes`).
 
-**Pendiente para aplicar a prod:** correr la 0006 por el pooler IPv4 y trackear
-con `supabase migration repair --status applied 0006` (ver "Contexto/workflow"
-al final). 100% backend, sin cambios de frontend.
+~~**Pendiente para aplicar a prod:**~~ **APLICADA** (verificado 2026-09-02): el
+`supabase db push` del 2026-09-01 sólo listó las migraciones 0015 y 0016 como
+faltantes, o sea que 0001–0014 —la 0006 incluida— están aplicadas y trackeadas
+en prod. 100% backend, sin cambios de frontend.
 
 ---
 ### Notas históricas del análisis previo (pre-implementación)

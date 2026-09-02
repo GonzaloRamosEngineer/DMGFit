@@ -16,6 +16,10 @@ auditoría se sumó superficie de producto (biblioteca de ejercicios con media,
 registrador de entrenamiento estilo Hevy, portal del atleta por secciones,
 progreso de fuerza) y se cerraron varios bloqueantes transversales.
 
+> 📋 **Inventario consolidado de deuda y pendientes: [`docs/DEUDA-Y-PENDIENTES.md`](./DEUDA-Y-PENDIENTES.md)**
+> (relevado 2026-09-02, con verificaciones contra producción). Empezar por ahí para saber
+> qué queda abierto en todo el proyecto.
+
 > ⚠️ **Frente nuevo (2026-09-01): la adopción del portal del atleta.** El acceso funciona
 > —los 73 atletas tienen login desde el día del alta— pero **66 nunca entraron**, porque
 > nadie les avisa que la cuenta existe. El panel además mostraba "sin acceso" a 36 de
@@ -314,11 +318,14 @@ cambio de plan → el RPC los rechazaba ("horarios fuera del plan") sin que se v
 grilla para destildarlos. Ahora interseca con el plan actual y topa en la frecuencia.
 Cubierto con tests (`getInitialSelectedSlotIds`, 6 casos; total 21 en verde).
 
-**Nota operativa:** el cron `generate-due-invoices-daily` está activo y genera cuotas
-pendientes solas. Cris avisó (audio 2026-08-05) que **todavía no cargó ningún pago** y que
-piensa cargarlos a mano — o sea que el sistema le está generando deuda mientras ella sólo
-usa el kiosco para controlar asistencia. Decidir si se pausa el cron hasta que arranquen
-con pagos en serio.
+**Nota operativa (~~2026-08-05~~ → actualizado 2026-09-02):** el cron
+`generate-due-invoices-daily` está activo y genera cuotas pendientes solas. El audio del
+2026-08-05 decía que Cris **todavía no había cargado ningún pago**; eso quedó viejo:
+**hay 74 pagos registrados y el último es del 2026-08-25**, así que sí los está cargando y
+no corresponde pausar el cron. Lo que sí queda abierto son **63 cuotas pendientes por
+$3.595.000** acumuladas desde el 2026-06-24, sin definir cuánto es deuda real y cuánto son
+cuotas que nunca se cobraron ni se anularon → ver
+[`DEUDA-Y-PENDIENTES.md`](./DEUDA-Y-PENDIENTES.md) §1.2.
 
 ---
 
