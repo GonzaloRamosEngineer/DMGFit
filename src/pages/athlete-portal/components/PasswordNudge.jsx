@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../../../components/AppIcon';
+import {
+  CLAVE_ACTUALIZADA_EVENT,
+  CLAVE_DETECTADA_EVENT,
+  leerClavePorDefecto,
+} from '../../../utils/clavePorDefecto';
 
 // Aviso (no bloqueante) para el atleta que sigue usando la clave con la que nació
 // su cuenta: su propio DNI. No se obliga a cambiarla — se recomienda.
@@ -10,24 +15,24 @@ import Icon from '../../../components/AppIcon';
 // lugar donde se conoce la contraseña escrita. Al cambiarla, el aviso desaparece
 // solo y no vuelve mientras la clave sea propia.
 
-export const CLAVE_POR_DEFECTO_KEY = 'vcfit:clave-por-defecto';
-export const CLAVE_ACTUALIZADA_EVENT = 'vcfit:clave-actualizada';
-
-const leerFlag = () => {
-  try {
-    return sessionStorage.getItem(CLAVE_POR_DEFECTO_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
-
 const PasswordNudge = ({ enCuenta = false }) => {
-  const [visible, setVisible] = useState(leerFlag);
+  const [visible, setVisible] = useState(leerClavePorDefecto);
 
   useEffect(() => {
     const ocultar = () => setVisible(false);
+    // Red de seguridad por si la marca llega DESPUÉS del montaje: el login redirige
+    // apenas cambia la sesión, así que el orden entre "poner la marca" y "montar el
+    // portal" no está garantizado. Releer acá cubre ese caso sin depender del timing.
+    const releer = () => setVisible(leerClavePorDefecto());
+
     window.addEventListener(CLAVE_ACTUALIZADA_EVENT, ocultar);
-    return () => window.removeEventListener(CLAVE_ACTUALIZADA_EVENT, ocultar);
+    window.addEventListener(CLAVE_DETECTADA_EVENT, releer);
+    releer();
+
+    return () => {
+      window.removeEventListener(CLAVE_ACTUALIZADA_EVENT, ocultar);
+      window.removeEventListener(CLAVE_DETECTADA_EVENT, releer);
+    };
   }, []);
 
   if (!visible) return null;

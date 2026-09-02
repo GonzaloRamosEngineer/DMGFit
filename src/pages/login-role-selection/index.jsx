@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { marcarClavePorDefecto, limpiarClavePorDefecto } from '../../utils/clavePorDefecto';
 import { Helmet } from 'react-helmet';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -121,28 +122,26 @@ const LoginRoleSelection = () => {
         ? idRaw
         : `${idRaw.replace(/\D/g, '')}@vcfit.internal`;
 
+      // ¿Entra con la clave por defecto (= su DNI)? Este es el único momento en que
+      // conocemos la contraseña escrita, y el portal usa esta marca para recomendarle
+      // (sin obligarlo) que ponga una clave propia.
+      //
+      // Se deja ANTES del login a propósito: el useEffect de arriba redirige apenas
+      // cambia el estado de autenticación —o sea, dentro del await— así que el portal
+      // puede montarse antes de que vuelva el control acá. Si la marca se pusiera
+      // después, PasswordNudge ya se habría montado sin verla. Si el login falla, se
+      // limpia en el catch.
+      const dniDigits = idRaw.replace(/\D/g, '');
+      marcarClavePorDefecto(
+        !idRaw.includes('@') && dniDigits.length > 0 && formData.password === dniDigits
+      );
+
       const { error: loginError, user } = await login({
         email: loginEmail,
         password: formData.password
       });
 
       if (loginError) throw loginError;
-
-      // ¿Entró con la clave por defecto (= su DNI)? Solo se puede saber acá, en el
-      // único momento en que conocemos la contraseña escrita. El portal usa esta
-      // marca para recomendarle (sin obligarlo) que ponga una clave propia.
-      try {
-        const dniDigits = idRaw.replace(/\D/g, '');
-        const usaClavePorDefecto =
-          !idRaw.includes('@') && dniDigits.length > 0 && formData.password === dniDigits;
-        if (usaClavePorDefecto) {
-          sessionStorage.setItem('vcfit:clave-por-defecto', '1');
-        } else {
-          sessionStorage.removeItem('vcfit:clave-por-defecto');
-        }
-      } catch {
-        // Navegación privada / storage bloqueado: sin aviso, no es crítico.
-      }
 
       setUiStatus('success');
 
@@ -155,6 +154,8 @@ const LoginRoleSelection = () => {
 
     } catch (err) {
       console.error('Login failed:', err);
+      // El login no prosperó: la marca que se dejó antes no corresponde a nadie.
+      limpiarClavePorDefecto();
       setUiStatus('error');
       setError(friendlyError(err));
       setTimeout(() => setUiStatus('idle'), 1500);

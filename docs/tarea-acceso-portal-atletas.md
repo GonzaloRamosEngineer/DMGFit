@@ -106,8 +106,17 @@ contraseña escrita es el login, así que ahí se compara con el DNI y se deja u
 `sessionStorage`. Se recalcula en cada ingreso: el que nunca la cambia lo sigue viendo,
 el que la cambia deja de verlo para siempre.
 
-- `login-role-selection/index.jsx`: marca `vcfit:clave-por-defecto` si entró con DNI y
-  la clave era su DNI.
+- `utils/clavePorDefecto.js`: la marca `vcfit:clave-por-defecto` y sus helpers. Vive en
+  un módulo aparte para que el login —que carga eager— no arrastre `PasswordNudge` y sus
+  dependencias al bundle principal.
+- `login-role-selection/index.jsx`: pone la marca si entró con DNI y la clave era su DNI.
+
+  ⚠️ **La marca va ANTES del `await login(...)`, no después.** Primera versión la ponía
+  después y el aviso nunca aparecía: el `useEffect` de redirección de esa pantalla
+  dispara apenas cambia el estado de autenticación —o sea, **dentro** del await— así que
+  React monta el portal antes de que vuelva el control, y `PasswordNudge` se montaba sin
+  ver la marca. Si el login falla, se limpia en el `catch`. Como red extra, el aviso
+  también escucha `vcfit:clave-por-defecto-detectada` por si el orden vuelve a cambiar.
 - `athlete-portal/components/PasswordNudge.jsx`: el aviso. Descartable ("Ahora no") y
   con enlace a Mi cuenta cuando está en otra sección.
 - `MyDataCard.jsx`: al cambiar la clave, limpia la marca y emite `vcfit:clave-actualizada`
