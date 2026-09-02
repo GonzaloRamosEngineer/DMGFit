@@ -57,7 +57,7 @@ falsos "sin acceso". Ver hallazgo #2 en Pendientes.
 | 2 | `profiles.email` guarda la identidad de login; el trigger la repone | raíz de #1 y #3 | ⏳ Pendiente |
 | 3 | La heurística del dominio interno está copiada en 6 archivos | deuda | ⏳ Pendiente |
 | 4 | Al atleta nunca se le avisa que tiene cuenta | 66 personas | ⏳ Pendiente |
-| 5 | La clave es el DNI y nunca se cambia | 73 cuentas | ✅ Resuelto (como aviso) |
+| 5 | La clave es el DNI y nunca se cambia | 73 cuentas | ✅ Resuelto (como aviso), validado en pantalla |
 | 6 | No se puede restablecer una clave desde el panel | crece con #5 | ✅ Resuelto |
 | 7 | El modal del portal habla de un email que ahí no existe | cosmético | ⏳ Pendiente |
 
@@ -159,9 +159,20 @@ Los tres pasos de backend quedaron aplicados y verificados contra prod:
 | `reset-athlete-password` sin sesión | `401 "Sesión inválida"` |
 | `reset-athlete-password` como no-admin | `403 "Solo el admin puede restablecer contraseñas"` |
 
-**Falta la verificación en pantalla** (requiere sesión real de admin y de atleta): que el
-botón desaparezca de las fichas, que aparezca "Restablecer clave", y que el aviso del
-portal salga al entrar con DNI.
+**Verificación en pantalla — COMPLETA (2026-09-01):**
+
+| Qué | Resultado |
+|---|---|
+| Ficha del atleta: sin botón "Habilitar Acceso" ni chip | ✅ |
+| Ficha del atleta: aparece "Restablecer clave" | ✅ |
+| Ficha del atleta: "Sin email" en vez del identificador interno | ✅ |
+| Portal: aviso de contraseña al entrar con DNI | ✅ (tras corregir el bug de orden, ver #5) |
+
+**Bug encontrado y corregido durante esta validación:** el aviso del portal no aparecía
+nunca. Ver la advertencia en la sección #5: la marca se ponía después del `await` del
+login, pero la redirección dispara **dentro** de ese await, así que el portal se montaba
+antes. Lo destapó una prueba con sesión completamente limpia — con una sesión heredada
+el síntoma se habría confundido con "no volvió a loguearse".
 
 **Higiene del dato:** la prueba con JWT de usuario usó la cuenta de test
 `prueba.portal@vcfit.app`, así que su `last_sign_in_at` quedó con fecha 2026-09-01.
