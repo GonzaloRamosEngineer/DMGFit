@@ -182,3 +182,54 @@ Vencido dentro de gracia o atleta sin ningún `paid` → entra en **ámbar** (`O
 - "Vencido" en Pagos coincide con lo que decide el kiosco para el mismo atleta.
 - Los 8 componentes muertos borrados; `npm run build` sigue verde.
 - Revisión visual del usuario en el dev server (`npm run start`, puerto 4028).
+
+---
+
+## Comprobante por WhatsApp — dos bugs abiertos (relevado 2026-09-01)
+
+> **No solicitado por el cliente**: se detectó de casualidad verificando otra cosa.
+> Queda documentado para cuando se levante el requerimiento. Ninguno de los dos rompe
+> el registro del pago: sólo afectan el mensaje que se le manda al atleta.
+
+Verificado abriendo el botón "WhatsApp" de un comprobante real en producción. La URL
+que se arma es:
+
+```
+https://api.whatsapp.com/send/?phone=387513991497&text=Hola+Bautista+Feliciano+Gomez+%EF%BF%BD ...
+```
+
+### 1. El número va sin código de país
+
+`handleWhatsApp()` en [`PaymentReceipt.jsx`](../src/pages/payment-management/components/PaymentReceipt.jsx)
+hace `replace(/\D/g,'')` y manda los dígitos crudos. `wa.me` / `api.whatsapp.com`
+exigen el número en **formato internacional**, así que WhatsApp abre la pantalla
+genérica "Chatea con el 387513991497" en vez del chat de la persona.
+
+Relevamiento de los 73 atletas: **56 tienen 10 dígitos sin el `549`**, 11 están vacíos,
+4 tienen basura (`387`, `155842143`, `387513991497`, `38754711031`) y **sólo 1 está en
+formato correcto**.
+
+**Fix:** un helper `waNumber(phone)` compartido que normalice a `549` + área sin `0` +
+abonado sin `15`, y devuelva `null` cuando no se puede (para no abrir un chat vacío).
+Las 4 fichas con basura se corrigen a mano. Es el **mismo helper que necesita el aviso
+de acceso al portal** — ver [`tarea-acceso-portal-atletas.md`](./tarea-acceso-portal-atletas.md) (#4).
+
+### 2. Los emojis llegan como `�` (causa NO identificada)
+
+El mensaje sale con el carácter de reemplazo U+FFFD (`%EF%BF%BD`) en cada emoji, así
+que el atleta recibe `Hola Fulano �` en vez de `Hola Fulano 👋`.
+
+Lo que **sí** se descartó (2026-09-01):
+
+| Capa | Estado |
+|---|---|
+| Código fuente | ✅ correcto (`f0 9f 91 8b` = 👋) |
+| Bundle en producción | ✅ correcto, cero U+FFFD |
+| `Content-Type` que sirve Vercel | ✅ `application/javascript; charset=utf-8` |
+
+Los caracteres de **2 bytes viajan bien** en la misma URL (`Inscripci%C3%B3n`,
+`%C2%A1Gracias%21`): sólo se rompen los de **4 bytes** (emojis, pares suplentes).
+
+La corrupción ocurre en runtime en el navegador y **la causa quedó sin identificar** —
+hace falta reproducirlo con las devtools abiertas. **Salida barata mientras tanto:
+sacar los emojis del mensaje**, que además lo deja más sobrio.

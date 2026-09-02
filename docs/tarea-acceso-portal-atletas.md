@@ -194,7 +194,11 @@ todavía no se reportó.
 Antes (o junto con) el #4 hace falta un helper `waNumber(phone)` compartido que
 normalice a `549` + área sin `0` + abonado sin `15`, y que devuelva `null` cuando no
 se puede (para no abrir un chat vacío). Las 4 fichas con basura se corrigen a mano.
-Corregir `PaymentReceipt.jsx` con el mismo helper cierra el bug existente.
+Corregir `PaymentReceipt.jsx` con el mismo helper cierra el bug existente
+(confirmado en prod el 2026-09-01: WhatsApp abre "Chatea con el 387513991497" en vez
+del chat real). Detalle en [`tarea-pagos.md`](./tarea-pagos.md), que además registra un
+segundo bug del comprobante: los emojis llegan como `�` por una corrupción en runtime
+cuya causa quedó sin identificar.
 - **Ojo con el orden:** enviar 66 credenciales sin el aviso de contraseña (#5, ya hecho)
   amplifica la exposición en vez de reducirla.
 
