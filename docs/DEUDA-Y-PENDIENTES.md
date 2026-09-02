@@ -25,18 +25,48 @@ Diferencia: **~$280.000 por mes**. Sobre 74 atletas activos.
 | 1x/semana | $10.000 | $15.000 | 2 |
 | 5x/semana | $80.000 | $90.000 | 1 |
 
-**No es necesariamente un error:** los de $50.000 y $60.000 parecen la lista de precios
-anterior, pero los de $25.000/$35.000 podrían ser descuentos deliberados (familiares,
-becas). **Requiere que Cris revise caso por caso** y diga cuáles actualizar. El sistema
-no distingue "precio viejo" de "descuento acordado" — y esa es, en sí, una carencia del
-modelo de datos: no hay campo para registrar un descuento como tal.
+**Separado por causa probable** (22 reales, sin contar `Atleta Prueba`):
 
-Uno de los 23 es `Atleta Prueba` (cuenta de test), así que el neto real son 22.
+| Causa | Atletas | Por mes |
+|---|--:|--:|
+| Tarifa anterior (un escalón de diferencia) | 20 | **$190.000** |
+| Diferencia grande — probable descuento acordado | 2 | $80.000 |
+
+**El dato que lo confirma como problema del presente, no del pasado:** el cron genera
+las cuotas con `athletes.plan_tier_price` (la cuota de la ficha), NO con
+`plan_pricing_tiers` (la lista del plan) — ver `0007_generar_cuotas_automatico.sql:33`.
+Verificado: **hay 9 cuotas de agosto y septiembre generadas a $50.000** con tarifa de
+$60.000. Se repite cada mes.
+
+📌 **Contexto aportado por Gonzalo (2026-09-02):** Cris está cargando cuotas viejas para
+poner todo al día desde enero, así que un pago histórico de $50.000 **estaba bien** — era
+la tarifa de entonces. Eso explica los `payments` viejos, pero **no** las fichas actuales,
+que son lo que se factura de acá en adelante.
+
+**Limitación de la verificación:** `payments` no tiene `created_at`, sólo `date` (mes de
+la cuota) y `payment_date` (cuándo se cobró). Con ese criterio, **0 de 74 pagos** figuran
+cobrados en un mes posterior al de la cuota. Pero si Cris carga hoy una cuota de marzo con
+fecha de pago de marzo, es indistinguible de una cargada en su momento. **No se puede
+medir el atraso de carga con el modelo actual.**
+
+Los de $25.000/$35.000 requieren decisión de Cris: el sistema **no distingue "precio
+viejo" de "descuento acordado"**, y esa es una carencia del modelo (ver §4.4).
 
 ### 1.2 · $3.595.000 en cuotas pendientes acumuladas ✅ verificado
 
 63 cuotas en estado `pending`, la más vieja del **2026-06-24**. En paralelo hay 74
 cuotas cobradas por $4.102.000, la última registrada el **2026-08-25**.
+
+**Los datos muestran que sí se está poniendo al día** — enero a mayo está todo cobrado y
+el atraso se concentra al final:
+
+| Mes de la cuota | Cobradas | Pendientes |
+|---|--:|--:|
+| ene–may 2026 | 18 | 0 |
+| jun 2026 | 14 | 1 |
+| jul 2026 | 12 | 16 |
+| ago 2026 | 30 | 42 |
+| sep 2026 | 0 | 4 |
 
 El cron `generate-due-invoices-daily` genera las cuotas solas. No se sabe cuánto de esos
 $3,6M es deuda real de atletas y cuánto son cuotas generadas que nunca se cobraron ni se
@@ -122,6 +152,13 @@ Dos bugs, detalle en [`tarea-pagos.md`](./tarea-pagos.md):
    (los tres correctos). **Causa sin identificar.** Salida barata: sacar los emojis.
 
 Es lo único de este inventario que un cliente real está viendo mal hoy. No está solicitado.
+
+### 4.4 · No hay forma de registrar un descuento como tal 🟠
+
+Si a un atleta se le cobra menos, sólo se guarda el número final: no queda registro de que
+fue una decisión, de quién la tomó ni por qué. Es exactamente lo que hace imposible
+resolver §1.1 sin preguntarle a Cris. Con 74 atletas todavía se puede preguntar; con 200,
+no. Fix: columna de motivo + monto de descuento, y mostrarlo en la ficha y el comprobante.
 
 ### 4.2 · `profiles.email` guarda la identidad de login 🟢 ✅ verificado
 
