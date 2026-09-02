@@ -2,7 +2,11 @@
 
 _Última actualización: 2026-09-01_
 
-> Estado: **#1, #5 y #6 implementados** en la branch `fix/acceso-atletas-panel`
+> Estado: **#1, #5 y #6 resueltos, en producción y validados en pantalla.** El #4 se
+> **cerró sin implementar** por decisión del cliente (se avisa de palabra en el
+> mostrador). Quedan #2, #3 y #7, todos sin urgencia.
+>
+> Detalle: **#1, #5 y #6 implementados** en la branch `fix/acceso-atletas-panel`
 > (build verde). **Backend YA EN PRODUCCIÓN (2026-09-01):** migraciones `0015` y `0016`
 > aplicadas por `db push` (pooler) y Edge Function `reset-athlete-password` deployada;
 > verificación e2e más abajo. **Falta mergear a main y desplegar el front** — hasta
@@ -56,7 +60,7 @@ falsos "sin acceso". Ver hallazgo #2 en Pendientes.
 | 1 | El botón "Habilitar Acceso" y el "Sin acceso a App" mienten | 36 de 73 fichas | ✅ Resuelto |
 | 2 | `profiles.email` guarda la identidad de login; el trigger la repone | raíz de #1 y #3 | ⏳ Pendiente |
 | 3 | La heurística del dominio interno está copiada en 6 archivos | deuda | ⏳ Pendiente |
-| 4 | Al atleta nunca se le avisa que tiene cuenta | 66 personas | ⏳ Pendiente |
+| 4 | Al atleta nunca se le avisa que tiene cuenta | 66 personas | 🚫 Se resuelve por proceso, no por software |
 | 5 | La clave es el DNI y nunca se cambia | 73 cuentas | ✅ Resuelto (como aviso), validado en pantalla |
 | 6 | No se puede restablecer una clave desde el panel | crece con #5 | ✅ Resuelto |
 | 7 | El modal del portal habla de un email que ahí no existe | cosmético | ⏳ Pendiente |
@@ -182,7 +186,25 @@ No es un atleta real.
 
 ## Pendientes
 
-### #4 — Avisarle al atleta que tiene cuenta (el de más valor)
+### #4 — Avisarle al atleta que tiene cuenta — 🚫 CERRADO SIN IMPLEMENTAR
+
+> **Decisión del cliente (2026-09-01): no se automatiza.** El aviso se da **en el
+> mostrador, de palabra**: cuando el atleta va al gimnasio se le dice que puede entrar
+> al portal con su DNI. No hace falta construir nada — el staff ya tiene el DNI a la
+> vista en la ficha, y la credencial es la misma para todos (usuario y clave = DNI).
+>
+> **Por qué se evaluó y se descartó:** se analizó un botón "Enviar acceso por WhatsApp"
+> y también reusar la infraestructura de WhatsApp Cloud API del proyecto
+> WhatsAppBot_Rocket. Lo que inclinó la decisión es que `wa.me` **no manda mensajes,
+> abre chats**: alguien tiene que apretar enviar 61 veces igual, así que el software
+> ahorraba poco frente a decirlo en persona. La vía automática de verdad (Cloud API)
+> exige plantilla aprobada por Meta y era desproporcionada para un aviso que se da una
+> sola vez.
+>
+> **Si se reabre**, todo el análisis sigue abajo. Y ojo con esto: **11 atletas no tienen
+> teléfono cargado**, así que ningún canal digital los alcanzaba tampoco.
+
+**El análisis original, por si se retoma:**
 
 **66 de 72 nunca entraron.** Ningún arreglo del panel mueve ese número: el atleta no
 sabe que su cuenta existe. El aviso del alta va dirigido al staff, y no puede ir al
