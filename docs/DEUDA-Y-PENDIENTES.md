@@ -50,7 +50,7 @@ fecha de pago de marzo, es indistinguible de una cargada en su momento. **No se 
 medir el atraso de carga con el modelo actual.**
 
 Los de $25.000/$35.000 requieren decisión de Cris: el sistema **no distingue "precio
-viejo" de "descuento acordado"**, y esa es una carencia del modelo (ver §4.4).
+viejo" de "descuento acordado"**, y esa es una carencia del modelo (ver §4.2).
 
 ### 1.2 · $3.595.000 en cuotas pendientes acumuladas ✅ verificado
 
@@ -153,14 +153,14 @@ Dos bugs, detalle en [`tarea-pagos.md`](./tarea-pagos.md):
 
 Es lo único de este inventario que un cliente real está viendo mal hoy. No está solicitado.
 
-### 4.4 · No hay forma de registrar un descuento como tal 🟠
+### 4.2 · No hay forma de registrar un descuento como tal 🟠
 
 Si a un atleta se le cobra menos, sólo se guarda el número final: no queda registro de que
 fue una decisión, de quién la tomó ni por qué. Es exactamente lo que hace imposible
 resolver §1.1 sin preguntarle a Cris. Con 74 atletas todavía se puede preguntar; con 200,
 no. Fix: columna de motivo + monto de descuento, y mostrarlo en la ficha y el comprobante.
 
-### 4.2 · `profiles.email` guarda la identidad de login 🟢 ✅ verificado
+### 4.3 · `profiles.email` guarda la identidad de login 🟢 ✅ verificado
 
 36 de 73 perfiles tienen `{DNI}@vcfit.internal` en el campo de contacto, porque el trigger
 `handle_new_user` lo copia en cada alta. **No afecta ninguna pantalla** — se resolvió
@@ -171,7 +171,7 @@ del alta. Vale la pena sólo junto con el #7b (que el atleta cargue su mail), qu
 campo limpio. Análisis completo, incluyendo por qué el riesgo es menor de lo estimado en un
 principio, en [`tarea-acceso-portal-atletas.md`](./tarea-acceso-portal-atletas.md).
 
-### 4.3 · Resto
+### 4.4 · Resto
 
 | Qué | Detalle | Fuente |
 |---|---|---|
