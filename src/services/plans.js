@@ -252,6 +252,23 @@ export const upsertPlanAvailabilityWindows = async (planId, windows) => {
   return data ?? [];
 };
 
+/**
+ * Baja el precio de lista del plan a la ficha de cada atleta activo (migración 0017).
+ * Regla 1 de Cris: al cambiar el precio del plan se actualiza a todos. Los bonificados
+ * entran igual (regla 4): se les pisa la ficha y su % sigue viviendo en discount_percent.
+ * NO toca ninguna cuota ya generada (reglas 2 y 3).
+ *
+ * Con { dryRun: true } no escribe: devuelve a quiénes alcanzaría, para confirmar antes.
+ */
+export const applyPlanPrices = async (planId, { dryRun = false } = {}) => {
+  const { data, error } = await supabase.rpc('admin_apply_plan_prices', {
+    p_plan_id: planId,
+    p_dry_run: dryRun,
+  });
+  if (error) throw error;
+  return data ?? { actualizados: 0, detalle: [] };
+};
+
 export const upsertPlanSlots = async () => {
   throw new Error('upsertPlanSlots deprecado: usar savePlanConfiguration() para persistencia atómica y estable.');
 };

@@ -459,11 +459,35 @@ const StructuralMembershipCard = ({
                     : "Sin tier cargado para esta frecuencia: se usa el monto que pongas."}
                 </p>
               </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+                  Bonificación (%)
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  max="100"
+                  step="1"
+                  name="discountPercent"
+                  value={membershipForm.discountPercent}
+                  onChange={onMembershipChange}
+                  placeholder="0"
+                  className="mt-1 w-full px-3 py-2.5 bg-card border border-border rounded-lg text-sm"
+                />
+                <p className="mt-1 text-[10px] text-text-tertiary">
+                  {discountedPrice !== null
+                    ? `Paga ${formatCurrency(discountedPrice)} por mes.`
+                    : "Sin bonificación: paga la cuota completa."}
+                </p>
+              </div>
             </div>
 
             <p className="mt-3 text-[11px] text-text-secondary">
               La frecuencia define la cuota y los accesos del kiosco (frecuencia × 4).
-              Al guardar vas a ver el detalle de lo que cambia.
+              La bonificación se guarda aparte de la cuota, así el precio de lista se le puede
+              actualizar sin pisarle el descuento. Al guardar vas a ver el detalle de lo que cambia.
             </p>
           </div>
 
@@ -593,6 +617,7 @@ const IndividualAthleteProfile = () => {
     planId: "",
     visitsPerWeek: "",
     tierPrice: "",
+    discountPercent: "",
   });
   const [savingMembership, setSavingMembership] = useState(false);
 
@@ -641,6 +666,7 @@ const IndividualAthleteProfile = () => {
             profile_id,
             visits_per_week,
             plan_tier_price,
+            discount_percent,
             plans:plan_id ( name, price ),
             profiles:profile_id ( full_name, email, avatar_url )
           `)
@@ -765,6 +791,7 @@ const IndividualAthleteProfile = () => {
             planOption: athlete.plan_option || null,
             visits_per_week: athlete.visits_per_week || null,
             plan_tier_price: athlete.plan_tier_price || null,
+            discount_percent: Number(athlete.discount_percent || 0),
           },
           metrics: metricsList,
           latestMetrics: latestValues,
@@ -798,6 +825,10 @@ const IndividualAthleteProfile = () => {
       tierPrice:
         profileData.athlete.plan_tier_price != null
           ? String(profileData.athlete.plan_tier_price)
+          : "",
+      discountPercent:
+        Number(profileData.athlete.discount_percent) > 0
+          ? String(Number(profileData.athlete.discount_percent))
           : "",
     });
   }, [profileData.athlete]);
@@ -889,12 +920,26 @@ const IndividualAthleteProfile = () => {
 
   const suggestedPrice = selectedTier ? Number(selectedTier.price) : null;
 
+  // Lo que realmente paga: la cuota de la ficha menos su bonificación.
+  const discountedPrice = (() => {
+    const base = Number(membershipForm.tierPrice);
+    const pct = Number(membershipForm.discountPercent);
+    if (!Number.isFinite(base) || base <= 0) return null;
+    if (!Number.isFinite(pct) || pct <= 0) return null;
+    return Math.max(Math.round(base - (base * pct) / 100), 0);
+  })();
+
   const handleMembershipChange = (event) => {
     const { name, value } = event.target;
 
     // Cambiar de plan invalida la frecuencia elegida: los tiers son por plan.
     if (name === "planId") {
-      setMembershipForm({ planId: value, visitsPerWeek: "", tierPrice: "" });
+      setMembershipForm((prev) => ({
+        ...prev,
+        planId: value,
+        visitsPerWeek: "",
+        tierPrice: "",
+      }));
       return;
     }
 
@@ -936,8 +981,18 @@ const IndividualAthleteProfile = () => {
       return;
     }
 
+    const discount =
+      membershipForm.discountPercent === "" || membershipForm.discountPercent === null
+        ? 0
+        : Number(membershipForm.discountPercent);
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+      toast.error("La bonificación tiene que estar entre 0 y 100%.");
+      return;
+    }
+
     const prevVisits = Number(athlete.visits_per_week || 0);
     const prevPrice = athlete.plan_tier_price;
+    const prevDiscount = Number(athlete.discount_percent || 0);
 
     // Cambiar la frecuencia mueve plata (cuota) y accesos del kiosco: se confirma.
     // Que va a entrenar N días ya lo sabe quien lo está cambiando; lo que hay que
@@ -962,6 +1017,15 @@ const IndividualAthleteProfile = () => {
               label: "Cuota mensual",
               antes: formatCurrency(Number(prevPrice || 0)),
               despues: formatCurrency(price),
+            }
+          : null,
+        discount > 0 && precioCambia
+          ? {
+              label: `Paga (con ${discount}% de bonif.)`,
+              antes: formatCurrency(
+                Math.max(Math.round(Number(prevPrice || 0) * (1 - prevDiscount / 100)), 0)
+              ),
+              despues: formatCurrency(Math.max(Math.round(price * (1 - discount / 100)), 0)),
             }
           : null,
         accesosAntes !== null && accesosAntes !== accesosDespues
@@ -996,7 +1060,11 @@ const IndividualAthleteProfile = () => {
                 pagada) no es noticia y sólo agrega ruido. */}
             {precioCambia && (
               <p className="text-[11px] text-text-secondary">
-                La cuota pendiente de este mes pasa a {formatCurrency(price)}.
+                La cuota pendiente de este mes pasa a{' '}
+                {formatCurrency(
+                  discount > 0 ? Math.max(Math.round(price * (1 - discount / 100)), 0) : price
+                )}
+                {discount > 0 && ` (${formatCurrency(price)} menos ${discount}% de bonificación)`}.
               </p>
             )}
           </div>
@@ -1012,6 +1080,7 @@ const IndividualAthleteProfile = () => {
         planId: membershipForm.planId,
         visitsPerWeek: visits,
         tierPrice: price,
+        discountPercent: discount,
       });
 
       if (!success) {

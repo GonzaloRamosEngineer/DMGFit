@@ -57,6 +57,10 @@ const AthleteHeader = ({
     athlete?.plan_tier_price !== undefined &&
     athlete?.plan_tier_price !== '';
 
+  // Bonificación permanente del atleta (0017): la cuota de la ficha es el precio de
+  // lista, lo que realmente paga es ese precio menos este porcentaje.
+  const discountPercent = Number(athlete?.discount_percent || 0);
+
   const handleToggleAthleteStatus = async () => {
     const isActive = athlete.status === 'active';
 
@@ -269,8 +273,27 @@ const AthleteHeader = ({
               <p className="text-[10px] font-bold uppercase tracking-widest truncate">Cuota</p>
             </div>
             <p className="mt-1 text-sm font-black text-foreground truncate">
-              {hasTierPrice ? formatCurrency(athlete.plan_tier_price) : '—'}
+              {hasTierPrice
+                ? formatCurrency(
+                    discountPercent > 0
+                      ? Math.max(
+                          Math.round(
+                            Number(athlete.plan_tier_price) -
+                              (Number(athlete.plan_tier_price) * discountPercent) / 100
+                          ),
+                          0
+                        )
+                      : athlete.plan_tier_price
+                  )
+                : '—'}
             </p>
+            {/* Bonificado: se muestra lo que PAGA arriba y de dónde sale acá abajo. */}
+            {hasTierPrice && discountPercent > 0 && (
+              <p className="text-[10px] font-bold text-muted-foreground truncate">
+                <span className="line-through">{formatCurrency(athlete.plan_tier_price)}</span>
+                <span className="ml-1 text-primary">−{discountPercent}%</span>
+              </p>
+            )}
           </div>
         </div>
       </div>

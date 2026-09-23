@@ -233,6 +233,9 @@ export const updateAthleteMembership = async ({
   tierPrice = null,
   planOption = null,
   syncBalance = true,
+  // Bonificación permanente del atleta, en % sobre el precio de lista (0017).
+  // null = no tocar la que ya tiene.
+  discountPercent = null,
 }) => {
   try {
     const { data, error } = await supabase.rpc('admin_update_athlete_membership', {
@@ -243,6 +246,8 @@ export const updateAthleteMembership = async ({
         tierPrice === null || tierPrice === '' ? null : Number(tierPrice),
       p_plan_option: planOption,
       p_sync_balance: syncBalance,
+      p_discount_percent:
+        discountPercent === null || discountPercent === '' ? null : Number(discountPercent),
     });
 
     if (error) throw error;

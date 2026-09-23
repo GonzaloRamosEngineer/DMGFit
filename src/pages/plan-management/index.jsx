@@ -7,7 +7,7 @@ import { useToast } from '../../hooks/useToast';
 import { useConfirm } from '../../components/ui/ConfirmProvider';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
-import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, fetchActiveAthleteCountsByPlan, savePlanConfiguration } from '../../services/plans';
+import { fetchPlanPricing, fetchPlanSlots, fetchPlanAvailabilityWindows, fetchActiveAthleteCountsByPlan, savePlanConfiguration, applyPlanPrices } from '../../services/plans';
 
 // Componentes Hijos
 import PlanCard from './components/PlanCard';
@@ -149,13 +149,103 @@ const PlanManagement = () => {
     setMetrics({ totalPlans: total, activePlans: active, totalEnrolled: enrolled, avgOccupancy: occupancy, monthlyRevenue: revenue });
   };
 
+  // Formatea la diferencia mensual que deja la actualización de precios.
+  const formatARS = (n) =>
+    `$${Math.abs(Number(n || 0)).toLocaleString('es-AR')}`;
+
+  /**
+   * Tras guardar el plan, ofrece bajar el precio nuevo a la ficha de los atletas.
+   * Antes esto no existía: se actualizaba la lista y las fichas quedaban con el precio
+   * viejo, que es lo que dejó 23 atletas mal facturados (ver migración 0017).
+   */
+  const offerApplyPrices = async (planId) => {
+    if (!planId) return;
+    let preview;
+    try {
+      preview = await applyPlanPrices(planId, { dryRun: true });
+    } catch (error) {
+      console.error('Error revisando precios del plan:', error);
+      return; // El plan ya se guardó: no rompemos el flujo por el aviso.
+    }
+
+    const afectados = Number(preview?.actualizados || 0);
+    if (afectados === 0) return;
+
+    const delta = Number(preview?.diferencia_mensual || 0);
+    const detalle = preview?.detalle || [];
+
+    const ok = await confirm({
+      title: 'Actualizar la cuota de los atletas',
+      confirmLabel: `Actualizar a ${afectados}`,
+      cancelLabel: 'Ahora no',
+      message: (
+        <div className="space-y-3 text-sm text-text-secondary">
+          <p>
+            <span className="font-black text-text-primary">
+              {afectados} {afectados === 1 ? 'atleta tiene' : 'atletas tienen'}
+            </span>{' '}
+            en su ficha un precio distinto al que acabás de guardar.
+          </p>
+
+          <ul className="max-h-48 overflow-auto custom-scrollbar rounded-xl border border-border divide-y divide-border">
+            {detalle.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="font-bold text-text-primary truncate">
+                  {a.nombre}
+                  {Number(a.bonificacion) > 0 && (
+                    <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-primary">
+                      −{Number(a.bonificacion)}%
+                    </span>
+                  )}
+                </span>
+                <span className="whitespace-nowrap font-semibold">
+                  <span className="text-text-tertiary line-through">{formatARS(a.precio_anterior)}</span>
+                  {' → '}
+                  <span className="font-black text-text-primary">{formatARS(a.precio_nuevo)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <p>
+            En total son{' '}
+            <span className="font-black text-text-primary">
+              {delta >= 0 ? '+' : '−'}{formatARS(delta)}
+            </span>{' '}
+            por mes.
+          </p>
+
+          <p className="text-xs">
+            Las cuotas <span className="font-bold">ya generadas no se tocan</span>: el precio nuevo
+            arranca en la próxima. A los que tienen bonificación se les actualiza igual y su
+            descuento se sigue aplicando.
+          </p>
+        </div>
+      ),
+    });
+    if (!ok) return;
+
+    try {
+      const result = await applyPlanPrices(planId);
+      toast.success(
+        `Cuota actualizada a ${result?.actualizados || 0} atleta${result?.actualizados === 1 ? '' : 's'}.`
+      );
+    } catch (error) {
+      console.error('Error aplicando precios del plan:', error);
+      toast.error('No se pudieron actualizar las cuotas: ' + (error.message || 'error'));
+    }
+  };
+
   const handleSavePlan = async (planData) => {
     try {
       setLoading(true);
-      await savePlanConfiguration(planData, { planId: editingPlan ? planData.id : null });
-      await fetchData();
+      const savedId = await savePlanConfiguration(planData, {
+        planId: editingPlan ? planData.id : null,
+      });
       setIsCreateModalOpen(false);
       setEditingPlan(null);
+      await offerApplyPrices(savedId || planData.id);
+      await fetchData();
     } catch (error) {
       console.error('Error guardando plan:', error);
       toast.error(error.message || 'Hubo un error al guardar el plan. Revisa la consola.');
