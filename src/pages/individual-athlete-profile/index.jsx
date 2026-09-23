@@ -288,6 +288,16 @@ const StructuralMembershipCard = ({
 }) => {
   const [open, setOpen] = useState(false);
 
+  // Lo que realmente paga: la cuota de la ficha menos su bonificación.
+  // Se calcula acá y no en el padre porque es este bloque el que lo muestra.
+  const discountedPrice = (() => {
+    const base = Number(membershipForm?.tierPrice);
+    const pct = Number(membershipForm?.discountPercent);
+    if (!Number.isFinite(base) || base <= 0) return null;
+    if (!Number.isFinite(pct) || pct <= 0) return null;
+    return Math.max(Math.round(base - (base * pct) / 100), 0);
+  })();
+
   if (loading) {
     return (
       <div className="bg-card border border-border rounded-xl p-4 mb-4 animate-pulse">
@@ -1078,15 +1088,6 @@ const IndividualAthleteProfile = () => {
   );
 
   const suggestedPrice = selectedTier ? Number(selectedTier.price) : null;
-
-  // Lo que realmente paga: la cuota de la ficha menos su bonificación.
-  const discountedPrice = (() => {
-    const base = Number(membershipForm.tierPrice);
-    const pct = Number(membershipForm.discountPercent);
-    if (!Number.isFinite(base) || base <= 0) return null;
-    if (!Number.isFinite(pct) || pct <= 0) return null;
-    return Math.max(Math.round(base - (base * pct) / 100), 0);
-  })();
 
   const handleMembershipChange = (event) => {
     const { name, value } = event.target;
