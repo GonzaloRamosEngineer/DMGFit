@@ -73,6 +73,20 @@ export const updatePayment = async (id, patch = {}, reason = null) => {
  * Anula un pago (soft-delete, status='void') con traza de auditoría.
  * Anular un 'paid' lo saca del ciclo del kiosco → puede re-bloquear al atleta.
  */
+/**
+ * Revierte una anulación (migración 0018). Devuelve el pago al estado que tenía antes
+ * de anularse: una cuota que estaba cobrada vuelve a 'paid', no a 'pending'.
+ * Falla en criollo si mientras tanto se generó otra cuota viva del mismo período.
+ */
+export const restorePayment = async (id, reason = null) => {
+  const { data, error } = await supabase.rpc('admin_restore_payment', {
+    p_id: id,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return data;
+};
+
 export const voidPayment = async (id, reason = null) => {
   const { data, error } = await supabase.rpc('void_payment', {
     p_id: id,

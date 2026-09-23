@@ -263,6 +263,49 @@ export const updateAthleteMembership = async ({
   }
 };
 
+// --- Licencias por ausencia (migración 0019) ---------------------------------
+// El atleta avisa que no viene por uno o varios meses: no se le genera cuota mientras
+// dura, pero sigue activo y conserva su plan. Pedido de Cris (2026-09-20).
+
+export const fetchAthleteLeaves = async (athleteId) => {
+  const { data, error } = await supabase
+    .from('athlete_leaves')
+    .select('id, starts_on, ends_on, reason, created_at')
+    .eq('athlete_id', athleteId)
+    .order('starts_on', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+};
+
+export const addAthleteLeave = async ({ athleteId, startsOn, endsOn, reason = null }) => {
+  try {
+    const { data, error } = await supabase.rpc('admin_add_athlete_leave', {
+      p_athlete_id: athleteId,
+      p_starts_on: startsOn,
+      p_ends_on: endsOn,
+      p_reason: reason,
+    });
+    if (error) throw error;
+    return { success: true, leave: data };
+  } catch (error) {
+    const message = String(error?.message || '');
+    if (message.includes('FORBIDDEN')) {
+      return { success: false, error: 'No tenés permisos para registrar licencias.' };
+    }
+    return { success: false, error: message || 'No se pudo registrar la licencia.' };
+  }
+};
+
+export const deleteAthleteLeave = async (leaveId) => {
+  try {
+    const { error } = await supabase.rpc('admin_delete_athlete_leave', { p_id: leaveId });
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error?.message || 'No se pudo borrar la licencia.' };
+  }
+};
+
 export const deactivateAthlete = async (athleteId) => {
   const today = hoyLocal();
 

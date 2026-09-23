@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 // UI
 import Icon from '../../components/AppIcon';
 import { useToast } from '../../hooks/useToast';
+import { useConfirm } from '../../components/ui/ConfirmProvider';
 import { EmptyState } from '../../components/ui/EmptyState';
 import StatCard from '../../components/ui/StatCard';
 import DateRangeFilter from '../../components/ui/DateRangeFilter';
@@ -21,6 +22,7 @@ import {
   fetchBillingStatus,
   updatePayment,
   voidPayment,
+  restorePayment,
 } from '../../services/payments';
 
 const formatCurrency = (amount) => {
@@ -453,6 +455,7 @@ const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid, onRe
 const PaymentManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const confirm = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -680,6 +683,45 @@ const PaymentManagement = () => {
     setDetailOpenVoid(true);
   };
 
+  // Revierte una anulación (0018). Vuelve al estado que tenía antes de anularse.
+  const handleRestore = async (row) => {
+    const ok = await confirm({
+      title: 'Reactivar esta cuota',
+      confirmLabel: 'Reactivar',
+      message: (
+        <div className="space-y-2 text-sm text-text-secondary">
+          <p>
+            <span className="font-black text-text-primary">{row.athleteName}</span> —{' '}
+            {row.concept || 'Pago registrado'}
+          </p>
+          <p>
+            Vuelve al estado que tenía antes de anularse. Si estaba cobrada, vuelve a figurar
+            como cobrada; si estaba pendiente, vuelve a la lista de deudores.
+          </p>
+          {row.voidInfo?.reason && (
+            <p className="text-xs text-text-tertiary">
+              Se había anulado por: “{row.voidInfo.reason}”.
+            </p>
+          )}
+        </div>
+      ),
+    });
+    if (!ok) return;
+
+    try {
+      await restorePayment(row.id, 'Reactivada desde el panel');
+      toast.success('Cuota reactivada.');
+      await fetchPaymentData();
+    } catch (err) {
+      const msg = String(err?.message || '');
+      if (msg.includes('DUPLICADA')) {
+        toast.error('Ya hay otra cuota viva de ese período. Revisá cuál corresponde.');
+      } else {
+        toast.error('No se pudo reactivar: ' + (msg || 'error'));
+      }
+    }
+  };
+
   const openCollectFromDebtor = (row) => {
     if (!row?.athleteId) return;
     setInitialAthlete({
@@ -900,7 +942,7 @@ const PaymentManagement = () => {
                     {activeTab === 'transactions' ? 'Método' : 'Estado'}
                   </th>
                   <th className="px-6 py-3 text-right w-[150px] whitespace-nowrap">Monto</th>
-                  {activeTab === 'debtors' && (
+                  {(activeTab === 'debtors' || activeTab === 'voided') && (
                     <th className="px-6 py-3 text-right w-[120px] whitespace-nowrap">Acción</th>
                   )}
                 </tr>
@@ -915,14 +957,14 @@ const PaymentManagement = () => {
                       <td className="px-6 py-3"><div className="h-3 bg-muted rounded w-56" /></td>
                       <td className="px-6 py-3"><div className="h-3 bg-muted rounded w-24" /></td>
                       <td className="px-6 py-3 text-right"><div className="h-3 bg-muted rounded w-24 ml-auto" /></td>
-                      {activeTab === 'debtors' && (
+                      {(activeTab === 'debtors' || activeTab === 'voided') && (
                         <td className="px-6 py-3 text-right"><div className="h-8 bg-muted rounded w-20 ml-auto" /></td>
                       )}
                     </tr>
                   ))
                 ) : pageRows.length === 0 ? (
                   <tr>
-                    <td colSpan={activeTab === 'debtors' ? 6 : 5} className="px-6 py-8">
+                    <td colSpan={activeTab === 'transactions' ? 5 : 6} className="px-6 py-8">
                       <EmptyState
                         iconName="Inbox"
                         title="Sin registros"
@@ -1030,6 +1072,22 @@ const PaymentManagement = () => {
                             {isPaid ? `+${formatCurrency(amount)}` : `${formatCurrency(amount)}`}
                           </span>
                         </td>
+
+                        {activeTab === 'voided' && (
+                          <td className="px-6 py-3 text-right align-middle">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRestore(row);
+                              }}
+                              className="px-3 py-2 rounded-xl border border-border text-xs font-black uppercase tracking-widest text-text-secondary hover:text-primary hover:border-primary/40 hover:bg-info-light transition-colors"
+                              title="Volver a activar esta cuota"
+                            >
+                              Reactivar
+                            </button>
+                          </td>
+                        )}
 
                         {activeTab === 'debtors' && (
                           <td className="px-6 py-3 text-right align-middle">

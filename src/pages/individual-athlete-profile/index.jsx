@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { supabase } from "../../lib/supabaseClient";
@@ -10,6 +10,9 @@ import {
   resetAthletePassword,
   fetchAthleteLoginStatus,
   updateAthleteMembership,
+  fetchAthleteLeaves,
+  addAthleteLeave,
+  deleteAthleteLeave,
 } from "../../services/athletes";
 import { hoyLocal, formatearFecha } from "../../utils/formatters";
 
@@ -277,6 +280,11 @@ const StructuralMembershipCard = ({
   onModifySchedule,
   canModifySchedule = false,
   loadingScheduleModal = false,
+  leaves = [],
+  loadingLeaves = false,
+  savingLeave = false,
+  onAddLeave,
+  onDeleteLeave,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -526,8 +534,154 @@ const StructuralMembershipCard = ({
             flujo para evitar inconsistencias entre cupos, precios, kiosco y
             pagos.
           </div>
+
+          {/* Licencias: el atleta avisa que no viene por uno o varios meses. No se le
+              genera cuota mientras dura, pero sigue activo y conserva su lugar (0019). */}
+          <LeavesPanel
+            leaves={leaves}
+            loading={loadingLeaves}
+            saving={savingLeave}
+            onAdd={onAddLeave}
+            onDelete={onDeleteLeave}
+          />
         </div>
       )}
+    </div>
+  );
+};
+
+
+// --- LICENCIAS POR AUSENCIA (0019) -----------------------------------------
+// "Si un atleta me avisa que un mes o varios no va a concurrir, ¿tengo forma de
+// registrar eso?" (Cris, 2026-09-20). Dar de baja no servía: le libera el horario y
+// desde el panel no hay forma de volver a activarlo.
+const LeavesPanel = ({ leaves = [], loading, saving, onAdd, onDelete }) => {
+  const [form, setForm] = useState({ startsOn: "", endsOn: "", reason: "" });
+  const [open, setOpen] = useState(false);
+
+  const hoy = hoyLocal();
+  const activa = leaves.find((l) => hoy >= l.starts_on && hoy <= l.ends_on) || null;
+
+  const fmt = (d) => (d ? d.split("-").reverse().join("/") : "—");
+
+  const submit = async () => {
+    const ok = await onAdd(form);
+    if (ok) {
+      setForm({ startsOn: "", endsOn: "", reason: "" });
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
+            Licencias
+          </p>
+          <p className="mt-0.5 text-[11px] text-text-tertiary">
+            {activa
+              ? `De licencia hasta el ${fmt(activa.ends_on)}: no se le genera cuota.`
+              : "Si avisa que no va a venir, cargalo acá y no se le genera cuota esos meses."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-card border border-border text-text-secondary hover:bg-muted transition-colors"
+        >
+          {open ? "Cancelar" : "Registrar"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
+            Desde
+            <input
+              type="date"
+              value={form.startsOn}
+              onChange={(e) => setForm((f) => ({ ...f, startsOn: e.target.value }))}
+              className="mt-1 w-full px-2 py-2 bg-card border border-border rounded-lg text-sm font-normal normal-case tracking-normal"
+            />
+          </label>
+          <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
+            Hasta
+            <input
+              type="date"
+              value={form.endsOn}
+              onChange={(e) => setForm((f) => ({ ...f, endsOn: e.target.value }))}
+              className="mt-1 w-full px-2 py-2 bg-card border border-border rounded-lg text-sm font-normal normal-case tracking-normal"
+            />
+          </label>
+          <label className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
+            Motivo (opcional)
+            <input
+              type="text"
+              value={form.reason}
+              onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
+              placeholder="Viaje, lesión…"
+              className="mt-1 w-full px-2 py-2 bg-card border border-border rounded-lg text-sm font-normal normal-case tracking-normal"
+            />
+          </label>
+          <div className="sm:col-span-3 flex justify-end">
+            <button
+              type="button"
+              onClick={submit}
+              disabled={saving || !form.startsOn || !form.endsOn}
+              className={`px-4 py-2 rounded-lg text-xs font-bold text-primary-foreground transition-colors ${
+                saving || !form.startsOn || !form.endsOn
+                  ? "bg-muted-foreground cursor-not-allowed"
+                  : "bg-primary hover:bg-primary/90"
+              }`}
+            >
+              {saving ? "Guardando..." : "Guardar licencia"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="mt-2 h-8 bg-muted/50 rounded animate-pulse" />
+      ) : leaves.length > 0 ? (
+        <ul className="mt-2 divide-y divide-border rounded-lg border border-border bg-card">
+          {leaves.map((l) => {
+            const vigente = hoy >= l.starts_on && hoy <= l.ends_on;
+            const futura = l.starts_on > hoy;
+            return (
+              <li key={l.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-text-primary">
+                    {fmt(l.starts_on)} al {fmt(l.ends_on)}
+                    {vigente && (
+                      <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-warning">
+                        En curso
+                      </span>
+                    )}
+                    {futura && (
+                      <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-text-tertiary">
+                        Programada
+                      </span>
+                    )}
+                  </p>
+                  {l.reason && (
+                    <p className="text-[11px] text-text-tertiary truncate">{l.reason}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onDelete(l)}
+                  className="shrink-0 p-1.5 rounded-lg text-text-tertiary hover:text-error hover:bg-error-light transition-colors"
+                  title="Borrar licencia"
+                  aria-label="Borrar licencia"
+                >
+                  <Icon name="Trash2" size={14} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </div>
   );
 };
@@ -620,6 +774,11 @@ const IndividualAthleteProfile = () => {
     discountPercent: "",
   });
   const [savingMembership, setSavingMembership] = useState(false);
+
+  // Licencias por ausencia (0019)
+  const [leaves, setLeaves] = useState([]);
+  const [loadingLeaves, setLoadingLeaves] = useState(false);
+  const [savingLeave, setSavingLeave] = useState(false);
 
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [availableSlots, setAvailableSlots] = useState([]);
@@ -957,6 +1116,71 @@ const IndividualAthleteProfile = () => {
     }
 
     setMembershipForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // --- Licencias por ausencia (0019) ---
+  const reloadLeaves = useCallback(async () => {
+    if (!athleteId || !canManageMembership) return;
+    try {
+      setLoadingLeaves(true);
+      setLeaves(await fetchAthleteLeaves(athleteId));
+    } catch (error) {
+      console.error("Error cargando licencias:", error);
+    } finally {
+      setLoadingLeaves(false);
+    }
+  }, [athleteId, canManageMembership]);
+
+  useEffect(() => {
+    reloadLeaves();
+  }, [reloadLeaves]);
+
+  const handleAddLeave = async ({ startsOn, endsOn, reason }) => {
+    if (!athleteId) return false;
+    if (!startsOn || !endsOn) {
+      toast.error("Indicá desde cuándo y hasta cuándo no va a venir.");
+      return false;
+    }
+    if (endsOn < startsOn) {
+      toast.error("La fecha de vuelta no puede ser anterior a la de salida.");
+      return false;
+    }
+    setSavingLeave(true);
+    try {
+      const { success, error } = await addAthleteLeave({
+        athleteId,
+        startsOn,
+        endsOn,
+        reason,
+      });
+      if (!success) {
+        toast.error(error);
+        return false;
+      }
+      toast.success("Licencia registrada: esos meses no se le genera cuota.");
+      await reloadLeaves();
+      return true;
+    } finally {
+      setSavingLeave(false);
+    }
+  };
+
+  const handleDeleteLeave = async (leave) => {
+    const ok = await confirm({
+      title: "Borrar licencia",
+      confirmLabel: "Borrar",
+      variant: "danger",
+      message:
+        "Se le vuelve a generar cuota en ese período. Las cuotas que ya existan no cambian.",
+    });
+    if (!ok) return;
+    const { success, error } = await deleteAthleteLeave(leave.id);
+    if (!success) {
+      toast.error(error);
+      return;
+    }
+    toast.success("Licencia borrada.");
+    await reloadLeaves();
   };
 
   const handleSaveMembership = async () => {
@@ -1360,6 +1584,11 @@ const IndividualAthleteProfile = () => {
             onModifySchedule={handleOpenScheduleModal}
             canModifySchedule={canModifySchedule}
             loadingScheduleModal={loadingScheduleModal}
+            leaves={leaves}
+            loadingLeaves={loadingLeaves}
+            savingLeave={savingLeave}
+            onAddLeave={handleAddLeave}
+            onDeleteLeave={handleDeleteLeave}
           />
 
           {/* KPI STRIP */}
