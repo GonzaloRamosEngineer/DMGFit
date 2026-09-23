@@ -253,17 +253,25 @@ export const upsertPlanAvailabilityWindows = async (planId, windows) => {
 };
 
 /**
- * Baja el precio de lista del plan a la ficha de cada atleta activo (migración 0017).
+ * Baja el precio de lista del plan a la ficha de los atletas (migraciones 0017 y 0020).
  * Regla 1 de Cris: al cambiar el precio del plan se actualiza a todos. Los bonificados
  * entran igual (regla 4): se les pisa la ficha y su % sigue viviendo en discount_percent.
  * NO toca ninguna cuota ya generada (reglas 2 y 3).
  *
- * Con { dryRun: true } no escribe: devuelve a quiénes alcanzaría, para confirmar antes.
+ * `visits` acota a las frecuencias cuyo precio cambió de verdad en ese guardado; sin eso
+ * tocar el tier de 1x ofrecía actualizar también a los de 2x y 3x (todos comparten plan).
+ * `athleteIds` acota a los que el usuario dejó tildados.
+ * Con { dryRun: true } no escribe: devuelve a quiénes alcanzaría.
  */
-export const applyPlanPrices = async (planId, { dryRun = false } = {}) => {
+export const applyPlanPrices = async (
+  planId,
+  { dryRun = false, visits = null, athleteIds = null } = {}
+) => {
   const { data, error } = await supabase.rpc('admin_apply_plan_prices', {
     p_plan_id: planId,
     p_dry_run: dryRun,
+    p_visits: visits && visits.length ? visits.map(Number) : null,
+    p_athlete_ids: athleteIds && athleteIds.length ? athleteIds : null,
   });
   if (error) throw error;
   return data ?? { actualizados: 0, detalle: [] };

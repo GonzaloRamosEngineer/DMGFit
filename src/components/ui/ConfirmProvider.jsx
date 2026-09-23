@@ -14,9 +14,11 @@ const DEFAULTS = {
 
 export const ConfirmProvider = ({ children }) => {
   const [state, setState] = useState(null); // { ...options }
+  const [tick, setTick] = useState(0); // fuerza re-render de un `message` interactivo
   const resolver = useRef(null);
 
   const confirm = useCallback((options = {}) => {
+    setTick(0);
     setState({ ...DEFAULTS, ...options });
     return new Promise((resolve) => {
       resolver.current = resolve;
@@ -54,11 +56,20 @@ export const ConfirmProvider = ({ children }) => {
           </div>
         }
       >
-        {/* `message` acepta texto (se envuelve en <p>) o contenido propio, para
-            confirmaciones que se leen mejor como filas que como párrafo. */}
-        {typeof state?.message === 'string'
-          ? state.message && <p className="text-sm text-text-secondary">{state.message}</p>
-          : state?.message}
+        {/* `message` acepta tres formas:
+            - texto: se envuelve en <p>.
+            - contenido propio: para confirmaciones que se leen mejor como filas.
+            - función: para diálogos con estado propio (ej. tildar/destildar atletas).
+              Se la llama con { rerender } y se vuelve a ejecutar en cada cambio. */}
+        {typeof state?.message === 'string' ? (
+          state.message && <p className="text-sm text-text-secondary">{state.message}</p>
+        ) : typeof state?.message === 'function' ? (
+          <React.Fragment key={tick}>
+            {state.message({ rerender: () => setTick((t) => t + 1) })}
+          </React.Fragment>
+        ) : (
+          state?.message
+        )}
       </Modal>
     </ConfirmContext.Provider>
   );

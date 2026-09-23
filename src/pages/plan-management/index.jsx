@@ -150,85 +150,133 @@ const PlanManagement = () => {
   };
 
   // Formatea la diferencia mensual que deja la actualización de precios.
-  const formatARS = (n) =>
-    `$${Math.abs(Number(n || 0)).toLocaleString('es-AR')}`;
+  const formatARS = (n) => `$${Math.abs(Number(n || 0)).toLocaleString('es-AR')}`;
 
   /**
    * Tras guardar el plan, ofrece bajar el precio nuevo a la ficha de los atletas.
-   * Antes esto no existía: se actualizaba la lista y las fichas quedaban con el precio
-   * viejo, que es lo que dejó 23 atletas mal facturados (ver migración 0017).
+   *
+   * Dos acotaciones, las dos importantes (0020):
+   *  - `visits`: sólo las frecuencias cuyo precio cambió de verdad en este guardado.
+   *    Sin esto, tocar el tier de 1x ofrecía actualizar también a los de 2x y 3x, porque
+   *    todos los atletas comparten el mismo plan.
+   *  - El diálogo trae a cada atleta tildado, y se puede destildar. Hace falta porque el
+   *    sistema todavía no sabe distinguir un precio bonificado de uno que quedó viejo:
+   *    hay atletas con precio propio (una bonificación no registrada, o alguien que paga
+   *    por clase) que NO hay que pisar.
    */
-  const offerApplyPrices = async (planId) => {
-    if (!planId) return;
+  const offerApplyPrices = async (planId, visits) => {
+    if (!planId || !visits || visits.length === 0) return;
+
     let preview;
     try {
-      preview = await applyPlanPrices(planId, { dryRun: true });
+      preview = await applyPlanPrices(planId, { dryRun: true, visits });
     } catch (error) {
       console.error('Error revisando precios del plan:', error);
       return; // El plan ya se guardó: no rompemos el flujo por el aviso.
     }
 
-    const afectados = Number(preview?.actualizados || 0);
-    if (afectados === 0) return;
-
-    const delta = Number(preview?.diferencia_mensual || 0);
     const detalle = preview?.detalle || [];
+    if (detalle.length === 0) return;
 
-    const ok = await confirm({
-      title: 'Actualizar la cuota de los atletas',
-      confirmLabel: `Actualizar a ${afectados}`,
-      cancelLabel: 'Ahora no',
-      message: (
+    // Se resuelve fuera de React (el diálogo devuelve sólo true/false), así que la
+    // selección vive en este Set y el contenido se re-renderiza a mano.
+    const elegidos = new Set(detalle.map((a) => a.id));
+
+    const render = ({ rerender }) => {
+      const seleccionados = detalle.filter((a) => elegidos.has(a.id));
+      const delta = seleccionados.reduce(
+        (acc, a) => acc + (Number(a.precio_nuevo) - Number(a.precio_anterior)),
+        0
+      );
+      return (
         <div className="space-y-3 text-sm text-text-secondary">
           <p>
+            Cambiaste el precio de{' '}
             <span className="font-black text-text-primary">
-              {afectados} {afectados === 1 ? 'atleta tiene' : 'atletas tienen'}
-            </span>{' '}
-            en su ficha un precio distinto al que acabás de guardar.
+              {visits.map((v) => `${v}x`).join(', ')}
+            </span>
+            . Estos atletas tienen otro precio en su ficha:
           </p>
 
-          <ul className="max-h-48 overflow-auto custom-scrollbar rounded-xl border border-border divide-y divide-border">
+          <ul className="max-h-56 overflow-auto custom-scrollbar rounded-xl border border-border divide-y divide-border">
             {detalle.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2">
-                <span className="font-bold text-text-primary truncate">
-                  {a.nombre}
-                  {Number(a.bonificacion) > 0 && (
-                    <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-primary">
-                      −{Number(a.bonificacion)}%
+              <li key={a.id}>
+                <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/60">
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    onChange={(e) => {
+                      if (e.target.checked) elegidos.add(a.id);
+                      else elegidos.delete(a.id);
+                      rerender();
+                    }}
+                    className="shrink-0"
+                  />
+                  <span className="flex-1 min-w-0 font-bold text-text-primary truncate">
+                    {a.nombre}
+                    <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-text-tertiary">
+                      {a.frecuencia}x
                     </span>
-                  )}
-                </span>
-                <span className="whitespace-nowrap font-semibold">
-                  <span className="text-text-tertiary line-through">{formatARS(a.precio_anterior)}</span>
-                  {' → '}
-                  <span className="font-black text-text-primary">{formatARS(a.precio_nuevo)}</span>
-                </span>
+                    {Number(a.bonificacion) > 0 && (
+                      <span className="ml-1 text-[10px] font-black uppercase tracking-widest text-primary">
+                        −{Number(a.bonificacion)}%
+                      </span>
+                    )}
+                  </span>
+                  <span className="whitespace-nowrap font-semibold">
+                    <span className="text-text-tertiary line-through">
+                      {formatARS(a.precio_anterior)}
+                    </span>
+                    {' → '}
+                    <span className="font-black text-text-primary">
+                      {formatARS(a.precio_nuevo)}
+                    </span>
+                  </span>
+                </label>
               </li>
             ))}
           </ul>
 
           <p>
-            En total son{' '}
-            <span className="font-black text-text-primary">
-              {delta >= 0 ? '+' : '−'}{formatARS(delta)}
-            </span>{' '}
-            por mes.
+            Se actualizan{' '}
+            <span className="font-black text-text-primary">{seleccionados.length}</span> de{' '}
+            {detalle.length}
+            {seleccionados.length > 0 && (
+              <>
+                {' '}({delta >= 0 ? '+' : '−'}
+                {formatARS(delta)} por mes)
+              </>
+            )}
+            .
           </p>
 
           <p className="text-xs">
-            Las cuotas <span className="font-bold">ya generadas no se tocan</span>: el precio nuevo
-            arranca en la próxima. A los que tienen bonificación se les actualiza igual y su
-            descuento se sigue aplicando.
+            Destildá al que tenga un precio propio: una bonificación que todavía no esté
+            cargada como %, o alguien que pague por clase. Las cuotas{' '}
+            <span className="font-bold">ya generadas no se tocan</span>: el precio nuevo
+            arranca en la próxima.
           </p>
         </div>
-      ),
+      );
+    };
+
+    const ok = await confirm({
+      title: 'Actualizar la cuota de los atletas',
+      confirmLabel: 'Actualizar',
+      cancelLabel: 'Ahora no',
+      message: render,
     });
     if (!ok) return;
 
+    const ids = [...elegidos];
+    if (ids.length === 0) return;
+
     try {
-      const result = await applyPlanPrices(planId);
+      const result = await applyPlanPrices(planId, { visits, athleteIds: ids });
       toast.success(
-        `Cuota actualizada a ${result?.actualizados || 0} atleta${result?.actualizados === 1 ? '' : 's'}.`
+        `Cuota actualizada a ${result?.actualizados || 0} atleta${
+          result?.actualizados === 1 ? '' : 's'
+        }.`
       );
     } catch (error) {
       console.error('Error aplicando precios del plan:', error);
@@ -236,15 +284,45 @@ const PlanManagement = () => {
     }
   };
 
+  // Qué frecuencias cambiaron de precio en este guardado.
+  const frecuenciasConPrecioNuevo = (antes, despues) => {
+    const mapa = new Map(
+      (antes || []).map((t) => [Number(t.visits_per_week), Number(t.price)])
+    );
+    return (despues || [])
+      .filter((t) => {
+        const v = Number(t.visits_per_week);
+        const p = Number(t.price);
+        return mapa.has(v) && mapa.get(v) !== p;
+      })
+      .map((t) => Number(t.visits_per_week));
+  };
+
   const handleSavePlan = async (planData) => {
     try {
       setLoading(true);
-      const savedId = await savePlanConfiguration(planData, {
-        planId: editingPlan ? planData.id : null,
-      });
+      const planId = editingPlan ? planData.id : null;
+
+      // Se leen los tiers ANTES de guardar: save_plan_configuration los borra y reinserta,
+      // así que después ya no hay con qué comparar.
+      let tiersAntes = [];
+      if (planId) {
+        try {
+          tiersAntes = await fetchPlanPricing(planId);
+        } catch (error) {
+          console.error('No se pudieron leer los precios previos del plan:', error);
+        }
+      }
+
+      const savedId = await savePlanConfiguration(planData, { planId });
       setIsCreateModalOpen(false);
       setEditingPlan(null);
-      await offerApplyPrices(savedId || planData.id);
+
+      if (planId) {
+        const cambiadas = frecuenciasConPrecioNuevo(tiersAntes, planData.pricingTiers);
+        await offerApplyPrices(savedId || planId, cambiadas);
+      }
+
       await fetchData();
     } catch (error) {
       console.error('Error guardando plan:', error);
