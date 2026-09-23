@@ -85,10 +85,10 @@ const mapMethodLabel = (method) => {
 };
 
 // --- MODAL DETALLE DE PAGO ---
-const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid, onReceipt }) => {
+const PaymentDetailModal = ({ payment, onClose, onNavigate, onEdit, onVoid, onReceipt, openVoid = false }) => {
   const [mode, setMode] = useState('view'); // 'view' | 'edit'
   const [busy, setBusy] = useState(false);
-  const [showVoid, setShowVoid] = useState(false);
+  const [showVoid, setShowVoid] = useState(openVoid);
   const [voidReason, setVoidReason] = useState('');
 
   const [form, setForm] = useState({
@@ -469,6 +469,7 @@ const PaymentManagement = () => {
 
   // Modal detalle
   const [detailPayment, setDetailPayment] = useState(null);
+  const [detailOpenVoid, setDetailOpenVoid] = useState(false);
 
   // Data
   const [allPayments, setAllPayments] = useState([]);
@@ -486,6 +487,7 @@ const PaymentManagement = () => {
 
   // Pagination
   const [page, setPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
   const pageSize = 8;
 
   const resetPagination = () => setPage(1);
@@ -667,6 +669,17 @@ const PaymentManagement = () => {
     setIsModalOpen(true);
   };
 
+  const closeDetail = () => {
+    setDetailPayment(null);
+    setDetailOpenVoid(false);
+  };
+
+  // Abre el detalle directamente en el paso de anulación (atajo desde la fila).
+  const openVoidFromRow = (row) => {
+    setDetailPayment(row);
+    setDetailOpenVoid(true);
+  };
+
   const openCollectFromDebtor = (row) => {
     if (!row?.athleteId) return;
     setInitialAthlete({
@@ -702,15 +715,16 @@ const PaymentManagement = () => {
   }, [activeTab, paidMovements, debtors, voided, searchTerm, txDateRange]);
 
   const totalRows = currentRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const effectivePageSize = showAll ? Math.max(totalRows, 1) : pageSize;
+  const totalPages = Math.max(1, Math.ceil(totalRows / effectivePageSize));
   const safePage = Math.min(page, totalPages);
-  const pageStart = (safePage - 1) * pageSize;
-  const pageEnd = pageStart + pageSize;
+  const pageStart = (safePage - 1) * effectivePageSize;
+  const pageEnd = pageStart + effectivePageSize;
   const pageRows = currentRows.slice(pageStart, pageEnd);
 
   useEffect(() => {
     resetPagination();
-  }, [activeTab, searchTerm, txDateRange]);
+  }, [activeTab, searchTerm, txDateRange, showAll]);
 
   return (
     <>
@@ -877,7 +891,9 @@ const PaymentManagement = () => {
             <table className="w-full text-left border-collapse">
               <thead className="bg-muted text-[10px] font-black text-text-tertiary uppercase tracking-widest sticky top-0 z-card">
                 <tr>
-                  <th className="px-6 py-3 w-[130px] whitespace-nowrap">Fecha</th>
+                  <th className="px-6 py-3 w-[130px] whitespace-nowrap">
+                    {activeTab === 'transactions' ? 'Fecha de cobro' : 'Período'}
+                  </th>
                   <th className="px-6 py-3 whitespace-nowrap">Atleta</th>
                   <th className="px-6 py-3">Concepto</th>
                   <th className="px-6 py-3 w-[150px] whitespace-nowrap">
@@ -927,7 +943,20 @@ const PaymentManagement = () => {
                         onClick={() => setDetailPayment(row)}
                       >
                         <td className="px-6 py-3 text-sm font-semibold text-text-secondary whitespace-nowrap align-middle">
-                          {formatTxDateTime(row.payment_date)}
+                          {activeTab === 'transactions' ? (
+                            formatTxDateTime(row.payment_date)
+                          ) : row.period ? (
+                            <span title="Período que cubre la cuota">
+                              {formatTxDateTime(row.period)}
+                            </span>
+                          ) : (
+                            <span
+                              className="text-text-tertiary"
+                              title="Este pago no tiene período asignado: se muestra la fecha con la que se cargó."
+                            >
+                              {formatTxDateTime(row.payment_date)} *
+                            </span>
+                          )}
                         </td>
 
                         <td className="px-6 py-3 align-middle whitespace-nowrap">
@@ -1004,17 +1033,31 @@ const PaymentManagement = () => {
 
                         {activeTab === 'debtors' && (
                           <td className="px-6 py-3 text-right align-middle">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openCollectFromDebtor(row);
-                              }}
-                              className="px-3 py-2 rounded-xl bg-success text-success-foreground text-xs font-black uppercase tracking-widest hover:bg-success/90 transition-colors"
-                              title="Registrar cobro"
-                            >
-                              Cobrar
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openCollectFromDebtor(row);
+                                }}
+                                className="px-3 py-2 rounded-xl bg-success text-success-foreground text-xs font-black uppercase tracking-widest hover:bg-success/90 transition-colors"
+                                title="Registrar cobro"
+                              >
+                                Cobrar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openVoidFromRow(row);
+                                }}
+                                className="p-2 rounded-xl border border-border text-text-tertiary hover:text-error hover:border-error/40 hover:bg-error-light transition-colors"
+                                title="Anular esta cuota"
+                                aria-label="Anular esta cuota"
+                              >
+                                <Icon name="Ban" size={16} strokeWidth={2.5} />
+                              </button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -1042,12 +1085,30 @@ const PaymentManagement = () => {
             </p>
 
             <div className="flex items-center gap-2">
+              {totalRows > pageSize && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAll((v) => !v);
+                    setPage(1);
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border transition-colors mr-1 ${
+                    showAll
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-text-secondary border-border hover:bg-muted'
+                  }`}
+                  title={showAll ? 'Volver a paginar de a 8' : `Mostrar los ${totalRows} registros en una sola lista`}
+                >
+                  {showAll ? 'Paginar' : `Ver todos (${totalRows})`}
+                </button>
+              )}
+
               <button
                 type="button"
-                disabled={safePage <= 1}
+                disabled={safePage <= 1 || showAll}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                  safePage <= 1
+                  safePage <= 1 || showAll
                     ? 'bg-muted text-text-tertiary border-border cursor-not-allowed'
                     : 'bg-card text-text-secondary border-border hover:bg-muted'
                 }`}
@@ -1061,10 +1122,10 @@ const PaymentManagement = () => {
 
               <button
                 type="button"
-                disabled={safePage >= totalPages}
+                disabled={safePage >= totalPages || showAll}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors ${
-                  safePage >= totalPages
+                  safePage >= totalPages || showAll
                     ? 'bg-muted text-text-tertiary border-border cursor-not-allowed'
                     : 'bg-card text-text-secondary border-border hover:bg-muted'
                 }`}
@@ -1097,17 +1158,19 @@ const PaymentManagement = () => {
       {/* Modal: Detalle de pago */}
       {detailPayment && (
         <PaymentDetailModal
+          key={`${detailPayment.id}-${detailOpenVoid ? 'void' : 'view'}`}
           payment={detailPayment}
-          onClose={() => setDetailPayment(null)}
+          openVoid={detailOpenVoid}
+          onClose={() => closeDetail()}
           onNavigate={(athleteId) => {
-            setDetailPayment(null);
+            closeDetail();
             navigate(`/individual-athlete-profile/${athleteId}`);
           }}
           onEdit={async (id, patch, reason) => {
             try {
               await updatePayment(id, patch, reason);
               toast.success('Pago actualizado.');
-              setDetailPayment(null);
+              closeDetail();
               await fetchPaymentData();
             } catch (err) {
               console.error('Error editando pago:', err);
@@ -1118,7 +1181,7 @@ const PaymentManagement = () => {
             try {
               await voidPayment(id, reason);
               toast.success('Pago anulado.');
-              setDetailPayment(null);
+              closeDetail();
               await fetchPaymentData();
             } catch (err) {
               console.error('Error anulando pago:', err);
@@ -1126,7 +1189,7 @@ const PaymentManagement = () => {
             }
           }}
           onReceipt={(p) => {
-            setDetailPayment(null);
+            closeDetail();
             setReceiptPayment(p);
           }}
         />
